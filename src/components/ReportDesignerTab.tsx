@@ -248,7 +248,6 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
   const [reportRefreshKey, setReportRefreshKey] = useState<number>(0);
   const [soPreviewData, setSoPreviewData] = useState<any | null>(null);
   const [showSoPrintModal, setShowSoPrintModal] = useState<boolean>(false);
-  const [convertingOrderId, setConvertingOrderId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!showSoPrintModal) return;
@@ -1304,27 +1303,6 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
     setDrillLevel(nextLevel);
     setDrillFilter(rowId);
     setBreadcrumbs([...breadcrumbs, { title: rowTitle, level: nextLevel, id: rowId, category: rowId }]);
-  };
-
-  const handleConvertToInvoice = async (orderId: string, orderNo: string) => {
-    try {
-      const cleanId = String(orderId || "").replace(/^:/, "").trim();
-      setConvertingOrderId(cleanId || orderId);
-      const res = await apiFetchV1(`/sales/orders/${encodeURIComponent(cleanId)}/convert-to-invoice`, { method: "POST" });
-      showNotification("success", `Sales Order ${orderNo} converted to Tax Invoice ${res.invoice_no}!`);
-      const params = `?from_date=${filters.startDate}&to_date=${filters.endDate}`;
-      if (selectedReport?.id === "RPT-SO-009") {
-        const data = await apiFetchV1(`/reports/sales-orders/fulfillment-variance${params}`);
-        setGenericReportData(data);
-      } else if (selectedReport?.id === "RPT-SO-008") {
-        const data = await apiFetchV1(`/reports/sales-orders/detailed${params}`);
-        setGenericReportData(data);
-      }
-    } catch (e: any) {
-      showNotification("error", e?.message || "Failed to convert sales order to invoice.");
-    } finally {
-      setConvertingOrderId(null);
-    }
   };
 
   const handlePreviewSO = async (orderId: string) => {
@@ -4445,16 +4423,17 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                       Automated Fulfillment Variance &amp; Backorder Tracker
                     </h5>
                     <p className="text-[11px] text-theme-muted font-mono mt-0.5">
-                      Multi-tier SLA aging buckets, store-level allocation shortages, and 1-click invoice conversion queue.
+                      Multi-tier SLA aging buckets and store-level allocation shortages. Invoice conversion is disabled until atomic source billing is enabled.
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={() => handleConvertToInvoice(genericReportData?.orders?.[0]?.order_no || "", genericReportData?.orders?.[0]?.order_no || "")}
-                      disabled={!genericReportData?.orders?.length || convertingOrderId !== null}
-                      className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                      type="button"
+                      disabled
+                      title="Sales Order billing is disabled until atomic source allocation is enabled."
+                      className="px-3.5 py-1.5 bg-slate-500 disabled:opacity-60 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm cursor-not-allowed"
                     >
-                      <Sparkles size={13} /> Convert Top Pending to Invoice
+                      <Sparkles size={13} /> Source Billing Disabled
                     </button>
                   </div>
                 </div>
@@ -4683,12 +4662,11 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                               </button>
                               <button
                                 type="button"
-                                disabled={convertingOrderId === ord.order_no}
-                                onClick={() => handleConvertToInvoice(ord.order_no, ord.order_no)}
-                                className="px-2 py-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded text-[10px] font-bold flex items-center gap-1 shadow-sm cursor-pointer"
-                                title="1-Click Convert to Invoice"
+                                disabled
+                                className="px-2 py-1 bg-slate-500 disabled:opacity-60 text-white rounded text-[10px] font-bold flex items-center gap-1 shadow-sm cursor-not-allowed"
+                                title="Sales Order billing is disabled until atomic source allocation is enabled."
                               >
-                                <Sparkles size={11} /> Convert
+                                <Sparkles size={11} /> Disabled
                               </button>
                             </td>
                           </tr>

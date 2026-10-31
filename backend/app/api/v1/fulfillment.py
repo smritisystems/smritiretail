@@ -96,6 +96,7 @@ async def create_packing_slip(
             company_id=company_id,
             req=req,
             created_by=user_id,
+            branch_id=tenant_ctx.branch_id,
         )
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
@@ -127,22 +128,10 @@ async def preview_consolidated_billing(
     current_user: Any = Depends(get_current_user),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
-    """
-    Validates multiple packing slips for B2B consolidated invoicing.
-    Enforces customer compatibility, single-tenant context, and 6-quantity integrity.
-    """
-    try:
-        company_id, _ = _extract_user_info(current_user, tenant_ctx)
-        return await FulfillmentEngine.preview_consolidated_billing(
-            session=db,
-            company_id=company_id,
-            packing_slip_ids=req.packing_slip_ids,
-        )
-    except ValueError as ve:
-        raise HTTPException(status_code=400, detail=str(ve))
-    except Exception as e:
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=str(e))
+    raise HTTPException(
+        status_code=410,
+        detail="Legacy consolidated preview is retired because it does not calculate durable line allocations. Use /billing/sources/prepare.",
+    )
 
 
 @router.post("/consolidated-finalize", response_model=ConsolidatedFinalizeResponse, summary="Finalize B2B Consolidated Billing")
@@ -152,21 +141,10 @@ async def finalize_consolidated_billing(
     current_user: Any = Depends(get_current_user),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
-    """
-    Marks source packing slips as BILLED and records the posted invoice reference.
-    """
-    try:
-        company_id, _ = _extract_user_info(current_user, tenant_ctx)
-        return await FulfillmentEngine.finalize_consolidated_billing(
-            session=db,
-            company_id=company_id,
-            req=req,
-        )
-    except ValueError as ve:
-        raise HTTPException(status_code=400, detail=str(ve))
-    except Exception as e:
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=str(e))
+    raise HTTPException(
+        status_code=410,
+        detail="Legacy standalone finalization is retired because it is not atomic with invoice posting. Use /billing/sources/commit.",
+    )
 
 
 # ============================================================================

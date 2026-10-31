@@ -18,7 +18,7 @@ from sqlalchemy.future import select
 
 from app.main import app
 from app.db.session import get_company_sessionmaker
-from app.models.sales import SalesOrder, SalesInvoice
+from app.models.sales import SalesOrder
 from app.core.security import create_access_token
 
 
@@ -52,15 +52,6 @@ async def test_sales_order_full_suite():
         assert len(orders) > 0, "Expected live sales orders in database"
         target_order = orders[0]
         order_id = target_order.id
-        po_num = target_order.po_number
-        original_metrics = {
-            "billed_qty": target_order.billed_qty,
-            "billed_value": target_order.billed_value,
-            "pending_qty": target_order.pending_qty,
-            "pending_value": target_order.pending_value,
-            "fulfillment_status": target_order.fulfillment_status,
-            "status": target_order.status,
-        }
 
     headers = _get_auth_headers()
     transport = ASGITransport(app=app)
@@ -91,35 +82,9 @@ async def test_sales_order_full_suite():
         assert var_data["summary"]["total_orders"] > 0
         assert var_data["summary"]["total_booked_pairs"] > 0
 
-        # Test 4: 1-Click Convert Sales Order to Tax Invoice
-        inv_id = None
-        try:
-            r_conv = await client.post(f"/api/v1/sales/orders/{order_id}/convert-to-invoice", headers=headers)
-            assert r_conv.status_code == 201, f"Convert failed: {r_conv.text}"
-            inv_data = r_conv.json()
-            inv_id = inv_data.get("id")
-            assert inv_id is not None and (inv_id.startswith("inv-") or len(inv_id) >= 32)
-            assert "TT2026-2027/" in inv_data["invoice_no"]
-            assert len(inv_data.get("items", [])) > 0
-            assert float(inv_data["grand_total"]) > 0
-        finally:
-            if inv_id:
-                async with sm() as db:
-                    from sqlalchemy import text
-                    await db.execute(text("DELETE FROM sales_order_invoice_allocations WHERE invoice_id = :iid"), {"iid": inv_id})
-                    await db.execute(text("DELETE FROM sales_invoice_items WHERE invoice_id = :iid"), {"iid": inv_id})
-                    await db.execute(text("DELETE FROM sales_invoices WHERE id = :iid"), {"iid": inv_id})
-                    await db.execute(
-                        text("""UPDATE sales_orders SET billed_qty=:billed_qty, billed_value=:billed_value,
-                            pending_qty=:pending_qty, pending_value=:pending_value,
-                            fulfillment_status=:fulfillment_status, status=:status WHERE id=:order_id"""),
-                        {**original_metrics, "order_id": order_id},
-                    )
-                    await db.execute(
-                        text("UPDATE sales_order_items SET billed_quantity = 0, pending_quantity = quantity, line_status = 'PENDING' WHERE order_id = :order_id"),
-                        {"order_id": order_id}
-                    )
-                    await db.commit()
+        # Test 4: unsafe legacy conversion is explicitly unavailable.
+        r_conv = await client.post(f"/api/v1/sales/orders/{order_id}/convert-to-invoice", headers=headers)
+        assert r_conv.status_code == 410, f"Expected retired endpoint response, got {r_conv.status_code}: {r_conv.text}"
+        assert "retired" in r_conv.json()["detail"]
 
-        print("\n[SUCCESS] All Sales Order endpoints verified: Single GET, Preview HTML, Fulfillment Variance, 1-Click Invoice Conversion.")
-
+        print("\n[SUCCESS] Sales Order read endpoints verified; unsafe legacy invoice conversion is retired.")

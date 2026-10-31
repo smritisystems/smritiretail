@@ -23,13 +23,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..models.fulfillment import (
     PackingSlip,
     PackingSlipItem,
+    SalesSourceInvoiceAllocation,
     Dispatch,
     DispatchItem,
     DeliveryCommissionSettlement,
     ReverseLogisticsReturn,
 )
 from ..models.inventory import Product, StockMovement
-from ..models.sales import SalesInvoice, SalesOrderReservation
+from ..models.sales import SalesInvoice, SalesOrder, SalesOrderItem, SalesOrderReservation
+from ..models.crm import Customer
+from ..repositories.customer import CustomerRepository
 from ..api.deps import TenantContext
 from .sales_stock_authority import SalesStockAuthority
 from ..schemas.fulfillment import (
@@ -69,17 +72,139 @@ class FulfillmentEngine:
         company_id: str,
         req: PackingSlipCreateRequest,
         created_by: Optional[str] = None,
+        branch_id: Optional[str] = None,
     ) -> PackingSlipResponse:
-        """Creates an authoritative pick & pack slip for an invoice."""
+        """Create a Packing Slip with ownership validated from its invoice or Sales Order."""
         now = datetime.now(timezone.utc)
         ps_num = f"PS-{now.strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
         ps_id = f"ps_{uuid.uuid4().hex[:12]}"
 
+        customer_id = req.customer_id
+        order_id = req.order_id
+        ownership_status = "UNVERIFIED"
+        order_items_by_id: Dict[int, SalesOrderItem] = {}
+        if req.sales_invoice_id.strip().upper() == "UNBILLED":
+            if not customer_id or not order_id or not branch_id:
+                raise ValueError("Unbilled Packing Slips require a customer, a real Sales Order, and an active branch.")
+            if await CustomerRepository(session, TenantContext(company_id=company_id, branch_id=branch_id)).get_billing_visible_id(customer_id) != customer_id:
+                raise ValueError("Packing Slip customer is not available for billing.")
+            order_stmt = select(SalesOrder).where(
+                SalesOrder.company_id == company_id,
+                SalesOrder.branch_id == branch_id,
+                SalesOrder.is_deleted.is_(False),
+                or_(SalesOrder.id == order_id, SalesOrder.order_no == order_id),
+            ).with_for_update()
+            order = (await session.execute(order_stmt)).scalars().first()
+            if not order:
+                raise ValueError("Sales Order not found in the active company and branch.")
+            if order.customer_id != customer_id:
+                raise ValueError("Packing Slip customer must exactly match the Sales Order customer.")
+            customer = (await session.execute(
+                select(Customer).where(
+                    Customer.id == customer_id,
+                    Customer.company_id == company_id,
+                    Customer.status == "Active",
+                    Customer.is_deleted.is_(False),
+                )
+            )).scalars().first()
+            if not customer:
+                raise ValueError("Packing Slip customer is inactive or unavailable.")
+            order_id = order.id
+            requested_order_item_ids = {line.order_item_id for line in req.items if line.order_item_id is not None}
+            if len(requested_order_item_ids) != len(req.items):
+                raise ValueError("Every unbilled Packing Slip line must reference a Sales Order line.")
+            item_result = await session.execute(
+                select(SalesOrderItem).where(
+                    SalesOrderItem.id.in_(requested_order_item_ids),
+                    SalesOrderItem.order_id == order.id,
+                    SalesOrderItem.company_id == company_id,
+                    SalesOrderItem.branch_id == branch_id,
+                    SalesOrderItem.is_deleted.is_(False),
+                ).with_for_update()
+            )
+            order_items_by_id = {item.id: item for item in item_result.scalars().all()}
+            if len(order_items_by_id) != len(requested_order_item_ids):
+                raise ValueError("One or more selected Packing Slip lines do not belong to this Sales Order.")
+            for requested_line in req.items:
+                order_line = order_items_by_id[requested_line.order_item_id]
+                if str(order_line.line_status or "").upper() in {"CANCELLED", "CLOSED", "BILLED"}:
+                    raise ValueError(f"Sales Order line {order_line.code} is not open for packing.")
+                if order_line.product_id != requested_line.product_id:
+                    raise ValueError("Packing Slip product does not match the selected Sales Order line.")
+                active_slip_allocations = (
+                    select(
+                        SalesSourceInvoiceAllocation.packing_slip_item_id.label("packing_slip_item_id"),
+                        func.sum(
+                            SalesSourceInvoiceAllocation.allocated_quantity
+                            - SalesSourceInvoiceAllocation.reversed_quantity
+                        ).label("billed_quantity"),
+                    )
+                    .where(
+                        SalesSourceInvoiceAllocation.company_id == company_id,
+                        SalesSourceInvoiceAllocation.branch_id == branch_id,
+                        SalesSourceInvoiceAllocation.status == "COMMITTED",
+                        SalesSourceInvoiceAllocation.is_deleted.is_(False),
+                        SalesSourceInvoiceAllocation.packing_slip_item_id.is_not(None),
+                    )
+                    .group_by(SalesSourceInvoiceAllocation.packing_slip_item_id)
+                    .subquery()
+                )
+                already_packed = await session.scalar(
+                    select(func.coalesce(func.sum(func.greatest(
+                        PackingSlipItem.quantity - func.coalesce(active_slip_allocations.c.billed_quantity, 0),
+                        0,
+                    )), 0))
+                    .join(PackingSlip, PackingSlip.id == PackingSlipItem.packing_slip_id)
+                    .outerjoin(
+                        active_slip_allocations,
+                        active_slip_allocations.c.packing_slip_item_id == PackingSlipItem.id,
+                    )
+                    .where(
+                        PackingSlip.company_id == company_id,
+                        PackingSlip.order_id == order.id,
+                        PackingSlip.status.in_(("PACKED", "PARTIALLY_BILLED")),
+                        PackingSlip.is_deleted.is_(False),
+                        PackingSlipItem.order_item_id == order_line.id,
+                        PackingSlipItem.is_deleted.is_(False),
+                    )
+                )
+                unbilled = max(
+                    Decimal("0"),
+                    Decimal(str(order_line.quantity or 0)) - Decimal(str(order_line.billed_quantity or 0)),
+                )
+                if Decimal(str(already_packed or 0)) + requested_line.quantity > unbilled:
+                    raise ValueError(f"Packing quantity exceeds the Sales Order line balance for {order_line.code}.")
+            ownership_status = "VERIFIED"
+        else:
+            invoice = (await session.execute(
+                select(SalesInvoice).where(
+                    SalesInvoice.company_id == company_id,
+                    SalesInvoice.branch_id == branch_id,
+                    SalesInvoice.is_deleted.is_(False),
+                    SalesInvoice.status.notin_(("Cancelled", "VOID")),
+                    or_(SalesInvoice.id == req.sales_invoice_id, SalesInvoice.invoice_no == req.sales_invoice_id),
+                )
+            )).scalars().first()
+            if not invoice:
+                raise ValueError("Packing Slip invoice was not found in the active company.")
+            if customer_id and customer_id != invoice.customer_id:
+                raise ValueError("Packing Slip customer must match its linked invoice customer.")
+            customer_id = invoice.customer_id
+            if customer_id:
+                if await CustomerRepository(session, TenantContext(company_id=company_id, branch_id=branch_id)).get_billing_visible_id(customer_id) != customer_id:
+                    raise ValueError("Packing Slip customer is not available for billing.")
+                ownership_status = "VERIFIED"
+            order_id = order_id or (invoice.rule_snapshots or {}).get("source_order_id")
+
         packing_slip = PackingSlip(
             id=ps_id,
             company_id=company_id,
+            branch_id=branch_id,
             packing_slip_number=ps_num,
             sales_invoice_id=req.sales_invoice_id,
+            customer_id=customer_id,
+            order_id=order_id,
+            billing_ownership_status=ownership_status,
             packed_by_user_id=req.packed_by_user_id or created_by,
             status="PACKED",
             total_packages=req.total_packages,
@@ -96,7 +221,9 @@ class FulfillmentEngine:
             it = PackingSlipItem(
                 id=f"psi_{uuid.uuid4().hex[:12]}",
                 company_id=company_id,
+                branch_id=branch_id,
                 packing_slip_id=ps_id,
+                order_item_id=item.order_item_id,
                 product_id=item.product_id,
                 sku=item.sku,
                 quantity=item.quantity,
@@ -122,6 +249,9 @@ class FulfillmentEngine:
             id=packing_slip.id,
             packing_slip_number=packing_slip.packing_slip_number,
             sales_invoice_id=packing_slip.sales_invoice_id,
+            order_id=packing_slip.order_id,
+            customer_id=packing_slip.customer_id,
+            billing_ownership_status=packing_slip.billing_ownership_status,
             packed_by_user_id=packing_slip.packed_by_user_id,
             status=packing_slip.status,
             total_packages=packing_slip.total_packages,
@@ -168,6 +298,9 @@ class FulfillmentEngine:
             id=ps.id,
             packing_slip_number=ps.packing_slip_number,
             sales_invoice_id=ps.sales_invoice_id,
+            order_id=ps.order_id,
+            customer_id=ps.customer_id,
+            billing_ownership_status=ps.billing_ownership_status,
             packed_by_user_id=ps.packed_by_user_id,
             status=ps.status,
             total_packages=ps.total_packages,
@@ -201,16 +334,20 @@ class FulfillmentEngine:
             stmt = stmt.where(PackingSlip.branch_id == branch_id)
         if customer_id:
             stmt = stmt.join(
-                SalesInvoice,
+                Customer,
                 and_(
-                    SalesInvoice.id == PackingSlip.sales_invoice_id,
-                    SalesInvoice.company_id == company_id,
-                    SalesInvoice.customer_id == customer_id,
-                    SalesInvoice.is_deleted == False,
+                    Customer.id == PackingSlip.customer_id,
+                    Customer.company_id == company_id,
+                    Customer.id == customer_id,
+                    Customer.is_deleted.is_(False),
                 ),
             )
         if status and status.upper() != "ALL":
-            stmt = stmt.where(PackingSlip.status == status.upper())
+            normalized_status = status.upper()
+            if normalized_status == "PACKED":
+                stmt = stmt.where(PackingSlip.status.in_(("PACKED", "PARTIALLY_BILLED")))
+            else:
+                stmt = stmt.where(PackingSlip.status == normalized_status)
         if search:
             s_clean = f"%{search.strip()}%"
             stmt = stmt.where(
@@ -238,6 +375,9 @@ class FulfillmentEngine:
                     id=ps.id,
                     packing_slip_number=ps.packing_slip_number,
                     sales_invoice_id=ps.sales_invoice_id,
+                    order_id=ps.order_id,
+                    customer_id=ps.customer_id,
+                    billing_ownership_status=ps.billing_ownership_status,
                     packed_by_user_id=ps.packed_by_user_id,
                     status=ps.status,
                     total_packages=ps.total_packages,

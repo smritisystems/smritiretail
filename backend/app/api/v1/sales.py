@@ -773,10 +773,10 @@ async def convert_sales_order_to_tax_invoice(
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
-    """Convert an open Sales Order into an official GST Tax Invoice with atomic allocations."""
-    service = SalesService(db, tenant_ctx)
-    invoice = await service.convert_sales_order_to_invoice(order_id)
-    return invoice
+    raise HTTPException(
+        status_code=410,
+        detail="Legacy Sales Order conversion is retired because it allocates quantities while creating a Draft. Use /billing/sources/prepare and /billing/sources/commit.",
+    )
 
 
 # ─────────────────────────── Sales Return ───────────────────────────

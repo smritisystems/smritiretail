@@ -35,6 +35,54 @@ def test_eway_bill_state_codes_parity():
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("source_type", ["SALES_ORDER", "PACKING_SLIP_CONSOLIDATED"])
+async def test_source_invoice_creation_requires_atomic_billing(source_type):
+    from fastapi import HTTPException
+    from types import SimpleNamespace
+
+    from app.services.sales import SalesService
+
+    service = SalesService(db=AsyncMock(), tenant_ctx=TenantContext(company_id="COMP-XYZ", branch_id="BR-01"))
+    with pytest.raises(HTTPException) as error:
+        await service.create_sales_invoice(
+            SimpleNamespace(source_document_type=source_type, customer_po_id=None)
+        )
+
+    assert error.value.status_code == 410
+    assert "atomic" in error.value.detail.lower()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("source_type", ["SALES_ORDER", "PACKING_SLIP_CONSOLIDATED"])
+async def test_canonical_writer_blocks_unsafe_source_billing(source_type):
+    from fastapi import HTTPException
+    from types import SimpleNamespace
+
+    from app.services.canonical_sales_writer import CanonicalSalesPostingWriter
+
+    request = SimpleNamespace(
+        source_document_type=source_type,
+        context=SimpleNamespace(source_channel="DIRECT"),
+    )
+    with pytest.raises(HTTPException) as error:
+        await CanonicalSalesPostingWriter.post_sales_transaction(
+            session=AsyncMock(),
+            req=request,
+        )
+
+    assert error.value.status_code == 410
+
+
+def test_source_billing_commit_is_disabled_by_default(monkeypatch):
+    from app.services.source_billing import source_billing_commit_enabled
+
+    monkeypatch.delenv("SMRITI_SOURCE_BILLING_ENABLED", raising=False)
+    assert source_billing_commit_enabled() is False
+    monkeypatch.setenv("SMRITI_SOURCE_BILLING_ENABLED", "true")
+    assert source_billing_commit_enabled() is True
+
+
+@pytest.mark.asyncio
 async def test_purchase_jurisdiction_dynamic_resolution():
     """Verify PurchaseService.get_jurisdiction resolves dynamically from company GST number."""
     mock_db = AsyncMock()
@@ -419,4 +467,3 @@ async def test_canonical_sales_writer_fails_explicitly_when_jurisdiction_absent(
             await CanonicalSalesPostingWriter.post_sales_transaction(session=mock_db, req=req, commit=False)
         assert exc_info.value.status_code == 400
         assert "SMRITI-JURISDICTION-001" in exc_info.value.detail
-

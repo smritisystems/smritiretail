@@ -27,6 +27,7 @@ class PackingSlipItemCreate(BaseModel):
     sku: str
     quantity: Decimal = Field(..., gt=0)
     batch_number: Optional[str] = None
+    order_item_id: Optional[int] = None
 
 
 class PackingSlipCreateRequest(BaseModel):
@@ -57,6 +58,8 @@ class PackingSlipResponse(BaseModel):
     sales_invoice_id: str
     order_id: Optional[str] = None
     customer_id: Optional[str] = None
+    billing_ownership_status: str = "UNVERIFIED"
+    customer_name: Optional[str] = None
     packed_by_user_id: Optional[str] = None
     status: str
     total_packages: int

@@ -3781,19 +3781,11 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
                     </a>
                     <button
                       type="button"
-                      onClick={async () => {
-                        try {
-                          const inv = await apiFetchV1(`/sales/orders/${selectedOrder.id}/convert-to-invoice`, { method: "POST" });
-                          onNotification("Invoice Generated", `Sales Order ${selectedOrder.orderNo} converted to Tax Invoice ${inv.invoice_no}!`, "success");
-                          fetchSalesOrders();
-                          fetchSalesInvoices();
-                        } catch (err: any) {
-                          onNotification("Conversion Error", err?.message || "Failed to convert sales order to invoice.", "error");
-                        }
-                      }}
-                      className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-[11px] font-bold flex items-center gap-1 shadow-sm cursor-pointer"
+                      disabled
+                      title="Sales Order billing is disabled until atomic source allocation is enabled."
+                      className="px-2.5 py-1 bg-slate-500 text-white rounded text-[11px] font-bold flex items-center gap-1 shadow-sm cursor-not-allowed opacity-60"
                     >
-                      <FileCheck size={12} /> Convert to Invoice
+                      <FileCheck size={12} /> Billing Disabled
                     </button>
                   </div>
                 </div>

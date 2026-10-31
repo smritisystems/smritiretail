@@ -66,6 +66,7 @@ from .referral import ReferralProgram, ReferralRelationship, ReferralReward
 # Operations & Fulfillment Engine
 from .fulfillment import (
     PackingSlip, PackingSlipItem,
+    SalesSourceInvoiceAllocation,
     Dispatch, DispatchItem,
     DeliveryCommissionSettlement, ReverseLogisticsReturn
 )

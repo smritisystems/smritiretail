@@ -92,10 +92,20 @@ class CanonicalSalesPostingWriter:
         authorized_price_override: bool = False,
         authorized_discount_override: bool = False,
         authorized_adjustment_override: bool = False,
+        source_billing_authorized: bool = False,
     ) -> CanonicalPostingResult:
         """
         Executes an atomic sales transaction posting under caller session control.
         """
+        source_document_type = str(
+            req.source_document_type or req.context.source_channel or ""
+        ).strip().upper()
+        if source_document_type.startswith(("SALES_ORDER", "PACKING_SLIP")) and not source_billing_authorized:
+            raise HTTPException(
+                status_code=410,
+                detail="Sales Order and Packing Slip invoices must use the atomic /billing/sources/commit workflow.",
+            )
+
         company_id = req.context.company_id
         branch_id = req.context.branch_id
         warehouse_id = req.context.warehouse_id

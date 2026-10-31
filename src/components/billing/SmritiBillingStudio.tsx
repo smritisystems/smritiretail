@@ -1149,6 +1149,14 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
       onNotification?.("Cart Empty", "Cannot bill an empty cart.", "error");
       return;
     }
+    if (activeConsolidatedSlips.length > 0) {
+      onNotification?.(
+        "Source Billing Unavailable",
+        "Packing Slip billing is temporarily disabled while the atomic source-allocation workflow is being rolled out. Your selected slips remain available; use a direct invoice only after removing the source selection.",
+        "error"
+      );
+      return;
+    }
 
     // Require outlet selection if customer has multiple registered outlets
     if (customer.id !== WALK_IN_CUSTOMER.id && DEMO_STORES.length > 1 && !selectedOutlet) {
@@ -1257,8 +1265,8 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
       bill_discount_val: calculations.billDiscount,
       bill_discount_type: billDiscountType === "PERCENT" ? "percent" : "flat",
       sales_channel: salesChannel,
-      source_document_type: activeConsolidatedSlips.length > 0 ? "PACKING_SLIP_CONSOLIDATED" : (customerPoId || (customer as any)?.activeCustomerPoId) ? "CUSTOMER_PO" : undefined,
-      source_document_id: activeConsolidatedSlips.length > 0 ? activeConsolidatedSlips.map((s) => s.packingSlipNumber).join(",") : (customerPoId || (customer as any)?.activeCustomerPoId || undefined),
+      source_document_type: (customerPoId || (customer as any)?.activeCustomerPoId) ? "CUSTOMER_PO" : undefined,
+      source_document_id: customerPoId || (customer as any)?.activeCustomerPoId || undefined,
       tenders: backendTenders,
       items: calculations.recomputedItems.map((item) => ({
         product_id: item.productId,
@@ -1273,7 +1281,7 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
         is_tax_inclusive: item.isTaxInclusive,
         salesperson_name: item.salesStaff || globalSalesperson,
         customer_po_line_id: (item as any)?.customerPoLineId || (item as any)?.customer_po_line_id || undefined,
-        source_line_type: (item as any)?.customerPoLineId ? "CUSTOMER_PO_LINE" : (activeConsolidatedSlips.length > 0 ? "PACKING_SLIP_ITEM" : undefined),
+        source_line_type: (item as any)?.customerPoLineId ? "CUSTOMER_PO_LINE" : undefined,
         source_line_id: (item as any)?.customerPoLineId || (item as any)?.source_line_id || undefined,
       })),
     };
@@ -1322,22 +1330,6 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
         setCustomerSearchQuery("");
       }
       setTimeout(() => barcodeInputRef.current?.focus(), 100);
-      if (activeConsolidatedSlips.length > 0) {
-        try {
-          await apiFetchV1("/fulfillment/consolidated-finalize", {
-            method: "POST",
-            body: JSON.stringify({
-              packing_slip_ids: activeConsolidatedSlips.map((s) => s.id),
-              invoice_id: recorded.billNo,
-              invoice_no: recorded.billNo,
-            }),
-          });
-        } catch {
-          // offline fallback
-        }
-        setActiveConsolidatedSlips([]);
-        onClearConsolidatedBatch?.();
-      }
       onRefreshData?.();
     } catch (err: any) {
       // Offline fallback
@@ -1372,10 +1364,6 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
           setCustomerSearchQuery("");
         }
         setTimeout(() => barcodeInputRef.current?.focus(), 100);
-        if (activeConsolidatedSlips.length > 0) {
-          setActiveConsolidatedSlips([]);
-          onClearConsolidatedBatch?.();
-        }
         onNotification?.("Offline Mode", `Network drop handled. Saved to local sync queue.`, "warning");
       } catch (offlineErr: any) {
         onNotification?.("Transaction Failed", `Checkout rejected: ${err.message}`, "error");
@@ -1850,8 +1838,26 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
                     </span>
                   )}
                   {activeConsolidatedSlips.length > 0 && (
-                    <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300 border border-blue-300 font-mono">
-                      CONSOLIDATED: {activeConsolidatedSlips.length} SLIPS ({activeConsolidatedSlips.map((s: any) => s.packingSlipNumber).join(", ")})
+                    <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300 border border-blue-300 font-mono flex items-center gap-1">
+                      <span>
+                        SOURCE BILLING DISABLED: {activeConsolidatedSlips.map((s: any) => s.packingSlipNumber).join(", ")}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveConsolidatedSlips([]);
+                          setCartItems([]);
+                          setBillLevelDiscount(0);
+                          setActiveDraftId(null);
+                          onClearConsolidatedBatch?.();
+                          onNotification?.("Source Selection Cleared", "Packing Slip items were removed. You can now start a direct invoice.", "info");
+                        }}
+                        className="ml-1 rounded px-1 hover:bg-blue-200 dark:hover:bg-blue-800"
+                        title="Clear source selection and its cart items"
+                        aria-label="Clear Packing Slip source selection"
+                      >
+                        ×
+                      </button>
                     </span>
                   )}
                 </div>

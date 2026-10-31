@@ -12,7 +12,7 @@
 """
 
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, Numeric, Boolean, Integer, ForeignKey, DateTime, Text, text, UniqueConstraint
+from sqlalchemy import Column, String, Numeric, Boolean, Integer, ForeignKey, DateTime, Text, text, UniqueConstraint, Index, CheckConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB
 from ..db.base import BaseEntity
@@ -26,8 +26,11 @@ class PackingSlip(BaseEntity):
 
     packing_slip_number = Column(String(50), nullable=False, index=True)
     sales_invoice_id = Column(String(50), nullable=False, index=True)
+    customer_id = Column(String(50), ForeignKey("customers.id", ondelete="RESTRICT"), nullable=True, index=True)
+    order_id = Column(String(50), ForeignKey("sales_orders.id", ondelete="RESTRICT"), nullable=True, index=True)
+    billing_ownership_status = Column(String(20), nullable=False, default="UNVERIFIED", server_default=text("'UNVERIFIED'"))
     packed_by_user_id = Column(String(50), nullable=True)
-    status = Column(String(30), default="PACKED")  # PENDING, PACKED, CANCELLED
+    status = Column(String(30), default="PACKED")  # PENDING, PACKED, BILLED, CANCELLED
     total_packages = Column(Integer, default=1)
     weight_kg = Column(Numeric(10, 3), default=0.000)
 
@@ -38,12 +41,56 @@ class PackingSlipItem(BaseEntity):
     __tablename__ = "packing_slip_items"
 
     packing_slip_id = Column(String(50), ForeignKey("packing_slips.id", ondelete="CASCADE"), nullable=False, index=True)
+    order_item_id = Column(Integer, ForeignKey("sales_order_items.id", ondelete="RESTRICT"), nullable=True, index=True)
     product_id = Column(String(50), nullable=False, index=True)
     sku = Column(String(100), nullable=False)
     quantity = Column(Numeric(12, 3), nullable=False)
     batch_number = Column(String(50), nullable=True)
 
     packing_slip = relationship("PackingSlip", back_populates="items")
+
+
+class SalesSourceInvoiceAllocation(BaseEntity):
+    """Auditable committed quantity allocation from Sales Order/Packing Slip lines to an invoice line."""
+    __tablename__ = "sales_source_invoice_allocations"
+    __table_args__ = (
+        CheckConstraint(
+            "sales_order_item_id IS NOT NULL OR packing_slip_item_id IS NOT NULL",
+            name="ck_source_invoice_allocation_has_source_line",
+        ),
+        CheckConstraint(
+            "allocated_quantity > 0 AND reversed_quantity >= 0 AND reversed_quantity <= allocated_quantity",
+            name="ck_source_invoice_allocation_quantity_bounds",
+        ),
+        Index(
+            "uq_source_invoice_so_line",
+            "company_id", "sales_order_item_id", "invoice_item_id",
+            unique=True,
+            postgresql_where=text("sales_order_item_id IS NOT NULL"),
+        ),
+        Index(
+            "uq_source_invoice_ps_line",
+            "company_id", "packing_slip_item_id", "invoice_item_id",
+            unique=True,
+            postgresql_where=text("packing_slip_item_id IS NOT NULL"),
+        ),
+        Index("ix_source_invoice_so_available", "company_id", "sales_order_item_id", "status"),
+        Index("ix_source_invoice_ps_available", "company_id", "packing_slip_item_id", "status"),
+        Index("ix_source_invoice_idempotency", "company_id", "idempotency_key"),
+    )
+
+    sales_order_id = Column(String(50), ForeignKey("sales_orders.id", ondelete="RESTRICT"), nullable=True, index=True)
+    sales_order_item_id = Column(Integer, ForeignKey("sales_order_items.id", ondelete="RESTRICT"), nullable=True, index=True)
+    packing_slip_id = Column(String(50), ForeignKey("packing_slips.id", ondelete="RESTRICT"), nullable=True, index=True)
+    packing_slip_item_id = Column(String(50), ForeignKey("packing_slip_items.id", ondelete="RESTRICT"), nullable=True, index=True)
+    invoice_id = Column(String(50), ForeignKey("sales_invoices.id", ondelete="RESTRICT"), nullable=False, index=True)
+    invoice_item_id = Column(Integer, ForeignKey("sales_invoice_items.id", ondelete="RESTRICT"), nullable=False, index=True)
+    allocated_quantity = Column(Numeric(12, 4), nullable=False)
+    allocated_value = Column(Numeric(15, 2), nullable=False, default=0, server_default=text("0"))
+    reversed_quantity = Column(Numeric(12, 4), nullable=False, default=0, server_default=text("0"))
+    reversed_value = Column(Numeric(15, 2), nullable=False, default=0, server_default=text("0"))
+    status = Column(String(20), nullable=False, default="COMMITTED", server_default=text("'COMMITTED'"))
+    idempotency_key = Column(String(150), nullable=True)
 
 class Dispatch(BaseEntity):
     """Dispatch Manifest & Delivery Manifest."""

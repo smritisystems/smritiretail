@@ -104,6 +104,7 @@ class SalesService:
         authorized_price_override: bool = False,
         authorized_discount_override: bool = False,
         authorized_adjustment_override: bool = False,
+        source_billing_authorized: bool = False,
     ) -> SalesInvoice:
         """
         Delegates to CanonicalSalesPostingWriter as the sole authoritative transactional writer.
@@ -128,6 +129,13 @@ class SalesService:
             if len(po_request.lines) != len(invoice_in.items):
                 raise HTTPException(status_code=400, detail="Every Customer PO invoice line must reference a Customer PO line.")
             await CustomerPOService(self.db, self.tenant_ctx).validate_billing(invoice_in.customer_po_id, po_request)
+
+        source_document_type = str(getattr(invoice_in, "source_document_type", "") or "").strip().upper()
+        if source_document_type.startswith(("SALES_ORDER", "PACKING_SLIP")) and not source_billing_authorized:
+            raise HTTPException(
+                status_code=410,
+                detail="Sales Order and Packing Slip invoices must use the atomic /billing/sources/commit workflow.",
+            )
 
         import uuid
         from ..schemas.canonical_posting import (
@@ -335,6 +343,7 @@ class SalesService:
             authorized_price_override=authorized_price_override,
             authorized_discount_override=authorized_discount_override,
             authorized_adjustment_override=authorized_adjustment_override,
+            source_billing_authorized=source_billing_authorized,
         )
 
         # Re-fetch with eager items to avoid MissingGreenlet during serialization
@@ -1948,10 +1957,14 @@ class SalesService:
                 SalesInvoice.branch_id.in_(branch_ids),
                 SalesInvoice.is_deleted == False,
             )
+            .with_for_update()
         )
         invoice = res.scalars().first()
         if not invoice:
             raise HTTPException(status_code=404, detail="Sales invoice not found")
+
+        from .source_billing import SourceBillingService
+        await SourceBillingService(self.db, self.tenant_ctx).reverse_invoice_allocations(invoice)
 
         is_posted = str(invoice.status or "").strip().upper() in ("POSTED", "SUBMITTED", "CONFIRMED")
         if is_posted:

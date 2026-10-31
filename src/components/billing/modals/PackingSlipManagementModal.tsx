@@ -38,7 +38,7 @@ export interface PackingSlipRecord {
   orderId?: string;
   customerName?: string;
   customerId?: string;
-  status: "PACKED" | "BILLED" | "CANCELLED";
+  status: "PACKED" | "PARTIALLY_BILLED" | "BILLED" | "CANCELLED";
   totalPackages: number;
   weightKg: number;
   createdAt: string;
@@ -68,7 +68,6 @@ export const PackingSlipManagementModal: React.FC<PackingSlipManagementModalProp
   isOpen,
   onClose,
   customers = [],
-  products = [],
   currentUser,
   effectiveConfig,
   customerId,
@@ -85,9 +84,13 @@ export const PackingSlipManagementModal: React.FC<PackingSlipManagementModalProp
   // Create Form State
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>("");
   const [orderReference, setOrderReference] = useState<string>("");
+  const [availableOrders, setAvailableOrders] = useState<any[]>([]);
+  const [orderLoadError, setOrderLoadError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   const [totalPackages, setTotalPackages] = useState<number>(1);
   const [weightKg, setWeightKg] = useState<number>(1.0);
   const [createItems, setCreateItems] = useState<Array<{
+    orderItemId: number;
     productId: string;
     sku: string;
     name: string;
@@ -107,6 +110,35 @@ export const PackingSlipManagementModal: React.FC<PackingSlipManagementModalProp
       loadPackingSlips();
     }
   }, [isOpen, customerId]);
+
+  useEffect(() => {
+    if (viewMode !== "CREATE" || !selectedCustomerId) {
+      setAvailableOrders([]);
+      setOrderLoadError(null);
+      return;
+    }
+    let active = true;
+    setAvailableOrders([]);
+    setOrderReference("");
+    setCreateItems([]);
+    setOrderLoadError(null);
+    void apiFetchV1<any[]>(`/sales/orders?customer_id=${encodeURIComponent(selectedCustomerId)}&limit=1000`)
+      .then((response) => {
+        if (!active) return;
+        const rows = Array.isArray(response) ? response : [];
+        setAvailableOrders(rows.filter((order: any) =>
+          !["CANCELLED", "CLOSED", "REJECTED", "COMPLETED"].includes(String(order.status || "").toUpperCase())
+        ));
+      })
+      .catch((error) => {
+        if (!active) return;
+        const message = error instanceof Error ? error.message : "Sales Orders could not be loaded.";
+        setOrderLoadError(message);
+      });
+    return () => {
+      active = false;
+    };
+  }, [viewMode, selectedCustomerId]);
 
   const loadPackingSlips = async () => {
     setLoadError(null);
@@ -144,32 +176,41 @@ export const PackingSlipManagementModal: React.FC<PackingSlipManagementModalProp
   const initCreateSlip = () => {
     const defaultCust = customers.find((c) => c.customerType === "B2B" || c.gstin) || customers[0];
     setSelectedCustomerId(defaultCust?.id || "");
-    setOrderReference(`SO-${Date.now().toString().slice(-4)}`);
+    setOrderReference("");
     setTotalPackages(1);
     setWeightKg(2.5);
-
-    // Initial items populated from catalog
-    const sampleProducts = products.slice(0, 3);
-    const initialLines = sampleProducts.map((p, idx) => {
-      const ordered = (idx + 1) * 10;
-      const alreadyPacked = idx * 2;
-      const remaining = ordered - alreadyPacked;
-      let initialPacked = remaining;
-      if (packingSlipQtyDefault === "ORDERED_QTY") initialPacked = ordered;
-      else if (packingSlipQtyDefault === "MANUAL_ZERO") initialPacked = 0;
-
-      return {
-        productId: p.id,
-        sku: p.sku || p.code || `SKU-${idx + 1}`,
-        name: p.name || `Product ${idx + 1}`,
-        orderedQty: ordered,
-        packedQty: initialPacked,
-        remainingQty: remaining,
-      };
-    });
-
-    setCreateItems(initialLines);
+    setCreateItems([]);
     setViewMode("CREATE");
+  };
+
+  const selectOrder = (orderId: string) => {
+    setOrderReference(orderId);
+    const order = availableOrders.find((row: any) => row.id === orderId);
+    if (!order) {
+      setCreateItems([]);
+      return;
+    }
+    const lines = (order.items || []).flatMap((line: any) => {
+      if (["CANCELLED", "CLOSED", "BILLED"].includes(String(line.line_status || line.lineStatus || "").toUpperCase())) return [];
+      const quantity = Number(line.quantity) || 0;
+      const billed = Number(line.billed_quantity ?? line.billedQuantity) || 0;
+      const orderRemaining = Math.max(0, quantity - billed);
+      const pendingQuantity = Number(line.pending_quantity ?? line.pendingQuantity);
+      const remaining = pendingQuantity > 0 ? Math.min(orderRemaining, pendingQuantity) : orderRemaining;
+      if (remaining <= 0 || !line.id || !line.product_id) return [];
+      let packedQty = remaining;
+      if (packingSlipQtyDefault === "MANUAL_ZERO") packedQty = 0;
+      return [{
+        orderItemId: Number(line.id),
+        productId: String(line.product_id),
+        sku: String(line.code || line.product_id),
+        name: String(line.name || line.code || line.product_id),
+        orderedQty: quantity,
+        packedQty,
+        remainingQty: remaining,
+      }];
+    });
+    setCreateItems(lines);
   };
 
   const handleSavePackingSlip = async () => {
@@ -177,8 +218,16 @@ export const PackingSlipManagementModal: React.FC<PackingSlipManagementModalProp
       onNotification?.("Validation Error", "Please select a B2B customer.", "warning");
       return;
     }
+    if (!orderReference) {
+      onNotification?.("Sales Order Required", "Select an active Sales Order before creating an unbilled Packing Slip.", "warning");
+      return;
+    }
     if (createItems.length === 0) {
       onNotification?.("Validation Error", "At least one item line is required.", "warning");
+      return;
+    }
+    if (createItems.some((line) => !line.orderItemId || line.packedQty <= 0)) {
+      onNotification?.("Packing Quantity Required", "Select at least one Sales Order line and enter a positive packed quantity.", "warning");
       return;
     }
 
@@ -195,32 +244,9 @@ export const PackingSlipManagementModal: React.FC<PackingSlipManagementModalProp
       }
     }
 
-    const custObj = customers.find((c) => c.id === selectedCustomerId);
-    const nowIso = new Date().toISOString();
-    const newPsNum = `PS-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${Math.floor(1000 + Math.random() * 9000)}`;
-
-    const newRecord: PackingSlipRecord = {
-      id: `ps_${Date.now()}`,
-      packingSlipNumber: newPsNum,
-      salesInvoiceId: "UNBILLED",
-      orderId: orderReference,
-      customerId: selectedCustomerId,
-      customerName: custObj?.name || "B2B Customer",
-      status: "PACKED",
-      totalPackages,
-      weightKg,
-      createdAt: nowIso.replace("T", " ").slice(0, 19),
-      items: createItems.map((it, idx) => ({
-        id: `psi_${Date.now()}_${idx}`,
-        productId: it.productId,
-        sku: it.sku,
-        name: it.name,
-        quantity: it.packedQty,
-      })),
-    };
-
+    setIsSaving(true);
     try {
-      await apiFetchV1("/fulfillment/pack", {
+      const saved = await apiFetchV1<any>("/fulfillment/pack", {
         method: "POST",
         body: JSON.stringify({
           sales_invoice_id: "UNBILLED",
@@ -229,19 +255,42 @@ export const PackingSlipManagementModal: React.FC<PackingSlipManagementModalProp
           total_packages: totalPackages,
           weight_kg: weightKg,
           items: createItems.map((it) => ({
+            order_item_id: it.orderItemId,
             product_id: it.productId,
             sku: it.sku,
             quantity: it.packedQty,
           })),
         }),
       });
-    } catch {
-      // Local fallback queue
+      const savedRecord: PackingSlipRecord = {
+        id: saved.id,
+        packingSlipNumber: saved.packing_slip_number,
+        salesInvoiceId: saved.sales_invoice_id,
+        orderId: saved.order_id,
+        customerId: saved.customer_id,
+        customerName: customers.find((c) => c.id === saved.customer_id)?.name || "B2B Customer",
+        status: saved.status,
+        totalPackages: saved.total_packages,
+        weightKg: Number(saved.weight_kg) || 0,
+        createdAt: saved.created_at,
+        items: (saved.items || []).map((item: any) => ({
+          id: item.id,
+          productId: item.product_id,
+          sku: item.sku,
+          name: item.name || item.sku,
+          quantity: Number(item.quantity) || 0,
+          batchNumber: item.batch_number,
+        })),
+      };
+      setSlips((prev) => [savedRecord, ...prev]);
+      onNotification?.("Packing Slip Saved", `Packing Slip #${savedRecord.packingSlipNumber} generated and ready for billing.`, "success");
+      setViewMode("LIST");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Packing Slip could not be saved.";
+      onNotification?.("Packing Slip Could Not Be Saved", message, "error");
+    } finally {
+      setIsSaving(false);
     }
-
-    setSlips((prev) => [newRecord, ...prev]);
-    onNotification?.("Packing Slip Saved", `Packing Slip #${newPsNum} generated and ready for billing.`, "success");
-    setViewMode("LIST");
   };
 
   const filteredSlips = slips.filter(
@@ -474,7 +523,7 @@ export const PackingSlipManagementModal: React.FC<PackingSlipManagementModalProp
                             >
                               View
                             </button>
-                            {slip.status === "PACKED" && onSelectSlipForBilling && (
+                            {(slip.status === "PACKED" || slip.status === "PARTIALLY_BILLED") && onSelectSlipForBilling && (
                               <button
                                 type="button"
                                 onClick={() => {
@@ -519,16 +568,28 @@ export const PackingSlipManagementModal: React.FC<PackingSlipManagementModalProp
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Sales Order / Reference
+                    Sales Order
                   </label>
-                  <input
-                    type="text"
+                  <select
                     value={orderReference}
-                    onChange={(e) => setOrderReference(e.target.value)}
-                    placeholder="e.g. SO-2026-9001"
+                    onChange={(e) => selectOrder(e.target.value)}
+                    disabled={availableOrders.length === 0}
                     className="w-full px-2.5 py-1.5 text-xs border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-[#131b2e] outline-none font-mono"
-                    data-field-key="ps-order-ref"
-                  />
+                    data-field-key="ps-sales-order-select"
+                  >
+                    <option value="">Select an active Sales Order</option>
+                    {availableOrders.map((order: any) => (
+                      <option key={order.id} value={order.id}>
+                        {order.order_no} · {order.status}
+                      </option>
+                    ))}
+                  </select>
+                  {orderLoadError && (
+                    <span role="alert" className="mt-1 block text-[10px] normal-case text-rose-600">{orderLoadError}</span>
+                  )}
+                  {!orderLoadError && selectedCustomerId && availableOrders.length === 0 && (
+                    <span className="mt-1 block text-[10px] normal-case text-slate-500">No active Sales Orders were found for this customer.</span>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">
@@ -579,7 +640,7 @@ export const PackingSlipManagementModal: React.FC<PackingSlipManagementModalProp
                   </thead>
                   <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
                     {createItems.map((item, idx) => (
-                      <tr key={item.productId} className="hover:bg-slate-50 dark:hover:bg-slate-800/30">
+                      <tr key={item.orderItemId} className="hover:bg-slate-50 dark:hover:bg-slate-800/30">
                         <td className="py-2.5 px-3">
                           <div className="font-bold text-slate-900 dark:text-white">{item.name}</div>
                           <div className="text-[10px] text-slate-500 font-mono">{item.sku}</div>
@@ -591,12 +652,13 @@ export const PackingSlipManagementModal: React.FC<PackingSlipManagementModalProp
                         <td className="py-2.5 px-3 text-center">
                           <input
                             type="number"
+                            step="0.0001"
                             min={0}
                             max={item.remainingQty}
                             disabled={!canEditQty}
                             value={item.packedQty}
                             onChange={(e) => {
-                              const val = Math.max(0, Math.min(item.remainingQty, parseInt(e.target.value, 10) || 0));
+                              const val = Math.max(0, Math.min(item.remainingQty, Number(e.target.value) || 0));
                               setCreateItems((prev) =>
                                 prev.map((it, i) => (i === idx ? { ...it, packedQty: val } : it))
                               );
@@ -623,10 +685,11 @@ export const PackingSlipManagementModal: React.FC<PackingSlipManagementModalProp
                 <button
                   type="button"
                   onClick={handleSavePackingSlip}
+                  disabled={isSaving || createItems.length === 0 || !orderReference}
                   className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer"
                   data-field-key="save-packing-slip-btn"
                 >
-                  Save &amp; Generate Packing Slip
+                  {isSaving ? "Saving..." : "Save & Generate Packing Slip"}
                 </button>
               </div>
             </div>

@@ -22,7 +22,7 @@ from sqlalchemy.orm import selectinload
 from pydantic import BaseModel, Field
 from typing import Dict, Any
 
-from ...api.deps import get_company_db, get_db, get_tenant_context, get_current_user, require_role, TenantContext
+from ...api.deps import get_company_db, get_db, get_tenant_context, get_current_user, require_role, require_permission, TenantContext
 from ...models.auth import User, UserRole
 from ...models.crm import Customer, CustomerCompanyRelationship
 from ...models.crm import CustomerGroup
@@ -42,8 +42,87 @@ from ...services.canonical_sales_writer import CanonicalSalesPostingWriter
 from ...services.headless_billing import HeadlessBillingCore
 from ...services.billing_catalog_service import BillingCatalogService
 from ...services.billing_profile_service import BillingProfileService
+from ...schemas.source_billing import (
+    SourceBillingCommitRequest,
+    SourceBillingCommitResponse,
+    SourceBillingPrepareRequest,
+    SourceBillingPrepareResponse,
+)
+from ...services.source_billing import SourceBillingService
 
 router = APIRouter()
+
+
+@router.post(
+    "/sources/prepare",
+    response_model=SourceBillingPrepareResponse,
+    summary="Read-only Sales Order/Packing Slip billing preparation",
+    dependencies=[Depends(require_permission("sales_billing", "VIEW"))],
+)
+async def prepare_source_billing(
+    request: SourceBillingPrepareRequest,
+    db: AsyncSession = Depends(get_company_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+):
+    return await SourceBillingService(db, tenant).prepare(request)
+
+
+@router.post(
+    "/sources/commit",
+    response_model=SourceBillingCommitResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Atomically commit a source-backed invoice",
+    dependencies=[Depends(require_permission("sales_billing", "NEW"))],
+)
+async def commit_source_billing(
+    request: SourceBillingCommitRequest,
+    idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
+    db: AsyncSession = Depends(get_company_db),
+    control_db: AsyncSession = Depends(get_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(get_current_user),
+):
+    credit_override_requested = bool(request.invoice.credit_override_reason) and (
+        (request.invoice.payment_mode or "").strip().upper() in {"CREDIT", "ON_ACCOUNT"}
+    )
+    authorized_credit_override = False
+    if credit_override_requested:
+        authorized_credit_override = await evaluate_action_permission(
+            control_db, current_user, tenant,
+            resource="sales_billing", action="OVERRIDE_CREDIT",
+        )
+        if not authorized_credit_override:
+            raise HTTPException(status_code=403, detail="An explicit credit-override permission is required.")
+        if not await BillingProfileService.credit_limit_override_enabled(control_db):
+            raise HTTPException(status_code=403, detail="Credit-limit overrides are disabled by company policy.")
+
+    authorized_transaction_mode_change = await evaluate_action_permission(
+        control_db, current_user, tenant,
+        resource="sales_billing", action="CHANGE_TRANSACTION_MODE",
+    )
+    authorized_price_override = await evaluate_action_permission(
+        control_db, current_user, tenant,
+        resource="sales_billing", action="OVERRIDE_PRICE",
+    )
+    authorized_discount_override = await evaluate_action_permission(
+        control_db, current_user, tenant,
+        resource="sales_billing", action="OVERRIDE_DISCOUNT",
+    )
+    authorized_adjustment_override = await evaluate_action_permission(
+        control_db, current_user, tenant,
+        resource="sales_billing", action="MANAGE_ADJUSTMENTS",
+    )
+
+    return await SourceBillingService(db, tenant).commit(
+        request,
+        idempotency_key or "",
+        authorized_credit_override=authorized_credit_override,
+        credit_override_actor=current_user.id if authorized_credit_override else None,
+        authorized_transaction_mode_change=authorized_transaction_mode_change,
+        authorized_price_override=authorized_price_override,
+        authorized_discount_override=authorized_discount_override,
+        authorized_adjustment_override=authorized_adjustment_override,
+    )
 
 
 class BillingProfileSetupRequest(BaseModel):
