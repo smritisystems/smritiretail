@@ -1,5 +1,27 @@
 <!--
 
+## [6.99.32] - 2026-10-31 - Billing: Draft Tax Invoice Interactive Print Preview & Statutory Non-Tax Watermarking v1.0.0
+
+### Added
+- `src/print_engine/templates/StandardInvoiceA4.tsx`:
+  - Added dynamic `isDraft` state detection (`isDraft`, `is_draft`, or `status === "Draft"`).
+  - Added page-level high-visibility diagonal red-dashed `DRAFT` watermark stamp overlay across all invoice pages.
+  - Added amber header badge `DRAFT TAX INVOICE` on page 1 and continuation page header.
+  - Added statutory Rule 46 CGST disclaimer banner at the bottom of the invoice: `*** DRAFT TAX INVOICE — FOR VERIFICATION & AUDIT ONLY — NOT A STATUTORY TAX DOCUMENT ***`.
+- `src/components/PrintPreviewModal.tsx`:
+  - Added automatic detection of `isDraftDoc` in modal initialization, defaulting `isWatermarkEnabled: true`, `watermarkPresetId: "draft"`, and `watermarkOpacity: 20`.
+  - Added amber badge `Draft Tax Invoice` in the modal title bar: `SMRITI Interactive Print & Preview Engine`.
+- `src/components/billing/BillingTerm.tsx`:
+  - Added `handlePrintDraftPreview` synthesizing active cart line items, discounts, and customer coordinates into a synthetic draft tax invoice model.
+  - Wired `handleReprintInvoice` to auto-route to draft preview when unfinalized line items exist in the cart.
+  - Added `Print Draft Preview` button with `Printer` icon in the draft mode banner.
+  - Added `Print Draft Tax Invoice Preview` in More Options dropdown menu.
+  - Unblocked action bar print button when line items are present in cart.
+- `scripts/capture_draft_tax_invoice_playwright.py`:
+  - Automated end-to-end Playwright test scanning barcode `8904551002228`, saving draft, triggering print preview, and capturing artifact `08_draft_tax_invoice_print_preview.png`.
+- `docs/walkthrough/billing/Billing_Draft_Tax_Invoice_Print_Preview_v1.0.0.md`:
+  - Formal 13-section WGP walkthrough document.
+
 ## [6.99.31] - 2026-10-31 - Billing: Reliance Parent & Child Store Billing, Auto-Defaults, Settlement & Tax Invoice Print Preview v1.0.0
 
 ### Fixed

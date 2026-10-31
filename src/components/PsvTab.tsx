@@ -1317,20 +1317,23 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
       return;
     }
     if (overviewDataView === "articles") {
-      const headers = ["Store Code", "Store Name", "Article", "SKU", "Stock Left", "Sent", "Sold", "Returned", "Sell Through %", "Movement"];
+      const headers = ["Store Code", "Store Name", "Article", "Style Code", "Color", "Size", "SKU", "Stock Left", "Sent", "Sold", "Returned", "Sell Through %", "Sell-through Signal"];
       const rows = (activeParty?.skuTracking ?? []).map((sku) => {
         const sellThrough = computeSkuSellThrough(sku);
         return [
           activeParty?.storeCode || "",
           activeParty?.storeNameSnapshot || activeParty?.name || "",
           sku.productName,
+          sku.styleCode || "",
+          sku.color || "",
+          sku.size || "",
           sku.sku,
           computeSkuLyingWithPartner(sku),
           sku.invoicedQty,
           sku.confirmedSoldQty,
           sku.returnedQty,
           sellThrough.toFixed(1),
-          sku.invoicedQty <= 0 ? "No sales data" : sellThrough < 20 ? "Slow moving" : sellThrough < 50 ? "Normal" : "Fast moving",
+          sku.invoicedQty <= 0 ? "No sales data" : sellThrough < 20 ? "Low sell-through" : sellThrough < 50 ? "Moderate sell-through" : "High sell-through",
         ];
       });
       downloadCsv("psv-article-stock-report.csv", [headers, ...rows]);
@@ -1346,7 +1349,7 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
       row.soldQty,
       row.returnedQty,
     ]);
-    downloadCsv(`psv-${overviewDataView}-inward-report.csv`, [headers, ...rows]);
+    downloadCsv(`psv-${overviewDataView}-stock-report.csv`, [headers, ...rows]);
   };
 
   /* ── EMPTY STATE ── */
@@ -2223,7 +2226,7 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
                         {/* Name + status */}
                         <div className="flex items-center justify-between gap-2 mb-2">
                           <span className="font-semibold text-sm text-theme-body truncate">
-                            {p.storeNameSnapshot || p.name}
+                            {p.name}
                           </span>
                           <span
                             className={`text-[10px] font-bold px-2 py-0.5 rounded-full border whitespace-nowrap ${sig.cls}`}
@@ -2236,9 +2239,10 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
                         <div className="mb-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-theme-muted">
                           {p.storeCode && (
                             <span className="font-semibold text-blue-400">
-                              Store Code: <span className="font-mono">{p.storeCode}</span>
+                              <span className="font-mono">{p.storeCode}</span>
                             </span>
                           )}
+                          {p.storeNameSnapshot && <span>{p.storeNameSnapshot}</span>}
                           <span>📍 {p.location}</span>
                         </div>
 
@@ -2590,7 +2594,7 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
                           <table className="w-full min-w-[760px] border-collapse text-left">
                             <thead className="bg-theme-surface-2">
                               <tr className="border-b border-theme-divider">
-                                {["Article / Product", "SKU", "Stock Left", "Sent", "Sold", "Returned", "Sell Through", "Movement"].map((heading) => (
+                                {["Article / Product", "Style", "Color", "Size", "SKU", "Stock Left", "Sent", "Sold", "Returned", "Sell Through", "Movement"].map((heading) => (
                                   <th key={heading} className="px-3 py-2 text-[9px] font-bold uppercase tracking-wide text-theme-muted">{heading}</th>
                                 ))}
                               </tr>
@@ -2609,6 +2613,9 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
                                 return (
                                   <tr key={sku.sku} className="hover:bg-theme-surface-2/40">
                                     <td className="px-3 py-2 text-[10px] font-medium text-theme-body">{sku.productName || sku.sku}</td>
+                                    <td className="px-3 py-2 font-mono text-[9px] text-theme-muted">{sku.styleCode || "—"}</td>
+                                    <td className="px-3 py-2 text-[9px] text-theme-muted">{sku.color || "—"}</td>
+                                    <td className="px-3 py-2 text-[9px] text-theme-muted">{sku.size || "—"}</td>
                                     <td className="px-3 py-2 font-mono text-[9px] text-theme-muted">{sku.sku}</td>
                                     <td className="px-3 py-2 text-right font-mono text-[10px] text-blue-300">{computeSkuLyingWithPartner(sku)}</td>
                                     <td className="px-3 py-2 text-right font-mono text-[10px] text-theme-body">{sku.invoicedQty}</td>
@@ -2620,7 +2627,7 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
                                 );
                               })}
                               {!activeParty.skuTracking?.length && (
-                                <tr><td colSpan={8} className="p-6 text-center text-xs text-theme-muted">No article-level sales tracking is available for this store.</td></tr>
+                                <tr><td colSpan={11} className="p-6 text-center text-xs text-theme-muted">No article-level sales tracking is available for this store.</td></tr>
                               )}
                             </tbody>
                           </table>
