@@ -39,11 +39,15 @@ const customer = {
 };
 
 describe("Customer 360 dashboard", () => {
-  it("does not select a customer implicitly when the dashboard opens without context", () => {
+  it("shows a paginated customer directory without selecting a customer implicitly", () => {
     const html = renderToStaticMarkup(<CorporateCustomer360 onCreateCustomer={vi.fn()} onSelectCustomer={vi.fn()} />);
     expect(html).toContain("Customer Master");
+    expect(html).toContain("Customer Directory");
+    expect(html).toContain("Name, customer code, or phone");
+    expect(html).toContain("All statuses");
+    expect(html).toContain("Previous page");
     expect(html).toContain("New customer");
-    expect(html).toContain("Search customers");
+    expect(html).not.toContain('role="dialog"');
     expect(html).not.toContain("Reliance");
   });
 

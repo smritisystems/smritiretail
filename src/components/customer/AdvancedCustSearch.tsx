@@ -3,22 +3,28 @@ import { X, Search, Users, ChevronLeft, ChevronRight, Loader2 } from "lucide-rea
 import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
 import type { CustomerDirectoryItem, CustomerDirectoryResponse } from "./types.ts";
 
-interface Props { isOpen: boolean; onClose: () => void; onSelectCustomer: (customer: CustomerDirectoryItem) => void; }
+interface Props {
+  isOpen: boolean;
+  onClose?: () => void;
+  onSelectCustomer: (customer: CustomerDirectoryItem) => void;
+  variant?: "modal" | "embedded";
+}
 const PAGE_SIZE = 25;
 
-export const SmritiAdvancedCustomerSearchModal: React.FC<Props> = ({ isOpen, onClose, onSelectCustomer }) => {
+export const SmritiAdvancedCustomerSearchModal: React.FC<Props> = ({ isOpen, onClose, onSelectCustomer, variant = "modal" }) => {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("all");
   const [page, setPage] = useState(0);
   const [items, setItems] = useState<CustomerDirectoryItem[]>([]);
   const [total, setTotal] = useState(0);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
     if (!isOpen) return;
     let cancelled = false;
+    setLoading(true);
     const timer = window.setTimeout(() => {
       const run = async () => {
         setLoading(true); setError("");
@@ -41,26 +47,25 @@ export const SmritiAdvancedCustomerSearchModal: React.FC<Props> = ({ isOpen, onC
   }, [isOpen, page, query, status]);
 
   useEffect(() => {
-    if (!isOpen) return;
-    const keydown = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
+    if (!isOpen || variant === "embedded") return;
+    const keydown = (event: KeyboardEvent) => { if (event.key === "Escape") onClose?.(); };
     window.addEventListener("keydown", keydown);
     return () => window.removeEventListener("keydown", keydown);
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, variant]);
 
   if (!isOpen) return null;
   const selected = items.find(item => item.id === selectedId) || null;
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
-      <section role="dialog" aria-modal="true" aria-labelledby="customer-search-title" className="bg-white dark:bg-[#191c1e] w-full max-w-5xl rounded-2xl shadow-2xl border flex flex-col max-h-[90vh] overflow-hidden">
+  const content = (
+    <>
         <header className="px-5 py-4 bg-[#f2f4f6] dark:bg-[#131b2e] border-b flex items-center justify-between">
-          <div><h2 id="customer-search-title" className="text-sm font-bold">Search customers</h2><p className="text-xs mt-1 text-slate-600">Search by name, code, or phone.</p></div>
-          <button type="button" onClick={onClose} aria-label="Close customer search" className="p-2 rounded-lg hover:bg-slate-200"><X size={18} /></button>
+          <div><h2 id="customer-search-title" className="text-sm font-bold">{variant === "embedded" ? "Customer Directory" : "Search customers"}</h2><p className="text-xs mt-1 text-slate-600">Search by name, code, or phone.</p></div>
+          {variant === "modal" && <button type="button" onClick={onClose} aria-label="Close customer search" className="p-2 rounded-lg hover:bg-slate-200"><X size={18} /></button>}
         </header>
         <div className="p-4 flex flex-col sm:flex-row gap-3 border-b">
           <label className="relative flex-1"><span className="sr-only">Search customers</span><Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-            <input autoFocus value={query} onChange={event => { setQuery(event.target.value); setPage(0); }} placeholder="Name, customer code, or phone" className="w-full pl-9 pr-3 py-2.5 border rounded-lg bg-white dark:bg-[#191c1e]" />
+            <input autoFocus={variant === "modal"} value={query} onChange={event => { setQuery(event.target.value); setPage(0); }} placeholder="Name, customer code, or phone" className="w-full pl-9 pr-3 py-2.5 border rounded-lg bg-white dark:bg-[#191c1e]" />
           </label>
           <label className="text-xs font-semibold flex items-center gap-2">Status
             <select value={status} onChange={event => { setStatus(event.target.value); setPage(0); }} className="px-3 py-2.5 border rounded-lg bg-white dark:bg-[#191c1e]">
@@ -111,6 +116,15 @@ export const SmritiAdvancedCustomerSearchModal: React.FC<Props> = ({ isOpen, onC
             <button type="button" disabled={!selected || loading} onClick={() => selected && onSelectCustomer(selected)} className="px-4 py-2 bg-[#00355f] text-white rounded-lg font-semibold disabled:opacity-40">Open selected</button>
           </div>
         </footer>
+    </>
+  );
+  if (variant === "embedded") {
+    return <section aria-labelledby="customer-search-title" className="bg-white dark:bg-[#191c1e] w-full rounded-xl border flex flex-col overflow-hidden">{content}</section>;
+  }
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onMouseDown={event => { if (event.target === event.currentTarget) onClose?.(); }}>
+      <section role="dialog" aria-modal="true" aria-labelledby="customer-search-title" className="bg-white dark:bg-[#191c1e] w-full max-w-5xl rounded-2xl shadow-2xl border flex flex-col max-h-[90vh] overflow-hidden">
+        {content}
       </section>
     </div>
   );

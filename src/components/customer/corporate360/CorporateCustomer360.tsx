@@ -16,7 +16,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from "react";
-import { AlertCircle, Plus, RefreshCw, Search } from "lucide-react";
+import { AlertCircle, Plus, RefreshCw } from "lucide-react";
 import { apiFetchV1 } from "../../../lib/apiFetchV1.ts";
 import { CorporateCustomer360Data } from "./types.ts";
 import { Customer360DashboardView } from "./Customer360DashboardView.tsx";
@@ -73,7 +73,6 @@ export const CorporateCustomer360: React.FC<CorporateCustomer360Props> = ({
   const [data, setData] = useState<CorporateCustomer360Data | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(!isDraft);
   const [error, setError] = useState<string | null>(null);
-  const [showCustomerSearch, setShowCustomerSearch] = useState(false);
 
   // Authoritative data fetcher
   const load360Data = useCallback(async () => {
@@ -115,24 +114,20 @@ export const CorporateCustomer360: React.FC<CorporateCustomer360Props> = ({
 
   if (isDraft && !isEditing) {
     return (
-      <div className="p-6 max-w-xl mx-auto mt-12 bg-white dark:bg-[#1e222d] border border-slate-200 dark:border-slate-800 rounded-2xl text-center space-y-3">
-        <h2 className="text-base font-semibold text-slate-900 dark:text-white">
-          {!resolvedCustomerId ? "Customer Master" : "Customer 360"}
-        </h2>
-        <p className="text-sm text-slate-600 dark:text-slate-400">
-          Select an existing customer to review its profile, or create a new customer in this workspace.
-        </p>
-        <div className="flex flex-wrap justify-center gap-2">
+      <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Customer Master</h2>
+            <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+              Browse and search customers, or open a record to review its Customer 360 profile.
+            </p>
+          </div>
           {onCreateCustomer && <button type="button" onClick={onCreateCustomer} className="inline-flex items-center gap-2 rounded-lg bg-sky-700 px-4 py-2 text-sm font-semibold text-white"><Plus size={15} />New customer</button>}
-          {onSelectCustomer && <button type="button" onClick={() => setShowCustomerSearch(true)} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold dark:border-slate-700"><Search size={15} />Search customers</button>}
         </div>
         {onSelectCustomer && <SmritiAdvancedCustomerSearchModal
-          isOpen={showCustomerSearch}
-          onClose={() => setShowCustomerSearch(false)}
-          onSelectCustomer={selected => {
-            onSelectCustomer(selected);
-            setShowCustomerSearch(false);
-          }}
+          isOpen
+          variant="embedded"
+          onSelectCustomer={selected => onSelectCustomer(selected)}
         />}
       </div>
     );
