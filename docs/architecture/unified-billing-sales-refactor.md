@@ -40,6 +40,8 @@ Existing route aliases in `TabRenderer.tsx` converge many historical billing IDs
 - `BillingWorkspace` is the single navigation and context shell.
 - Its current POS, credit, distributor, reporting, and operational workflows remain owned by their existing components.
 - Existing `SalesStudioTab` becomes an in-module contextual view for quotations, orders, invoice history, returns, and sales activity.
+- Billing exposes policy-permitted source choices after customer selection. Direct invoices and Customer POs remain in the billing terminal; Sales Orders and Packing Slips navigate to their dedicated workflows and are not implicitly converted into invoice lines.
+- Required delivery-store selection is presented by store code, with the outlet name as context. Switching between Direct Invoice and Customer PO is blocked while bill lines exist, preventing source changes from silently relabeling or replacing a draft.
 - Existing API routers and business services remain owners for writes, calculations, document numbering, inventory, and payments.
 - Invoice, order, return, register/shift, and payment records remain in their current tables and ledgers. No schema migration is proposed by this UI consolidation.
 

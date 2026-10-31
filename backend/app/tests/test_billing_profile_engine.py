@@ -81,6 +81,7 @@ async def test_billing_profile_lifecycle_and_precedence(db_session: AsyncSession
             "shift_management": "DISABLED",
             "customer_po_reference": "OPTIONAL",
             "repeat_barcode_policy": "ASK_USER",
+            "default_scan_mode": "EDIT_THEN_ADD",
         },
         updated_by="admin",
     )
@@ -88,6 +89,7 @@ async def test_billing_profile_lifecycle_and_precedence(db_session: AsyncSession
     assert eff_conf["shift_management"] == "DISABLED"  # Override took precedence over B2C default
     assert eff_conf["customer_po_reference"] == "OPTIONAL"
     assert eff_conf["repeat_barcode_policy"] == "ASK_USER"
+    assert eff_conf["default_scan_mode"] == "EDIT_THEN_ADD"
 
     # 6. Authorized Profile Switch to B2B_ONLY with Reason Audit
     switch_res = await BillingProfileService.switch_profile(

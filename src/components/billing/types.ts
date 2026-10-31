@@ -37,6 +37,7 @@ export interface BillingLineItem {
   isTaxInclusive?: boolean;
   mrp?: number;
   brand?: string;
+  article?: string;
   color?: string;
   size?: string;
   attributes?: Record<string, any>;

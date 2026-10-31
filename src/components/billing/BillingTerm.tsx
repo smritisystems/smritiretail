@@ -138,6 +138,44 @@ interface SmritiBillingTerminalProps {
   onOpenHotkeys?: () => void;
 }
 
+const BILLING_GRID_COLUMNS = [
+  { key: "barcode", label: "Barcode" },
+  { key: "article", label: "Article" },
+  { key: "color", label: "Color" },
+  { key: "size", label: "Size" },
+] as const;
+type BillingGridColumnKey = typeof BILLING_GRID_COLUMNS[number]["key"];
+type BillingGridColumnVisibility = Record<BillingGridColumnKey, boolean>;
+
+const DEFAULT_BILLING_GRID_COLUMNS: BillingGridColumnVisibility = {
+  barcode: true,
+  article: true,
+  color: true,
+  size: true,
+};
+
+const readBillingGridColumns = (storageKey: string): BillingGridColumnVisibility => {
+  try {
+    const stored = localStorage.getItem(storageKey);
+    if (!stored) return DEFAULT_BILLING_GRID_COLUMNS;
+    const parsed: unknown = JSON.parse(stored);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return DEFAULT_BILLING_GRID_COLUMNS;
+    }
+    return Object.fromEntries(
+      BILLING_GRID_COLUMNS.map(({ key }) => [
+        key,
+        typeof (parsed as Record<string, unknown>)[key] === "boolean"
+          ? (parsed as Record<BillingGridColumnKey, boolean>)[key]
+          : DEFAULT_BILLING_GRID_COLUMNS[key],
+      ])
+    ) as BillingGridColumnVisibility;
+  } catch (error) {
+    console.error("[BillingTerm] Item grid column preferences could not be loaded:", error);
+    return DEFAULT_BILLING_GRID_COLUMNS;
+  }
+};
+
 interface BillingSalespersonOption {
   id: string;
   code: string;
@@ -157,6 +195,7 @@ interface ResolvedBillingTransactionPolicy {
     default_source_type?: string;
     default_bill_type?: string;
     customer_selection_required?: boolean;
+    default_scan_mode?: "AUTO_ADD" | "EDIT_THEN_ADD" | "CONFIRM_PRODUCT";
     // Billing Price Level Governance
     default_price_level?: "MRP" | "SELLING_PRICE" | "WHOLESALE_PRICE" | "PRICE_BOOK";
     cashier_price_override?: "DISABLED" | "ALLOWED" | "AUTHORIZED_ONLY";
@@ -252,14 +291,34 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
 }) => {
   const settlementIdempotencyKeyRef = useRef<{ key: string; fingerprint: string } | null>(null);
   const invoiceCustomerScope = { series: "TT2026-2027", from: 18, to: 137 };
+  const billingGridPreferenceKey = `smriti.billing.item-grid.v1:${encodeURIComponent(currentUser?.companyId || "default")}:${encodeURIComponent(currentUser?.name || "operator")}`;
 
   // Main Line Items Table State
   const [items, setItems] = useState<BillingLineItem[]>([]);
   const [selectedRowIndex, setSelectedRowIndex] = useState<number>(-1);
   const [editingLineId, setEditingLineId] = useState<string | null>(null);
+  const [gridColumnVisibility, setGridColumnVisibility] = useState<BillingGridColumnVisibility>(
+    () => readBillingGridColumns(billingGridPreferenceKey)
+  );
+  const [showGridColumnMenu, setShowGridColumnMenu] = useState(false);
   const [customerPOs, setCustomerPOs] = useState<any[]>([]);
   const [selectedCustomerPO, setSelectedCustomerPO] = useState<any | null>(null);
   const [isLoadingCustomerPOs, setIsLoadingCustomerPOs] = useState(false);
+
+  const toggleGridColumn = (column: BillingGridColumnKey) => {
+    const updated = { ...gridColumnVisibility, [column]: !gridColumnVisibility[column] };
+    setGridColumnVisibility(updated);
+    try {
+      localStorage.setItem(billingGridPreferenceKey, JSON.stringify(updated));
+    } catch (error) {
+      console.error("[BillingTerm] Item grid column preferences could not be saved:", error);
+      onNotification?.(
+        "Display Preference Not Saved",
+        "The column selection is active for this session, but browser storage is unavailable so it could not be saved.",
+        "info"
+      );
+    }
+  };
 
   // Header State
   const [headerState, setHeaderState] = useState<BillingHeaderState>({
@@ -415,6 +474,15 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       setHeaderState(prev => ({ ...prev, customerPoId: null, poReference: "" }));
       return;
     }
+    if (selectedCustomerPO?.id === poId) return;
+    if (items.length > 0) {
+      onNotification?.(
+        "Current Bill Preserved",
+        "Remove the current bill lines before selecting a different Customer PO.",
+        "info"
+      );
+      return;
+    }
     try {
       const po = await apiFetchV1<any>(`/sales/customer-pos/${poId}`);
       setSelectedCustomerPO(po);
@@ -442,6 +510,68 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     } catch (error: any) {
       onNotification?.("Customer PO Unavailable", error?.message || "Unable to load the selected Customer PO.", "error");
     }
+  };
+
+  const handleBillingSourceChoice = (
+    choice: "DIRECT" | "CUSTOMER_PO" | "SALES_ORDER" | "PACKING_SLIP"
+  ) => {
+    if (!headerState.customer && choice !== "DIRECT") {
+      onNotification?.("Customer Required", "Select the customer account before choosing an order or customer purchase order.", "error");
+      return;
+    }
+
+    if (choice === "DIRECT") {
+      if (headerState.billingSource === "CUSTOMER_PO" && items.length > 0) {
+        onNotification?.(
+          "Customer PO Lines Preserved",
+          "Remove the Customer PO lines before switching this bill to Direct Invoice.",
+          "info"
+        );
+        return;
+      }
+      setHeaderState(prev => ({ ...prev, billingSource: "DIRECT", customerPoId: null, poReference: "" }));
+      setSelectedCustomerPO(null);
+      setShowMoreDetails(false);
+      return;
+    }
+    if (choice === "CUSTOMER_PO") {
+      if (headerState.billingSource === "CUSTOMER_PO" && headerState.customerPoId) {
+        setShowMoreDetails(true);
+        return;
+      }
+      if (items.length > 0) {
+        onNotification?.(
+          "Current Bill Preserved",
+          "Remove the current bill lines before switching to Customer Purchase Order.",
+          "info"
+        );
+        return;
+      }
+      setHeaderState(prev => ({ ...prev, billingSource: "CUSTOMER_PO", customerPoId: null, poReference: "" }));
+      setSelectedCustomerPO(null);
+      setShowMoreDetails(true);
+      return;
+    }
+    if (choice === "SALES_ORDER") {
+      if (items.length > 0) {
+        onNotification?.("Active Bill Preserved", "Hold or finish the current bill before opening Sales Studio. Its order workflow is separate from this invoice.", "info");
+        return;
+      }
+      if (!onOpenSalesDocuments) {
+        onNotification?.("Sales Order Workflow Unavailable", "Sales Studio is not available from this billing view.", "error");
+        return;
+      }
+      onNotification?.("Sales Order Workflow", "Opening Sales Studio. Sales orders are managed separately from the active billing invoice.", "info");
+      onOpenSalesDocuments();
+      return;
+    }
+
+    if (!onOpenPackingSlips) {
+      onNotification?.("Packing Slip Workflow Unavailable", "Packing Slip Studio is not available from this billing view.", "error");
+      return;
+    }
+    onNotification?.("Packing Slip Workflow", "Opening Packing Slip Studio. This workflow does not automatically add slip lines to the current invoice.", "info");
+    onOpenPackingSlips();
   };
 
   useEffect(() => {
@@ -686,7 +816,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   };
 
   // Direct Entry Row (F11) State
-  const [directEntry, setDirectEntry] = useState<{
+  type DirectEntry = {
     barcode: string;
     stockNo: string;
     itemDescription: string;
@@ -696,7 +826,8 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     discQty: string;
     discPercent: string;
     staff: string;
-  }>({
+  };
+  const [directEntry, setDirectEntry] = useState<DirectEntry>({
     barcode: "",
     stockNo: "",
     itemDescription: "",
@@ -707,6 +838,11 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     discPercent: "",
     staff: currentUser?.name || ""
   });
+  const [pendingScanConfirmation, setPendingScanConfirmation] = useState<{
+    entry: DirectEntry;
+    productName: string;
+    identifier: string;
+  } | null>(null);
 
   const salesStaffOptions = useMemo(() => {
     const options = new Map<string, string>();
@@ -754,6 +890,9 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   const [activeItemSearchField, setActiveItemSearchField] = useState<"stockNo" | "barcode">("stockNo");
   const [selectedItemProductMeta, setSelectedItemProductMeta] = useState<AutoPopulateProductResult | null>(null);
   const productDebounceRef = useRef<any>(null);
+  const productSearchGenerationRef = useRef(0);
+  const productSearchValueRef = useRef("");
+  const autoAddInFlightRef = useRef(false);
   const directBarcodeRef = useRef<HTMLInputElement>(null);
 
   // Product Resolution & Validation Modal States
@@ -2069,16 +2208,17 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       evalDate: new Date()
     });
 
-    setDirectEntry(prev => ({
-      ...prev,
+    const nextEntry = {
+      ...directEntry,
       stockNo: stockVal,
       barcode: barcodeVal,
       itemDescription: p.name || (p as any).itemDescription || (p as any).description || "",
       rate: rateVal,
-      discCode: bestPromo.promo ? bestPromo.promoCode : (prev.discCode || "ILD"),
-      discPercent: bestPromo.promo ? bestPromo.discountPct.toFixed(2) : (prev.discPercent || "0.00"),
-      discQty: prev.discQty || prev.qty || "1"
-    }));
+      discCode: bestPromo.promo ? bestPromo.promoCode : (directEntry.discCode || "ILD"),
+      discPercent: bestPromo.promo ? bestPromo.discountPct.toFixed(2) : (directEntry.discPercent || "0.00"),
+      discQty: directEntry.discQty || directEntry.qty || "1"
+    };
+    setDirectEntry(nextEntry);
     setSelectedItemProductMeta(p as AutoPopulateProductResult);
     setShowProductDropdown(false);
     setProductSearchError(null);
@@ -2088,10 +2228,13 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     setTimeout(() => {
       directStockNoRef.current?.focus();
     }, 10);
+    return nextEntry;
   };
 
   // Handle Direct Entry Barcode or Stock No Change & Real-Time Auto-Population
   const handleItemSearchChange = (val: string, fieldType: "stockNo" | "barcode") => {
+    const searchGeneration = ++productSearchGenerationRef.current;
+    productSearchValueRef.current = val;
     setActiveItemSearchField(fieldType);
     if (fieldType === "barcode") {
       setDirectEntry(prev => ({ ...prev, barcode: val }));
@@ -2103,6 +2246,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       setShowProductDropdown(false);
       setProductSuggestions([]);
       setProductSearchError(null);
+      setIsProductSearching(false);
       return;
     }
 
@@ -2111,15 +2255,20 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     if (productDebounceRef.current) clearTimeout(productDebounceRef.current);
     setIsProductSearching(true);
 
+    const query = val.trim();
     productDebounceRef.current = setTimeout(async () => {
       try {
         setProductSearchError(null);
-        const results = await searchBackendProducts(val, products);
+        const results = await searchBackendProducts(query, products);
+        if (
+          searchGeneration !== productSearchGenerationRef.current ||
+          productSearchValueRef.current.trim() !== query
+        ) return;
         setProductSuggestions(results);
         setProductSelectedIndex(0);
 
         // Immediate exact match check
-        const clean = val.trim().toLowerCase();
+        const clean = query.toLowerCase();
         const exact = results.find(p =>
           p.code.toLowerCase() === clean ||
           p.stockNo?.toLowerCase() === clean ||
@@ -2128,18 +2277,43 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
           p.id.toLowerCase() === clean
         );
         if (exact) {
-          applyProductAutoPopulate(exact);
+          const entry = applyProductAutoPopulate(exact);
+          const scanMode = billingTransactionPolicy?.configuration?.default_scan_mode;
+          if (scanMode === "AUTO_ADD" && !autoAddInFlightRef.current) {
+            autoAddInFlightRef.current = true;
+            void handleCommitDirectEntry(entry).finally(() => {
+              autoAddInFlightRef.current = false;
+            });
+          } else if (scanMode === "CONFIRM_PRODUCT") {
+            setPendingScanConfirmation({
+              entry,
+              productName: exact.name || (exact as any).itemDescription || query,
+              identifier: exact.barcode || exact.sku || exact.code || query,
+            });
+          }
         }
       } catch (err: any) {
+        if (searchGeneration !== productSearchGenerationRef.current) return;
         setProductSearchError(err?.message || "Product lookup error");
       } finally {
-        setIsProductSearching(false);
+        if (searchGeneration === productSearchGenerationRef.current) {
+          setIsProductSearching(false);
+        }
       }
     }, 120);
   };
 
   // Keyboard navigation for Item Typeahead in Distributor Invoicing
   const handleItemInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, fieldType: "stockNo" | "barcode") => {
+    if (e.key === "Enter") {
+      productSearchGenerationRef.current += 1;
+      productSearchValueRef.current = "";
+      if (autoAddInFlightRef.current) {
+        e.preventDefault();
+        return;
+      }
+    }
+
     if (showProductDropdown && productSuggestions.length > 0) {
       if (e.key === "ArrowDown") {
         e.preventDefault();
@@ -2173,7 +2347,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
 
   // Commit Direct Entry Item to Table
   const handleCommitDirectEntry = async (
-    entry: typeof directEntry = directEntry,
+    entry: DirectEntry = directEntry,
     options: {
       preserveEntry?: boolean;
       forceAppend?: boolean;
@@ -2236,6 +2410,9 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
             product_name: uniRes.item_name,
             sku: uniRes.variant_sku || uniRes.item_code,
             barcode: uniRes.barcode || rawCode,
+            article_no: uniRes.article_no || uniRes.articleNo || uniRes.style_code || uniRes.styleCode,
+            color: uniRes.color,
+            size: uniRes.size,
             selling_price: uniRes.selling_price,
             mrp: uniRes.mrp,
             cost_price: uniRes.cost_price,
@@ -2473,6 +2650,9 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
               stockNo: matched.sku || it.stockNo,
               barcode: matched.barcode || it.barcode,
               itemDescription: matched.product_name || it.itemDescription,
+              article: matched.article_no || matched.articleNo || matched.style_code || matched.styleCode || matched.article || matched.style || it.article,
+              color: matched.color || it.color,
+              size: matched.size || it.size,
               rate: computedLine.rate,
               qty: computedLine.qty,
               value: computedLine.value,
@@ -2596,6 +2776,8 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         isTaxInclusive: matched.isTaxInclusive ?? matched.is_tax_inclusive,
         mrp: Number(matched.mrp),
         brand: matched.brand,
+        article: matched.article_no || matched.articleNo || matched.style_code || matched.styleCode || matched.article || matched.style,
+        color: matched.color,
         size: matched.size,
         // Rec 7 — Price Level Badge: stamp the resolved level + source at scan time
         priceLevel: resolvedLevel as BillingLineItem["priceLevel"],
@@ -4323,6 +4505,124 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
 
             {/* Column 2: Transaction Parameters & Settings (5 cols) */}
             <div className={`${showMoreDetails ? "lg:col-span-5" : "lg:col-span-3"} flex flex-col gap-1`}>
+              {headerState.customer && (
+                <div className="mb-1 rounded-lg border border-slate-200 bg-slate-50 p-2 dark:border-slate-700 dark:bg-slate-900/60">
+                  <div className="mb-1.5 flex flex-wrap items-center justify-between gap-1">
+                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">Bill from</span>
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400">Choose the source document</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5 sm:flex sm:flex-wrap">
+                    {permittedSources.includes("DIRECT") && (
+                      <button
+                        type="button"
+                        aria-pressed={(headerState.billingSource || "DIRECT") === "DIRECT"}
+                        onClick={() => handleBillingSourceChoice("DIRECT")}
+                        disabled={isReadOnlyView}
+                        className={`min-h-9 rounded-md border px-2.5 text-xs font-semibold transition-colors disabled:opacity-50 ${
+                          (headerState.billingSource || "DIRECT") === "DIRECT"
+                            ? "border-blue-500 bg-blue-50 text-blue-800 dark:bg-blue-950/40 dark:text-blue-200"
+                            : "border-slate-300 bg-white text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                        }`}
+                      >
+                        Direct Invoice
+                      </button>
+                    )}
+                    {permittedSources.includes("CUSTOMER_PO") && (
+                      <button
+                        type="button"
+                        aria-pressed={headerState.billingSource === "CUSTOMER_PO"}
+                        onClick={() => handleBillingSourceChoice("CUSTOMER_PO")}
+                        disabled={isReadOnlyView}
+                        className={`min-h-9 rounded-md border px-2.5 text-xs font-semibold transition-colors disabled:opacity-50 ${
+                          headerState.billingSource === "CUSTOMER_PO"
+                            ? "border-blue-500 bg-blue-50 text-blue-800 dark:bg-blue-950/40 dark:text-blue-200"
+                            : "border-slate-300 bg-white text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                        }`}
+                      >
+                        Customer Purchase Order
+                      </button>
+                    )}
+                    {permittedSources.includes("SALES_ORDER") && (
+                      <button
+                        type="button"
+                        onClick={() => handleBillingSourceChoice("SALES_ORDER")}
+                        disabled={isReadOnlyView || !onOpenSalesDocuments}
+                        className="min-h-9 rounded-md border border-slate-300 bg-white px-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                        title="Open the separate Sales Studio order workflow"
+                      >
+                        Sales Order · Sales Studio
+                      </button>
+                    )}
+                    {permittedSources.includes("PACKING_SLIP_CONSOLIDATED") && (
+                      <button
+                        type="button"
+                        onClick={() => handleBillingSourceChoice("PACKING_SLIP")}
+                        disabled={isReadOnlyView || !onOpenPackingSlips}
+                        className="min-h-9 rounded-md border border-slate-300 bg-white px-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                        title="Open the separate Packing Slip workflow"
+                      >
+                        Packing Slip
+                      </button>
+                    )}
+                  </div>
+
+                  {headerState.billingSource === "CUSTOMER_PO" && (
+                    <label className="mt-2 block text-xs font-medium text-slate-700 dark:text-slate-200">
+                      Customer Purchase Order
+                      <select
+                        aria-label="Customer PO"
+                        data-testid="customer-po-select"
+                        value={headerState.customerPoId || ""}
+                        onChange={event => void selectCustomerPO(event.target.value)}
+                        className="mt-1 min-h-9 w-full rounded-md border border-slate-300 bg-white px-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                        disabled={isLoadingCustomerPOs || isReadOnlyView}
+                      >
+                        <option value="">
+                          {isLoadingCustomerPOs ? "Loading open customer POs…" : "-- Select a customer PO --"}
+                        </option>
+                        {customerPOs.map(po => (
+                          <option key={po.id} value={po.id}>
+                            {po.po_number} · {po.remaining_quantity} remaining
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
+
+                  {isStoreLocationRequired && (
+                    <label className="mt-2 block text-xs font-medium text-slate-700 dark:text-slate-200">
+                      Delivery Store Code <span className="text-rose-600">*</span>
+                      {customerDeliveryLocations.length > 1 ? (
+                        <select
+                          aria-label="Delivery Location"
+                          data-testid="delivery-location-select"
+                          value={headerState.deliveryLocationId || ""}
+                          onChange={event => handleDeliveryLocationChange(event.target.value)}
+                          disabled={isReadOnlyView}
+                          className="mt-1 min-h-9 w-full rounded-md border border-slate-300 bg-white px-2 text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                        >
+                          <option value="">-- Select store code --</option>
+                          {customerDeliveryLocations.map(location => (
+                            <option key={location.id} value={location.id}>
+                              {location.store_code} · {location.location_name}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span
+                          data-testid="delivery-store-code-display"
+                          className="mt-1 flex min-h-9 items-center rounded-md border border-slate-300 bg-slate-100 px-2 font-mono text-sm font-bold text-blue-800 dark:border-slate-700 dark:bg-slate-800 dark:text-blue-200"
+                        >
+                          {customerDeliveryLocations[0]
+                            ? `${customerDeliveryLocations[0].store_code} · ${customerDeliveryLocations[0].location_name}`
+                            : "No delivery store code available"}
+                        </span>
+                      )}
+                    </label>
+                  )}
+                </div>
+              )}
+
               <div className="flex items-center justify-between gap-2">
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
                   Billing details
@@ -4373,26 +4673,6 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
 
               {/* 2x2 Clean Grid of Select Dropdowns */}
               <div className={`${showMoreDetails ? "grid" : "hidden"} grid-cols-2 sm:grid-cols-4 gap-2`}>
-                {/* Billing Source */}
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Source</span>
-                  <select
-                    aria-label="Billing Source"
-                    value={headerState.billingSource || "DIRECT"}
-                    onChange={event => {
-                      const source = event.target.value as BillingHeaderState["billingSource"];
-                      setHeaderState(prev => ({ ...prev, billingSource: source, customerPoId: null, poReference: "" }));
-                      setSelectedCustomerPO(null);
-                    }}
-                    disabled={billingPolicyLoading || isReadOnlyView}
-                    className="bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg h-8 px-2 text-xs font-medium text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
-                  >
-                    {permittedSources.includes("DIRECT") && <option value="DIRECT">Direct Invoice</option>}
-                    {permittedSources.includes("CUSTOMER_PO") && <option value="CUSTOMER_PO">Customer PO</option>}
-                    {permittedSources.includes("SALES_ORDER") && <option value="SALES_ORDER" disabled>Sales Order (use order workflow)</option>}
-                  </select>
-                </div>
-
                 {/* Sales Channel */}
                 <div className="flex flex-col gap-0.5">
                   <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Channel</span>
@@ -4505,27 +4785,6 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
               {/* Expandable B2B & Supply Details Drawer */}
               {showMoreDetails && (
                 <div className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-700/60 flex flex-wrap gap-2 animate-in fade-in" data-testid="b2b-corporate-strip">
-                  {(headerState.billingSource === "CUSTOMER_PO" || transactionCustomerPolicy?.require_po_number) && (
-                    <div className="flex flex-col gap-0.5 flex-1 min-w-[200px]">
-                      <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Customer PO</span>
-                      <select
-                        aria-label="Customer PO"
-                        data-testid="customer-po-select"
-                        value={headerState.customerPoId || ""}
-                        onChange={event => void selectCustomerPO(event.target.value)}
-                        className="bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg h-8 px-2 text-xs font-medium text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        disabled={isLoadingCustomerPOs}
-                      >
-                        <option value="">{isLoadingCustomerPOs ? "Loading POs..." : "-- Select Customer PO --"}</option>
-                        {customerPOs.map(po => (
-                          <option key={po.id} value={po.id}>
-                            {po.po_number} · Remaining {po.remaining_quantity}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-
                   {/* Billed GST Registration */}
                   <div className="flex flex-col gap-0.5 flex-1 min-w-[200px]">
                     <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Billed GSTIN</span>
@@ -4575,46 +4834,6 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                       </div>
                     )}
                   </div>
-
-                  {/* Delivery Location if Required */}
-                  {isStoreLocationRequired && (
-                    <div data-testid="delivery-location-container" className="flex flex-col gap-0.5 flex-1 min-w-[200px]">
-                      <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Delivery Store *</span>
-                      {customerDeliveryLocations.length > 1 ? (
-                        <select
-                          aria-label="Delivery Location"
-                          data-testid="delivery-location-select"
-                          value={headerState.deliveryLocationId || ""}
-                          onChange={e => handleDeliveryLocationChange(e.target.value)}
-                          className="bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg h-8 px-2 text-xs font-medium text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        >
-                          <option value="">-- Select Delivery Store --</option>
-                          {customerDeliveryLocations.map(loc => (
-                            <option key={loc.id} value={loc.id}>
-                              [{loc.store_code}] {loc.location_name}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        <div className="h-8 px-2 flex items-center border border-slate-300 dark:border-slate-700 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-medium text-slate-700 dark:text-slate-300 truncate">
-                          {customerDeliveryLocations[0]?.location_name || "Main Retail Store"}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Store Code Badge */}
-                  {isStoreLocationRequired && (
-                    <div data-testid="delivery-store-code-container" className="flex flex-col gap-0.5 w-24">
-                      <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Store Code</span>
-                      <div 
-                        data-testid="delivery-store-code-display"
-                        className="h-8 px-2 flex items-center bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-mono font-bold text-blue-700 dark:text-blue-300"
-                      >
-                        {headerState.deliveryStoreCode || "—"}
-                      </div>
-                    </div>
-                  )}
 
                   {/* POS State */}
                   <div className="flex flex-col gap-0.5 w-20">
@@ -4682,12 +4901,47 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         <div className="flex-1 flex flex-col lg:flex-row gap-2.5 min-h-0 overflow-hidden">
           
           {/* ZONE C: LINE ITEMS GRID & DIRECT ENTRY (~74% width) */}
-          <section className="flex-1 bg-white dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-xl flex flex-col overflow-hidden shadow-xs min-h-0">
-            
+          <section className="relative flex-1 bg-white dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-xl flex flex-col overflow-hidden shadow-xs min-h-0">
+            <div className="flex items-center justify-between gap-2 px-3 py-1.5 border-b border-slate-200 dark:border-slate-700 shrink-0">
+              <span className="text-[10px] font-bold uppercase tracking-wide text-slate-600 dark:text-slate-300">Item Details</span>
+              <div className="relative">
+                <button
+                  type="button"
+                  aria-expanded={showGridColumnMenu}
+                  aria-controls="billing-grid-column-menu"
+                  onClick={() => setShowGridColumnMenu(open => !open)}
+                  className="inline-flex items-center gap-1 rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1 text-[10px] font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                >
+                  <Settings size={12} />
+                  Columns
+                </button>
+                {showGridColumnMenu && (
+                  <div
+                    id="billing-grid-column-menu"
+                    role="group"
+                    aria-label="Item grid columns"
+                    className="absolute right-0 top-full z-30 mt-1 min-w-40 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-2 shadow-lg"
+                  >
+                    {BILLING_GRID_COLUMNS.map(({ key, label }) => (
+                      <label key={key} className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-xs text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800">
+                        <input
+                          type="checkbox"
+                          checked={gridColumnVisibility[key]}
+                          onChange={() => toggleGridColumn(key)}
+                        />
+                        {label}
+                      </label>
+                    ))}
+                    <p className="px-2 pt-1 text-[9px] text-slate-400">Saved for this operator in this browser.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
             {/* Multi-attribute quick inspector ribbon */}
             {selectedItemProductMeta && (
-              <div className="bg-blue-50 dark:bg-blue-950/40 border-b border-blue-200 dark:border-blue-800 px-3 py-1.5 text-xs flex items-center justify-between text-blue-900 dark:text-cyan-200 shrink-0">
-                <div className="flex items-center gap-3 overflow-x-auto">
+              <div className="bg-blue-50 dark:bg-blue-950/40 border-b border-blue-200 dark:border-blue-800 px-3 py-2 text-xs flex items-start justify-between gap-2 text-blue-900 dark:text-cyan-200 shrink-0">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                   <span><strong>Barcode:</strong> {selectedItemProductMeta.barcode}</span>
                   <span>•</span>
                   <span><strong>Stock/SKU:</strong> {selectedItemProductMeta.stockNo || selectedItemProductMeta.sku}</span>
@@ -4714,13 +4968,131 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
               </div>
             )}
 
-            {/* Main Line Items Table */}
-            <div className="flex-1 overflow-x-auto overflow-y-auto min-h-0">
-              <table className="w-full text-left border-collapse min-w-[920px] tabular-nums">
+            {/* Responsive line-item cards for regular screens */}
+            <div className="flex-1 overflow-y-auto min-h-0 p-2 space-y-2 min-[2000px]:hidden">
+              {items.length === 0 ? (
+                <div className="flex min-h-24 items-center justify-center rounded-lg border border-dashed border-slate-300 dark:border-slate-700 px-4 py-6 text-center text-sm text-slate-600 dark:text-slate-300">
+                  {billingTransactionPolicy?.configuration?.default_scan_mode === "AUTO_ADD"
+                    ? "Scan a barcode or exact Stock No to add an item."
+                    : "Scan or enter a Stock No, then confirm the item to add it."}
+                </div>
+              ) : items.map((item, idx) => (
+                <article
+                  key={item.id}
+                  onClick={() => setSelectedRowIndex(idx)}
+                  onDoubleClick={() => handleRowDoubleClick(item, idx)}
+                  aria-selected={selectedRowIndex === idx}
+                  className={`rounded-lg border p-3 transition-colors ${
+                    editingLineId === item.id
+                      ? "border-blue-400 bg-blue-50 dark:border-blue-700 dark:bg-blue-950/50"
+                      : selectedRowIndex === idx
+                        ? "border-blue-300 bg-blue-50/60 dark:border-blue-800 dark:bg-blue-950/30"
+                        : "border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800/40"
+                  }`}
+                  title="Double-click to edit this line"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="mb-1 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                        Line {item.sNo} <span aria-hidden="true">·</span> <span className="font-mono break-all">{item.stockNo}</span>
+                      </div>
+                      <div className="break-words text-sm font-semibold leading-5 text-slate-900 dark:text-slate-100">
+                        {item.itemDescription}
+                        {item.priceLevel && (
+                          <span
+                            title={`Price Level: ${item.priceLevel} • Source: ${item.priceLevelSource ?? "COMPANY_POLICY"}`}
+                            className="ml-1.5 inline-flex items-center rounded bg-slate-100 px-1.5 py-0.5 align-middle text-[10px] font-bold text-slate-700 dark:bg-slate-700 dark:text-slate-200"
+                          >
+                            {item.priceLevel === "SELLING_PRICE" ? "SP" : item.priceLevel === "WHOLESALE_PRICE" ? "WS" : item.priceLevel === "PRICE_BOOK" ? "PB" : "MRP"}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    {!isReadOnlyView && (
+                      <button
+                        type="button"
+                        onClick={event => {
+                          event.stopPropagation();
+                          handleRemoveItem(item.id);
+                        }}
+                        aria-label={`Remove ${item.itemDescription}`}
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-slate-500 hover:bg-rose-50 hover:text-rose-600 dark:text-slate-300 dark:hover:bg-rose-950/40"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
+                  </div>
+
+                  {(gridColumnVisibility.barcode || gridColumnVisibility.article || gridColumnVisibility.color || gridColumnVisibility.size) && (
+                    <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 sm:grid-cols-4">
+                      {gridColumnVisibility.barcode && (
+                        <div className="min-w-0">
+                          <dt className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Barcode</dt>
+                          <dd className="break-all font-mono text-xs font-medium text-slate-800 dark:text-slate-100">{item.barcode || "—"}</dd>
+                        </div>
+                      )}
+                      {gridColumnVisibility.article && (
+                        <div className="min-w-0">
+                          <dt className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Article</dt>
+                          <dd className="break-words text-xs font-medium text-slate-800 dark:text-slate-100">{item.article || "—"}</dd>
+                        </div>
+                      )}
+                      {gridColumnVisibility.color && (
+                        <div className="min-w-0">
+                          <dt className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Color</dt>
+                          <dd className="break-words text-xs font-medium text-slate-800 dark:text-slate-100">{item.color || "—"}</dd>
+                        </div>
+                      )}
+                      {gridColumnVisibility.size && (
+                        <div className="min-w-0">
+                          <dt className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Size</dt>
+                          <dd className="break-words text-xs font-medium text-slate-800 dark:text-slate-100">{item.size || "—"}</dd>
+                        </div>
+                      )}
+                    </dl>
+                  )}
+
+                  <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 border-t border-slate-200 pt-2 sm:grid-cols-4 dark:border-slate-700">
+                    <div><dt className="text-[11px] text-slate-500 dark:text-slate-400">Rate</dt><dd className="font-mono text-xs font-medium text-slate-800 dark:text-slate-100">₹{Number(item.rate).toFixed(2)}</dd></div>
+                    <div><dt className="text-[11px] text-slate-500 dark:text-slate-400">Qty</dt><dd className="font-mono text-xs font-semibold text-slate-900 dark:text-slate-100">{item.qty}</dd></div>
+                    <div><dt className="text-[11px] text-slate-500 dark:text-slate-400">Gross</dt><dd className="font-mono text-xs text-slate-800 dark:text-slate-100">₹{Number(item.value).toFixed(2)}</dd></div>
+                    <div><dt className="text-[11px] text-slate-500 dark:text-slate-400">Discount</dt><dd className="font-mono text-xs text-rose-700 dark:text-rose-300">{item.discPercent ? `${item.discPercent}% · ₹${Number(item.discAmt).toFixed(2)}` : "—"}</dd></div>
+                    <div><dt className="text-[11px] text-slate-500 dark:text-slate-400">GST</dt><dd className="font-mono text-xs text-slate-700 dark:text-slate-300">{Number(item.gstPercentage ?? 0)}%</dd></div>
+                    <div className="sm:col-span-2"><dt className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Line Total</dt><dd className="font-mono text-sm font-bold text-blue-700 dark:text-blue-300">₹{Number(item.total).toFixed(2)}</dd></div>
+                    <div className="sm:col-span-4">
+                      <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400" htmlFor={`mobile-salesperson-${item.id}`}>Salesperson</label>
+                      <select
+                        id={`mobile-salesperson-${item.id}`}
+                        aria-label={`Salesperson for ${item.stockNo}`}
+                        value={item.salesStaff || ""}
+                        disabled={isReadOnlyView}
+                        onClick={event => event.stopPropagation()}
+                        onChange={event => {
+                          const salesperson = event.target.value;
+                          setItems(prev => prev.map(line => line.id === item.id ? { ...line, salesStaff: salesperson } : line));
+                        }}
+                        className="mt-1 min-h-9 w-full rounded-md border border-slate-300 bg-white px-2 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 disabled:opacity-70"
+                      >
+                        <option value="">Unassigned</option>
+                        {salesStaffOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                      </select>
+                    </div>
+                  </dl>
+                </article>
+              ))}
+            </div>
+
+            {/* Dense table for wide screens */}
+            <div className="hidden min-[2000px]:block flex-1 overflow-x-auto overflow-y-auto min-h-0">
+              <table className="w-full text-left border-collapse min-w-[1480px] tabular-nums">
                 <thead className="sticky top-0 bg-slate-50 dark:bg-slate-800/90 border-b border-slate-200 dark:border-slate-700 z-10 text-[10px] font-semibold text-slate-600 dark:text-slate-300">
                   <tr>
                     <th className="px-2 py-1.5 w-9 text-center">#</th>
                     <th className="px-2 py-1.5 w-[110px]">Stock No (F11)</th>
+                    {gridColumnVisibility.barcode && <th className="px-2 py-1.5 w-[130px]">Barcode</th>}
+                    {gridColumnVisibility.article && <th className="px-2 py-1.5 w-[110px]">Article</th>}
+                    {gridColumnVisibility.color && <th className="px-2 py-1.5 w-[80px]">Color</th>}
+                    {gridColumnVisibility.size && <th className="px-2 py-1.5 w-[60px]">Size</th>}
                     <th className="px-2.5 py-1.5">Item Description</th>
                     <th className="px-2 py-1.5 w-[82px] text-right">Rate (₹)</th>
                     <th className="px-2 py-1.5 w-[62px] text-right">Qty</th>
@@ -4757,6 +5129,18 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                       <td className="px-2 py-1 font-mono font-semibold text-blue-700 dark:text-blue-300">
                         {item.stockNo}
                       </td>
+                      {gridColumnVisibility.barcode && (
+                        <td className="px-2 py-1 font-mono text-slate-600 dark:text-slate-400">{item.barcode || "—"}</td>
+                      )}
+                      {gridColumnVisibility.article && (
+                        <td className="px-2 py-1 font-mono text-slate-600 dark:text-slate-400">{item.article || "—"}</td>
+                      )}
+                      {gridColumnVisibility.color && (
+                        <td className="px-2 py-1 text-slate-600 dark:text-slate-400">{item.color || "—"}</td>
+                      )}
+                      {gridColumnVisibility.size && (
+                        <td className="px-2 py-1 text-slate-600 dark:text-slate-400">{item.size || "—"}</td>
+                      )}
                       <td className="px-2.5 py-1 truncate max-w-xs font-medium text-slate-800 dark:text-slate-100">
                         <span>{item.itemDescription}</span>
                         {item.priceLevel && (
@@ -4846,8 +5230,12 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                       <td className="px-2 py-1 text-center text-slate-400 text-[10px]">
                         {items.length + i + 1}
                       </td>
-                      <td colSpan={11} className="px-2.5 py-1 text-slate-400/60 italic text-[11px]">
-                        {items.length === 0 && i === 0 ? "Scan barcode or enter Stock No below to add items..." : ""}
+                      <td colSpan={11 + BILLING_GRID_COLUMNS.filter(({ key }) => gridColumnVisibility[key]).length} className="px-2.5 py-1 text-slate-400/60 italic text-[11px]">
+                        {items.length === 0 && i === 0
+                          ? billingTransactionPolicy?.configuration?.default_scan_mode === "AUTO_ADD"
+                            ? "Scan a barcode or exact Stock No to add items automatically..."
+                            : "Scan or enter a Stock No, then confirm the item to add it..."
+                          : ""}
                       </td>
                     </tr>
                   ))}
@@ -4939,7 +5327,18 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                       if (productSuggestions.length > 0) setShowProductDropdown(true);
                     }}
                     onKeyDown={e => handleItemInputKeyDown(e, "stockNo")}
-                    placeholder="Stock / Barcode"
+                    placeholder={
+                      billingTransactionPolicy?.configuration?.default_scan_mode === "AUTO_ADD"
+                        ? "Scan barcode / Stock No (auto-add)"
+                        : "Scan / enter Stock No"
+                    }
+                    title={
+                      billingTransactionPolicy?.configuration?.default_scan_mode === "AUTO_ADD"
+                        ? "Exact barcode, SKU, or Stock No matches are added automatically. Partial or unknown matches are not."
+                        : billingTransactionPolicy?.configuration?.default_scan_mode === "CONFIRM_PRODUCT"
+                          ? "Exact matches require confirmation before they are added. Partial or unknown matches are not added."
+                          : "Exact matches populate the item row. Press Enter to add; partial or unknown matches are not added."
+                    }
                     className="w-full border border-slate-300 dark:border-slate-700 h-8 font-mono text-xs rounded-lg px-2 bg-white dark:bg-slate-800 font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   />
                   {activeItemSearchField === "stockNo" && (
@@ -5823,6 +6222,67 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         terminalId={(currentUser as any)?.terminalId || "COMMON"}
         companyCode={(currentUser as any)?.companyCode || currentUser?.companyId || "SMRITI"}
       />
+
+      {pendingScanConfirmation && (
+        <div className="fixed inset-0 bg-scrim/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="scan-confirmation-title"
+            className="bg-surface border border-outline-variant rounded-lg shadow-xl w-full max-w-md overflow-hidden"
+          >
+            <div className="px-4 py-3 border-b border-outline-variant flex items-center gap-2">
+              <Barcode size={17} className="text-primary" />
+              <h3 id="scan-confirmation-title" className="font-bold text-sm text-on-surface">Confirm Scanned Item</h3>
+            </div>
+            <div className="p-5 space-y-2">
+              <p className="text-sm font-semibold text-on-surface">{pendingScanConfirmation.productName}</p>
+              <p className="text-xs text-on-surface-variant">Code: {pendingScanConfirmation.identifier}</p>
+              <p className="text-xs text-on-surface-variant">Add this item to the invoice grid?</p>
+            </div>
+            <div className="px-4 py-3 border-t border-outline-variant flex justify-end gap-2">
+              <button
+                type="button"
+                disabled={isResolvingProduct}
+                onClick={() => {
+                  setPendingScanConfirmation(null);
+                  setDirectEntry(prev => ({
+                    ...prev,
+                    barcode: "",
+                    stockNo: "",
+                    itemDescription: "",
+                    rate: "",
+                    qty: "1",
+                    discCode: "",
+                    discQty: "",
+                    discPercent: "",
+                  }));
+                  setSelectedItemProductMeta(null);
+                  setShowProductDropdown(false);
+                  setTimeout(() => directStockNoRef.current?.focus(), 0);
+                }}
+                className="px-3 py-1.5 rounded border border-outline-variant text-xs font-semibold text-on-surface hover:bg-surface-container-high disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isResolvingProduct}
+                onClick={() => {
+                  const pending = pendingScanConfirmation;
+                  if (!pending) return;
+                  void handleCommitDirectEntry(pending.entry).then(added => {
+                    if (added) setPendingScanConfirmation(null);
+                  });
+                }}
+                className="px-3 py-1.5 rounded bg-primary text-on-primary text-xs font-bold hover:bg-primary-container disabled:opacity-50"
+              >
+                {isResolvingProduct ? "Adding…" : "Add to Grid"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 9. Global Product Resolution: Product Not Found Modal */}
       {productNotFoundState.isOpen && (
