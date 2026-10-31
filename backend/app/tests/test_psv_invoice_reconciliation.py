@@ -30,11 +30,42 @@ from app.models.item_master import Item, ItemBarcode, ItemVariant
 from app.models.sales import SalesInvoice, SalesInvoiceItem
 from app.core.security import create_access_token, hash_password
 from app.api.deps import TenantContext, get_db, get_company_db, get_tenant_context, get_current_user
-from app.services.psv_projection import PSVProjectionService
+from app.services.psv_projection import PSVProjectionService, _registered_barcodes_for_line
 from app.schemas.psv import (
     PSVReceiveInvoiceReq,
     PSVReceiveInvoiceLineReq,
 )
+
+
+def test_variant_barcode_lookup_excludes_style_level_codes():
+    product = Product(
+        item_id="style-1",
+        item_variant_id="variant-1",
+        barcode="variant-primary",
+        secondary_barcodes=["variant-alias"],
+    )
+
+    barcodes = _registered_barcodes_for_line(
+        product,
+        "style-1",
+        "variant-1",
+        {"style-1": ["sibling-size-barcode"]},
+        {"variant-1": ["variant-registered"]},
+    )
+
+    assert barcodes == {"VARIANT-PRIMARY", "VARIANT-ALIAS", "VARIANT-REGISTERED"}
+
+
+def test_item_barcode_lookup_is_used_when_invoice_has_no_variant():
+    barcodes = _registered_barcodes_for_line(
+        None,
+        "style-1",
+        None,
+        {"style-1": ["style-barcode"]},
+        {},
+    )
+
+    assert barcodes == {"STYLE-BARCODE"}
 
 
 async def _setup_reconciliation_env(db_session):
@@ -309,7 +340,7 @@ async def test_barcode_receipt_verification_and_evidence(db_session):
     )
     assert set(reconciliation.items[0].barcodes) == {
         env["prod"].barcode,
-        canonical_barcode.barcode,
+        canonical_barcode.barcode.upper(),
     }
 
     scanned_barcode = canonical_barcode.barcode
@@ -339,6 +370,61 @@ async def test_barcode_receipt_verification_and_evidence(db_session):
     assert "CANON-" in receipt_event.approval_reason
     assert "DOCK-RECEIPT-01" in receipt_event.approval_reason
     assert "Counted at receiving dock" in receipt_event.approval_reason
+
+
+@pytest.mark.asyncio
+async def test_confirmed_barcode_prefill_is_recorded_separately_from_scans(db_session):
+    from fastapi import HTTPException
+
+    env = await _setup_reconciliation_env(db_session)
+    result = await PSVProjectionService.record_invoice_receipt(
+        session=db_session,
+        company_id=env["company"].id,
+        user_id=env["staff"].id,
+        user_role="SALES_EXECUTIVE",
+        req=PSVReceiveInvoiceReq(
+            invoice_id=env["invoice"].id,
+            receipt_reference="PREFILL-RECEIPT-01",
+            items=[
+                PSVReceiveInvoiceLineReq(
+                    invoice_line_id=str(env["inv_item"].id),
+                    received_qty=Decimal("2"),
+                    prefilled_barcode_counts={env["prod"].barcode: 2},
+                )
+            ],
+        ),
+        commit=True,
+    )
+    assert result.pending_count == 1
+    receipt_event = (await db_session.execute(
+        select(PSVStockEvent).where(PSVStockEvent.event_id == result.event_ids[0])
+    )).scalar_one()
+    assert "receiver-confirmed barcode prefill (not physically scanned)" in receipt_event.approval_reason
+    assert env["prod"].barcode.upper() in receipt_event.approval_reason
+
+    for barcode_counts, quantity in (
+        ({"UNREGISTERED-PREFILL": 1}, Decimal("1")),
+        ({env["prod"].barcode: 2}, Decimal("1")),
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            await PSVProjectionService.record_invoice_receipt(
+                session=db_session,
+                company_id=env["company"].id,
+                user_id=env["staff"].id,
+                user_role="SALES_EXECUTIVE",
+                req=PSVReceiveInvoiceReq(
+                    invoice_id=env["invoice"].id,
+                    items=[
+                        PSVReceiveInvoiceLineReq(
+                            invoice_line_id=str(env["inv_item"].id),
+                            received_qty=quantity,
+                            prefilled_barcode_counts=barcode_counts,
+                        )
+                    ],
+                ),
+                commit=False,
+            )
+        assert exc_info.value.status_code == 400
 
 
 @pytest.mark.asyncio
@@ -392,7 +478,7 @@ async def test_registered_barcode_is_required_for_receipt(db_session):
             commit=False,
         )
     assert exc_info.value.status_code == 400
-    assert "Scan a registered barcode" in exc_info.value.detail
+    assert "Scan or confirm a registered barcode prefill" in exc_info.value.detail
 
 
 @pytest.mark.asyncio

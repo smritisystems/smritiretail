@@ -26,7 +26,7 @@
  *
  * UX Revision 3.17.0 — PSV Sales Tax Invoice Quantity Reconciliation & Goods Receiving.
  * Integrates Document Qty, Physically Received Qty, Pending Approval Qty, Approved Qty,
- * Shortage Qty, Excess Qty, and Quality Rejections across Catalog Dimensions (Style/Article, Color, Size, SKU).
+ * Shortage Qty, Excess Qty, and Quality Rejections across Catalog Dimensions (Style/Article, Color, Size, Item).
  */
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
@@ -70,6 +70,8 @@ interface PSVReceiptLineDraft {
   rejection_reason: string;
   sku_confirmation: string;
   scans: PSVReceiptScan[];
+  prefilledBarcode: string;
+  barcodePrefillConfirmed: boolean;
   hasScanCorrection: boolean;
   scanCorrectionReason: string;
 }
@@ -84,6 +86,7 @@ interface PSVReceiptInvoiceLinePayload {
   rejected_qty: number;
   rejection_reason?: string;
   scanned_barcode_counts: Record<string, number>;
+  prefilled_barcode_counts: Record<string, number>;
 }
 
 function emptyReceiptDraft(): PSVReceiptLineDraft {
@@ -93,13 +96,27 @@ function emptyReceiptDraft(): PSVReceiptLineDraft {
     rejection_reason: "",
     sku_confirmation: "",
     scans: [],
+    prefilledBarcode: "",
+    barcodePrefillConfirmed: false,
     hasScanCorrection: false,
     scanCorrectionReason: "",
   };
 }
 
+function getPsvItemDisplayName(item: PSVQuantityReconciliationItem | null | undefined): string {
+  if (!item) return "Invoice item";
+  const productName = item.product_name.trim();
+  const itemCode = item.sku.trim();
+  if (!itemCode || !productName.toUpperCase().endsWith(itemCode.toUpperCase())) {
+    return productName || "Invoice item";
+  }
+  return productName.slice(0, -itemCode.length).replace(/[\s|·:–—-]+$/, "").trim() || "Invoice item";
+}
+
 type PSVReceiptMode = "prefill" | "csv" | "scan";
+type PSVReceiptDisplayMode = "compact" | "wide" | "fullscreen";
 const MAX_CSV_BARCODE_UNITS = 10000;
+type PSVReceiptColumn = "article" | "color" | "size" | "scanned" | "rejected" | "reason" | "verification";
 
 function parseCsv(text: string): string[][] {
   const rows: string[][] = [];
@@ -308,7 +325,7 @@ function MetricTile({
 }
 
 /* ─────────────────────────────────────────────────────────
-   SUB-COMPONENT — SKU Row
+   SUB-COMPONENT — Item Row
 ───────────────────────────────────────────────────────── */
 function SkuRow({ sku }: { sku: PSVPartySkuTracking }) {
   const lying = computeSkuLyingWithPartner(sku);
@@ -346,7 +363,11 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
     currentUser?.role === "ADMIN";
 
   // Sub-Tab: "overview" (Distributor stock) vs "reconciliation" (Invoice & Receiving Reconciliation)
-  const [activeSubTab, setActiveSubTab] = useState<"overview" | "reconciliation">("overview");
+  const [activeSubTab, setActiveSubTab] = useState<"overview" | "reconciliation">(() =>
+    typeof window !== "undefined" && new URLSearchParams(window.location.search).has("psv_receive_invoice")
+      ? "reconciliation"
+      : "overview"
+  );
 
   const [selectedPartyId, setSelectedPartyId] = useState<string>(
     psvParties[0]?.id || ""
@@ -365,6 +386,7 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
 
   // Receive Modal State
   const [receiveModalOpen, setReceiveModalOpen] = useState<boolean>(false);
+  const [receiveDisplayMode, setReceiveDisplayMode] = useState<PSVReceiptDisplayMode>("compact");
   const [receiveInvoiceItems, setReceiveInvoiceItems] = useState<PSVQuantityReconciliationItem[]>([]);
   const [isLoadingReceiveInvoice, setIsLoadingReceiveInvoice] = useState(false);
   const [selectedItemForReceive, setSelectedItemForReceive] = useState<PSVQuantityReconciliationItem | null>(null);
@@ -378,6 +400,24 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
   const [useBarcodeScanning, setUseBarcodeScanning] = useState(false);
   const [skuConfirmation, setSkuConfirmation] = useState("");
   const [receiptLineDrafts, setReceiptLineDrafts] = useState<Record<string, PSVReceiptLineDraft>>({});
+  const [expandedBarcodeLineIds, setExpandedBarcodeLineIds] = useState<Record<string, boolean>>({});
+  const [barcodeEntryValues, setBarcodeEntryValues] = useState<Record<string, string>>({});
+  const [barcodeEntryErrors, setBarcodeEntryErrors] = useState<Record<string, string>>({});
+  const [additionalScanRows, setAdditionalScanRows] = useState<string[]>([]);
+  const [additionalScanValues, setAdditionalScanValues] = useState<Record<string, string>>({});
+  const [additionalScanErrors, setAdditionalScanErrors] = useState<Record<string, string>>({});
+  const [showReceiptColumnsMenu, setShowReceiptColumnsMenu] = useState(false);
+  const [receiptColumnVisibility, setReceiptColumnVisibility] = useState<Record<PSVReceiptColumn, boolean>>({
+    article: true,
+    color: true,
+    size: true,
+    scanned: true,
+    rejected: true,
+    reason: true,
+    verification: true,
+  });
+  const [shadowStockExpanded, setShadowStockExpanded] = useState(true);
+  const additionalScanRowSequence = useRef(0);
   const [receiveMode, setReceiveMode] = useState<PSVReceiptMode>("prefill");
   const [scanDisposition, setScanDisposition] = useState<"accepted" | "rejected">("accepted");
   const [csvImportError, setCsvImportError] = useState<string | null>(null);
@@ -385,6 +425,12 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
   const [receiveValidationError, setReceiveValidationError] = useState<string | null>(null);
   const csvInputRef = useRef<HTMLInputElement>(null);
   const barcodeInputRef = useRef<HTMLInputElement>(null);
+  const popoutInvoiceId = useRef<string | null>(
+    typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search).get("psv_receive_invoice")
+      : null
+  );
+  const popoutInvoiceHandled = useRef(false);
 
   // Form Fields for Receive Modal
   const [receiveForm, setReceiveForm] = useState({
@@ -413,6 +459,22 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
   }, [psvParties, selectedPartyId]);
 
   const activeParty = psvParties.find((p) => p.id === selectedPartyId);
+  const receivingParty = psvParties.find((party) => party.id === receiveForm.party_id);
+  const receiveShadowStockRows = receiveInvoiceItems.map((item) => ({
+    item,
+    tracking: receivingParty?.skuTracking?.find(
+      (row) => row.sku.trim().toUpperCase() === item.sku.trim().toUpperCase()
+    ),
+  }));
+  const receiptColumnOptions: Array<{ key: PSVReceiptColumn; label: string }> = [
+    { key: "article", label: "Article" },
+    { key: "color", label: "Color" },
+    { key: "size", label: "Size" },
+    { key: "scanned", label: "Scanned" },
+    { key: "rejected", label: "Rejected" },
+    { key: "reason", label: "Rejection reason" },
+    { key: "verification", label: "Verification" },
+  ];
   const getReceiptDraft = (item: PSVQuantityReconciliationItem) =>
     receiptLineDrafts[item.invoice_line_id] ?? emptyReceiptDraft();
   const getScannedCounts = (draft: PSVReceiptLineDraft) =>
@@ -521,6 +583,7 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
 
   // Open receiving for the entire invoice so all lines can be reconciled in one transaction.
   const openReceiveModal = async (item: PSVQuantityReconciliationItem) => {
+    setReceiveDisplayMode("compact");
     setReceiveForm({
       invoice_id: item.invoice_id,
       invoice_no: item.invoice_no,
@@ -535,6 +598,23 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
     });
     setReceiveInvoiceItems([]);
     setReceiptLineDrafts({});
+    setExpandedBarcodeLineIds({});
+    setBarcodeEntryValues({});
+    setBarcodeEntryErrors({});
+    setAdditionalScanRows([]);
+    setAdditionalScanValues({});
+    setAdditionalScanErrors({});
+    setReceiptColumnVisibility({
+      article: true,
+      color: true,
+      size: true,
+      scanned: true,
+      rejected: true,
+      reason: true,
+      verification: true,
+    });
+    setShadowStockExpanded(true);
+    setShowReceiptColumnsMenu(false);
     setReceiveMode("prefill");
     setScanDisposition("accepted");
     setBarcodeInput("");
@@ -557,7 +637,11 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
       }
       setReceiveInvoiceItems(invoiceItems);
       setReceiptLineDrafts(Object.fromEntries(
-        invoiceItems.map((line) => [line.invoice_line_id, emptyReceiptDraft()])
+        invoiceItems.map((line) => [line.invoice_line_id, {
+          ...emptyReceiptDraft(),
+          received_qty: getRemainingQty(line),
+          prefilledBarcode: line.barcodes?.[0] ?? "",
+        }])
       ));
     } catch (error: any) {
       console.error("[PSV] Failed to load invoice lines for bulk receiving:", error);
@@ -567,35 +651,118 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
     }
   };
 
-  const handleBarcodeScan = (event: React.KeyboardEvent<HTMLInputElement>) => {
-    if (event.key !== "Enter") return;
-    event.preventDefault();
-    const barcode = barcodeInput.trim().toUpperCase();
-    if (!barcode) return;
+  const openReceiveInNewWindow = () => {
+    const url = new URL(window.location.pathname, window.location.origin);
+    url.searchParams.set("tab", "psv");
+    url.searchParams.set("psv_receive_invoice", receiveForm.invoice_id);
+    const popup = window.open(
+      url.toString(),
+      "_blank",
+      "popup,width=1440,height=960,resizable=yes,scrollbars=yes"
+    );
+    if (!popup) {
+      setReceiveValidationError("The new window was blocked. Allow pop-ups for this site and try again.");
+      return;
+    }
+    popup.focus();
+  };
+
+  useEffect(() => {
+    const invoiceId = popoutInvoiceId.current;
+    if (!invoiceId || popoutInvoiceHandled.current) return;
+    popoutInvoiceHandled.current = true;
+
+    const openInvoice = async () => {
+      try {
+        const response = await apiFetchV1<PSVQuantityReconciliationResponse>("/psv/reconciliation", {
+          params: { invoice_id: invoiceId, limit: 1000 },
+        });
+        const item = response.items.find((line) => line.invoice_id === invoiceId);
+        if (!item) throw new Error("The requested invoice could not be found for receiving.");
+        await openReceiveModal(item);
+      } catch (error: any) {
+        console.error("[PSV] Failed to open invoice receiving in a new window:", error);
+        window.alert(error.message || "Failed to open invoice receiving.");
+      } finally {
+        const url = new URL(window.location.href);
+        url.searchParams.delete("psv_receive_invoice");
+        window.history.replaceState(window.history.state, "", url);
+      }
+    };
+
+    void openInvoice();
+  }, []);
+
+  const recordInvoiceBarcodeScan = (value: string, preferredLineId?: string) => {
+    const barcode = value.trim().toUpperCase();
+    if (!barcode) return false;
     const matches = receiveInvoiceItems.filter((item) =>
+      (!preferredLineId || item.invoice_line_id === preferredLineId) &&
       (item.barcodes ?? []).some((knownBarcode) => knownBarcode.trim().toUpperCase() === barcode)
     );
     const distinctSkus = new Set(matches.map((item) => item.sku.trim().toUpperCase()));
     if (matches.length === 0 || distinctSkus.size > 1) {
       setBarcodeScanError(
-        distinctSkus.size > 1
-          ? "This barcode matches multiple invoice lines. Ask a manager to resolve the duplicate barcode."
-          : "This barcode does not match an item on this invoice."
+        preferredLineId
+          ? "This barcode is not registered to this invoice item."
+          : distinctSkus.size > 1
+            ? "This barcode matches multiple invoice lines. Ask a manager to resolve the duplicate barcode."
+            : "This barcode does not match an item on this invoice."
       );
-      setBarcodeInput("");
-      return;
+      return false;
     }
-    const matchedItem = matches.find((item) => {
+    const scanEligibleMatches = matches.filter((item) => !getReceiptDraft(item).barcodePrefillConfirmed);
+    if (!scanEligibleMatches.length) {
+      setBarcodeScanError("Clear the confirmed barcode prefill before scanning this item.");
+      return false;
+    }
+    const matchedItem = scanEligibleMatches.find((item) => {
       const currentScans = receiptLineDrafts[item.invoice_line_id]?.scans.length ?? 0;
       return currentScans < getRemainingQty(item);
-    }) ?? matches[0];
+    }) ?? scanEligibleMatches[0];
     updateReceiptDraft(matchedItem.invoice_line_id, (draft) => ({
       ...draft,
       scans: [...draft.scans, { barcode, disposition: scanDisposition }],
     }));
     setBarcodeScanError(null);
     setReceiveValidationError(null);
-    setBarcodeInput("");
+    return true;
+  };
+
+  const handleBarcodeScan = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    if (recordInvoiceBarcodeScan(barcodeInput)) setBarcodeInput("");
+  };
+
+  const handleLineBarcodeScan = (
+    event: React.KeyboardEvent<HTMLInputElement>,
+    item: PSVQuantityReconciliationItem
+  ) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    const value = barcodeEntryValues[item.invoice_line_id] ?? "";
+    if (recordInvoiceBarcodeScan(value, item.invoice_line_id)) {
+      setBarcodeEntryValues((values) => ({ ...values, [item.invoice_line_id]: "" }));
+      setBarcodeEntryErrors((errors) => ({ ...errors, [item.invoice_line_id]: "" }));
+    } else {
+      setBarcodeEntryErrors((errors) => ({
+        ...errors,
+        [item.invoice_line_id]: "Code not registered to this item.",
+      }));
+    }
+  };
+
+  const handleAdditionalBarcodeScan = (rowId: string, value: string) => {
+    if (recordInvoiceBarcodeScan(value)) {
+      setAdditionalScanValues((values) => ({ ...values, [rowId]: "" }));
+      setAdditionalScanErrors((errors) => ({ ...errors, [rowId]: "" }));
+    } else {
+      setAdditionalScanErrors((errors) => ({
+        ...errors,
+        [rowId]: "Scan a barcode registered to an item on this invoice.",
+      }));
+    }
   };
 
   const undoInvoiceBarcodeScan = (item: PSVQuantityReconciliationItem, barcode: string) => {
@@ -646,6 +813,28 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
         received_qty: draft.scans.length > 0
           ? scannedAcceptedQty
           : Math.max(0, getRemainingQty(item) - draft.rejected_qty),
+      }];
+    })));
+    setReceiveValidationError(null);
+  };
+
+  const prefillRegisteredBarcodes = () => {
+    setReceiptLineDrafts((drafts) => Object.fromEntries(receiveInvoiceItems.map((item) => {
+      const draft = drafts[item.invoice_line_id] ?? emptyReceiptDraft();
+      const registeredBarcodes = item.barcodes ?? [];
+      const selectedBarcode = registeredBarcodes.some(
+        (barcode) => barcode.trim().toUpperCase() === draft.prefilledBarcode.trim().toUpperCase()
+      )
+        ? draft.prefilledBarcode
+        : registeredBarcodes[0] ?? "";
+      if (!registeredBarcodes.length || draft.scans.length || !selectedBarcode) {
+        return [item.invoice_line_id, draft];
+      }
+      return [item.invoice_line_id, {
+        ...draft,
+        received_qty: Math.max(0, getRemainingQty(item) - draft.rejected_qty),
+        prefilledBarcode: selectedBarcode,
+        barcodePrefillConfirmed: true,
       }];
     })));
     setReceiveValidationError(null);
@@ -706,7 +895,7 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
       }
       if (!headers.includes("barcode") &&
         !(headers.includes("invoice_line_id") && headers.includes("sku_confirmation"))) {
-        throw new Error('CSV must include a "barcode" column or invoice_line_id with sku_confirmation for SKU-only items.');
+        throw new Error('CSV must include a "barcode" column or invoice_line_id with product-code confirmation for items without a registered barcode.');
       }
       const column = Object.fromEntries(headers.map((header, index) => [header, index]));
       const byLineId = new Map(receiveInvoiceItems.map((item) => [item.invoice_line_id, item]));
@@ -738,7 +927,7 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
           let item = lineId ? byLineId.get(lineId) : undefined;
           if (lineId && !item) throw new Error(`Row ${rowNumber}: unknown invoice line ID.`);
           if (item && sku && sku.toUpperCase() !== item.sku.trim().toUpperCase()) {
-            throw new Error(`Row ${rowNumber}: SKU does not match invoice line ${item.sku}.`);
+            throw new Error(`Row ${rowNumber}: item code does not match the selected invoice line.`);
           }
 
           if (barcode) {
@@ -755,17 +944,17 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
               throw new Error(`Row ${rowNumber}: barcode is not registered to an invoice item.`);
             }
             if (distinctSkus.size > 1) {
-              throw new Error(`Row ${rowNumber}: barcode matches multiple invoice SKUs; include invoice_line_id after resolving the duplicate.`);
+              throw new Error(`Row ${rowNumber}: barcode matches multiple invoice items; include invoice_line_id after resolving the duplicate.`);
             }
             item = matchingCandidates.find((candidate) =>
               importedDrafts[candidate.invoice_line_id].scans.length < getRemainingQty(candidate)
             ) ?? matchingCandidates[0];
             if (!item) throw new Error(`Row ${rowNumber}: barcode could not be matched to an invoice line.`);
             if (sku && sku.toUpperCase() !== item.sku.trim().toUpperCase()) {
-              throw new Error(`Row ${rowNumber}: SKU does not match the registered barcode's invoice item.`);
+              throw new Error(`Row ${rowNumber}: item code does not match the registered barcode's invoice item.`);
             }
             if (valueAt(row, "received_qty") || valueAt(row, "rejected_qty")) {
-              throw new Error(`Row ${rowNumber}: use qty with a barcode; received_qty/rejected_qty are only for SKU-only items.`);
+              throw new Error(`Row ${rowNumber}: use qty with a barcode; received_qty/rejected_qty are only for items without registered barcodes.`);
             }
             const quantityHeader = headers.includes("qty") ? "qty" : "quantity";
             const quantityValue = valueAt(row, quantityHeader);
@@ -826,7 +1015,7 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
             }
             importedBarcodeUnits += quantity;
           } else {
-            if (!item) throw new Error(`Row ${rowNumber}: invoice_line_id is required for a SKU-only invoice line.`);
+            if (!item) throw new Error(`Row ${rowNumber}: invoice_line_id is required for an item without a registered barcode.`);
             if ((item.barcodes ?? []).length > 0) {
               if (valueAt(row, "received_qty") || valueAt(row, "rejected_qty") || valueAt(row, "qty") || valueAt(row, "quantity")) {
                 throw new Error(`Row ${rowNumber}: barcode-enabled items require a registered barcode for each received unit.`);
@@ -841,11 +1030,11 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
             }
             const draft = importedDrafts[item.invoice_line_id];
             if (seenManualLines.has(lineId)) {
-              throw new Error(`Row ${rowNumber}: SKU-only invoice lines must appear once in the CSV.`);
+              throw new Error(`Row ${rowNumber}: items without a registered barcode must appear once in the CSV.`);
             }
             seenManualLines.add(lineId);
             if (valueAt(row, "sku_confirmation").toUpperCase() !== item.sku.trim().toUpperCase()) {
-              throw new Error(`Row ${rowNumber}: enter the exact invoice SKU in sku_confirmation.`);
+              throw new Error(`Row ${rowNumber}: enter the exact product code in sku_confirmation.`);
             }
             draft.sku_confirmation = valueAt(row, "sku_confirmation");
             draft.received_qty = parseQuantity(valueAt(row, "received_qty"), `Row ${rowNumber} received_qty`);
@@ -899,42 +1088,58 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
       const totalQty = receivedQty + rejectedQty;
       if (totalQty <= 0) return;
       if (registeredBarcodes.length > 0) {
-        if (!draft.scans.length) {
-          validationErrors.push(`${item.sku}: scan each received/rejected unit using its registered barcode.`);
-          return;
-        }
-        const scannedAcceptedQty = draft.scans.filter((scan) => scan.disposition === "accepted").length;
-        if (draft.received_qty !== scannedAcceptedQty) {
-          validationErrors.push(`${item.sku}: accepted quantity must match the accepted barcode scans (${scannedAcceptedQty}).`);
-          return;
-        }
-        const invalidBarcode = draft.scans.find((scan) =>
-          !registeredBarcodes.some((known) => known.trim().toUpperCase() === scan.barcode)
-        );
-        if (invalidBarcode) {
-          validationErrors.push(`${item.sku}: a scanned barcode is not registered to this invoice item.`);
-          return;
-        }
-        if (draft.scans.length !== totalQty) {
-          validationErrors.push(`${item.sku}: scan total must equal accepted plus rejected quantity.`);
+        if (draft.scans.length > 0) {
+          const scannedAcceptedQty = draft.scans.filter((scan) => scan.disposition === "accepted").length;
+          if (draft.received_qty !== scannedAcceptedQty) {
+            validationErrors.push(`${getPsvItemDisplayName(item)}: accepted quantity must match the accepted barcode scans (${scannedAcceptedQty}).`);
+            return;
+          }
+          const scannedRejectedQty = draft.scans.filter((scan) => scan.disposition === "rejected").length;
+          if (draft.rejected_qty !== scannedRejectedQty) {
+            validationErrors.push(`${getPsvItemDisplayName(item)}: rejected quantity must match the rejected barcode scans (${scannedRejectedQty}).`);
+            return;
+          }
+          const invalidBarcode = draft.scans.find((scan) =>
+            !registeredBarcodes.some((known) => known.trim().toUpperCase() === scan.barcode)
+          );
+          if (invalidBarcode) {
+            validationErrors.push(`${getPsvItemDisplayName(item)}: a scanned barcode is not registered to this invoice item.`);
+            return;
+          }
+          if (draft.scans.length !== totalQty) {
+            validationErrors.push(`${getPsvItemDisplayName(item)}: scan total must equal accepted plus rejected quantity.`);
+            return;
+          }
+        } else if (draft.barcodePrefillConfirmed) {
+          if (!registeredBarcodes.some(
+            (barcode) => barcode.trim().toUpperCase() === draft.prefilledBarcode.trim().toUpperCase()
+          )) {
+            validationErrors.push(`${getPsvItemDisplayName(item)}: select a registered barcode before confirming its prefill.`);
+            return;
+          }
+        } else {
+          validationErrors.push(`${getPsvItemDisplayName(item)}: scan the units or confirm a registered barcode prefill.`);
           return;
         }
       } else if (draft.sku_confirmation.trim().toUpperCase() !== item.sku.trim().toUpperCase()) {
-        validationErrors.push(`${item.sku}: confirm the exact invoice SKU before recording quantities.`);
+        validationErrors.push(`${getPsvItemDisplayName(item)}: confirm the product code before recording quantities.`);
         return;
       }
       if (draft.hasScanCorrection && !draft.scanCorrectionReason.trim()) {
-        validationErrors.push(`${item.sku}: explain why a barcode scan was undone.`);
+        validationErrors.push(`${getPsvItemDisplayName(item)}: explain why a scan was undone.`);
         return;
       }
       if (rejectedQty > 0 && !draft.rejection_reason.trim()) {
-        validationErrors.push(`${item.sku}: select a rejection reason.`);
+        validationErrors.push(`${getPsvItemDisplayName(item)}: select a rejection reason.`);
         return;
       }
       if (totalQty !== getRemainingQty(item)) hasQuantityDiscrepancy = true;
       const barcodeCounts = getScannedCounts(draft);
+      const prefilledBarcodeCounts = draft.barcodePrefillConfirmed && draft.scans.length === 0
+        ? { [draft.prefilledBarcode.trim().toUpperCase()]: totalQty }
+        : {};
       if (draft.scanCorrectionReason.trim()) {
-        correctionNotes.push(`${item.sku}: ${draft.scanCorrectionReason.trim()}`);
+        correctionNotes.push(`${getPsvItemDisplayName(item)}: ${draft.scanCorrectionReason.trim()}`);
       }
       payloadItems.push({
         invoice_line_id: item.invoice_line_id,
@@ -946,6 +1151,7 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
         rejected_qty: rejectedQty,
         rejection_reason: draft.rejection_reason || undefined,
         scanned_barcode_counts: barcodeCounts,
+        prefilled_barcode_counts: prefilledBarcodeCounts,
       });
       receivedTotal += receivedQty;
       rejectedTotal += rejectedQty;
@@ -1124,9 +1330,26 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
       </div>
 
       {receiveModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-3 sm:p-5">
-          <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl w-full max-w-7xl max-h-[94vh] shadow-2xl overflow-hidden flex flex-col">
-            <div className="p-4 border-b border-theme-divider flex items-center justify-between bg-theme-surface-2">
+        <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm ${receiveDisplayMode === "fullscreen" ? "p-0" : "p-2 sm:p-4"}`}>
+          <div
+            className={`bg-theme-surface-1 border border-theme-divider shadow-2xl overflow-hidden flex flex-col ${
+              receiveDisplayMode === "fullscreen" ? "rounded-none" : "rounded-xl"
+            }`}
+            style={{
+              width: receiveDisplayMode === "fullscreen"
+                ? "100vw"
+                : receiveDisplayMode === "wide" ? "min(98vw, 92rem)" : "min(94vw, 72rem)",
+              height: receiveDisplayMode === "fullscreen"
+                ? "100vh"
+                : receiveDisplayMode === "wide" ? "min(94vh, 62rem)" : "min(88vh, 52rem)",
+              minWidth: "min(20rem, 100vw)",
+              minHeight: "min(18rem, 100vh)",
+              maxWidth: "100vw",
+              maxHeight: "100vh",
+              resize: receiveDisplayMode === "fullscreen" ? "none" : "both",
+            }}
+          >
+            <div className="px-4 py-3 border-b border-theme-divider flex items-center justify-between gap-3 bg-theme-surface-2">
               <div>
                 <h4 className="font-bold text-base text-theme-body flex items-center gap-2">
                   <span>📥</span> Bulk Invoice Item Receiving
@@ -1136,20 +1359,62 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
                   {" · "}{receiveInvoiceItems.length} items
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => setReceiveModalOpen(false)}
-                className="text-theme-muted hover:text-theme-body p-1 rounded-lg hover:bg-theme-surface-3 text-sm"
-                aria-label="Close bulk receiving"
-              >
-                ✕
-              </button>
+              <div className="flex shrink-0 items-center gap-1">
+                <span className="hidden text-[9px] text-theme-muted lg:inline">Drag corner to resize</span>
+                <button
+                  type="button"
+                  onClick={() => setReceiveDisplayMode("compact")}
+                  className={`rounded-md px-2 py-1.5 text-[10px] font-medium ${receiveDisplayMode === "compact" ? "bg-blue-600 text-white" : "text-theme-muted hover:bg-theme-surface-3 hover:text-theme-body"}`}
+                  aria-label="Use compact receiving window"
+                  aria-pressed={receiveDisplayMode === "compact"}
+                  title="Compact size"
+                >
+                  Compact
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setReceiveDisplayMode("wide")}
+                  className={`rounded-md px-2 py-1.5 text-[10px] font-medium ${receiveDisplayMode === "wide" ? "bg-blue-600 text-white" : "text-theme-muted hover:bg-theme-surface-3 hover:text-theme-body"}`}
+                  aria-label="Use wide receiving window"
+                  aria-pressed={receiveDisplayMode === "wide"}
+                  title="Wide size"
+                >
+                  Wide
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setReceiveDisplayMode(receiveDisplayMode === "fullscreen" ? "wide" : "fullscreen")}
+                  className="rounded-md p-1.5 text-theme-muted hover:bg-theme-surface-3 hover:text-theme-body"
+                  aria-label={receiveDisplayMode === "fullscreen" ? "Exit full screen" : "Open full screen"}
+                  title={receiveDisplayMode === "fullscreen" ? "Exit full screen" : "Full screen"}
+                >
+                  {receiveDisplayMode === "fullscreen" ? "⊡" : "⛶"}
+                </button>
+                <button
+                  type="button"
+                  onClick={openReceiveInNewWindow}
+                  className="rounded-md p-1.5 text-theme-muted hover:bg-theme-surface-3 hover:text-theme-body"
+                  aria-label="Open receiving in a new window"
+                  title="Open in a new window"
+                >
+                  ↗
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setReceiveModalOpen(false)}
+                  className="rounded-md p-1.5 text-theme-muted hover:bg-theme-surface-3 hover:text-theme-body"
+                  aria-label="Close bulk receiving"
+                  title="Close"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
 
             {isLoadingReceiveInvoice ? (
-              <div className="p-12 text-center text-sm text-theme-muted animate-pulse">Loading all invoice items…</div>
+              <div className="flex-1 p-12 text-center text-sm text-theme-muted animate-pulse">Loading all invoice items…</div>
             ) : (
-              <form onSubmit={handleReceiveSubmit} className="p-4 sm:p-5 space-y-4 overflow-y-auto">
+              <form onSubmit={handleReceiveSubmit} className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3 sm:p-4">
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
                   <div className="rounded-lg border border-theme-divider bg-theme-surface-2 p-2">
                     <span className="block text-[9px] uppercase text-theme-muted">Invoice Lines</span>
@@ -1162,7 +1427,7 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
                     </strong>
                   </div>
                   <div className="rounded-lg border border-theme-divider bg-theme-surface-2 p-2">
-                    <span className="block text-[9px] uppercase text-theme-muted">SKU Fallback</span>
+                    <span className="block text-[9px] uppercase text-theme-muted">Label Check</span>
                     <strong className="text-sm text-amber-300">
                       {receiveInvoiceItems.filter((item) => (item.barcodes ?? []).length === 0).length}
                     </strong>
@@ -1172,7 +1437,9 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
                     <strong className="text-sm text-emerald-300">
                       {receiveInvoiceItems.filter((item) => {
                         const draft = getReceiptDraft(item);
-                        return getLineQuantity(draft, "accepted") + getLineQuantity(draft, "rejected") > 0;
+                        return (item.barcodes ?? []).length > 0
+                          ? draft.scans.length > 0 || draft.barcodePrefillConfirmed
+                          : draft.received_qty + draft.rejected_qty > 0;
                       }).length}
                     </strong>
                   </div>
@@ -1203,22 +1470,18 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
                 </div>
 
                 {receiveMode === "prefill" && (
-                  <section className="rounded-xl border border-blue-500/30 bg-blue-950/10 p-3 space-y-2">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div>
-                        <h5 className="text-xs font-semibold text-theme-body">Prefill remaining invoice quantities</h5>
-                        <p className="text-[10px] text-theme-muted mt-1">
-                          Accepted quantity is prefilled to the invoice balance and editable. Barcode items still require matching scans; scans are the receipt evidence.
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={prefillRemainingQuantities}
-                        className="rounded-lg bg-blue-600 px-3 py-2 text-[10px] font-semibold text-white hover:bg-blue-500"
-                      >
-                        Prefill accepted quantity for all lines
-                      </button>
-                    </div>
+                  <section className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-blue-500/25 bg-blue-500/10 px-3 py-2 text-[10px] text-blue-100">
+                    <p className="min-w-[220px] flex-1">
+                      Accepted quantity is prefilled to the invoice balance and editable. Choose barcode prefill to confirm the exact registered code without scanning; it is recorded as receiver-confirmed, not as a physical scan.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={prefillRegisteredBarcodes}
+                      disabled={!receiveInvoiceItems.some((item) => (item.barcodes ?? []).length > 0)}
+                      className="rounded-md border border-blue-300/30 bg-blue-500/20 px-3 py-1.5 font-semibold text-blue-100 hover:bg-blue-500/30 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Prefill barcodes + balance
+                    </button>
                   </section>
                 )}
 
@@ -1228,7 +1491,7 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
                       <div>
                         <h5 className="text-xs font-semibold text-theme-body">Import receiving CSV</h5>
                         <p className="text-[10px] text-theme-muted mt-1">
-                          Barcode-only: one barcode per row counts as one accepted unit. Add qty/quantity to count multiple units; disposition is optional (defaults to accepted). Rejected units need a reason. SKU-only lines need exact SKU confirmation and quantities.
+                          Barcode-only: one code per row counts as one accepted unit. Add qty/quantity to count multiple units; disposition defaults to accepted. Rejected units need a reason. Items without a registered barcode need product-label confirmation and quantities.
                         </p>
                       </div>
                       <div className="flex gap-2">
@@ -1304,16 +1567,84 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
                   </section>
                 )}
 
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const rowId = `extra-scan-${additionalScanRowSequence.current++}`;
+                        setAdditionalScanRows((rows) => [...rows, rowId]);
+                        setAdditionalScanValues((values) => ({ ...values, [rowId]: "" }));
+                        setReceiveMode("prefill");
+                      }}
+                      className="rounded-lg border border-theme-divider bg-theme-surface-2 px-3 py-2 text-[10px] font-semibold text-theme-body hover:bg-theme-surface-3"
+                    >
+                      + Add Row
+                    </button>
+                    <button
+                      type="button"
+                      onClick={prefillRemainingQuantities}
+                      className="rounded-lg border border-theme-divider bg-theme-surface-2 px-3 py-2 text-[10px] font-semibold text-theme-body hover:bg-theme-surface-3"
+                    >
+                      ↔ Auto Fill Balance
+                    </button>
+                    <label className="flex items-center gap-1.5 rounded-lg border border-theme-divider bg-theme-surface-2 px-2.5 py-2 text-[10px] text-theme-body">
+                      Scan as
+                      <select
+                        value={scanDisposition}
+                        onChange={(event) => setScanDisposition(event.target.value as "accepted" | "rejected")}
+                        className="bg-transparent font-semibold focus:outline-none"
+                      >
+                        <option value="accepted">Accepted</option>
+                        <option value="rejected">Rejected</option>
+                      </select>
+                    </label>
+                  </div>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setShowReceiptColumnsMenu((show) => !show)}
+                      aria-expanded={showReceiptColumnsMenu}
+                      className="rounded-lg border border-theme-divider bg-theme-surface-2 px-3 py-2 text-[10px] font-semibold text-theme-body hover:bg-theme-surface-3"
+                    >
+                      ⚙ Columns⌄
+                    </button>
+                    {showReceiptColumnsMenu && (
+                      <div className="absolute right-0 top-full z-20 mt-1 min-w-44 rounded-lg border border-theme-divider bg-theme-surface-1 p-2 shadow-xl">
+                        {receiptColumnOptions.map(({ key, label }) => (
+                          <label key={key} className="flex cursor-pointer items-center gap-2 px-2 py-1.5 text-[10px] text-theme-body hover:bg-theme-surface-2">
+                            <input
+                              type="checkbox"
+                              checked={receiptColumnVisibility[key]}
+                              onChange={(event) => setReceiptColumnVisibility((visibility) => ({
+                                ...visibility,
+                                [key]: event.target.checked,
+                              }))}
+                            />
+                            {label}
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_250px]">
                 <div className="overflow-x-auto rounded-xl border border-theme-divider">
-                  <table className="w-full min-w-[980px] text-left text-xs">
+                  <table className="w-full min-w-[1120px] text-left text-xs">
                     <thead className="bg-theme-surface-2">
-                      <tr>
-                        <th className="px-3 py-2 text-[10px] uppercase text-theme-muted">Invoice Item</th>
-                        <th className="px-3 py-2 text-right text-[10px] uppercase text-theme-muted">Due</th>
-                        <th className="px-3 py-2 text-[10px] uppercase text-theme-muted">Verification</th>
-                        <th className="px-3 py-2 text-right text-[10px] uppercase text-theme-muted">Accepted</th>
-                        <th className="px-3 py-2 text-right text-[10px] uppercase text-theme-muted">Rejected</th>
-                        <th className="px-3 py-2 text-[10px] uppercase text-theme-muted">Rejection reason</th>
+                      <tr className="border-b border-theme-divider">
+                        <th className="px-2 py-2 text-[10px] uppercase text-theme-muted">#</th>
+                        <th className="px-2 py-2 text-[10px] uppercase text-theme-muted">Barcode <span className="text-rose-400">*</span></th>
+                        {receiptColumnVisibility.article && <th className="px-2 py-2 text-[10px] uppercase text-theme-muted">Article</th>}
+                        {receiptColumnVisibility.color && <th className="px-2 py-2 text-[10px] uppercase text-theme-muted">Color</th>}
+                        {receiptColumnVisibility.size && <th className="px-2 py-2 text-[10px] uppercase text-theme-muted">Size</th>}
+                        <th className="px-2 py-2 text-right text-[10px] uppercase text-theme-muted">Due</th>
+                        {receiptColumnVisibility.scanned &&                         <th className="px-2 py-2 text-right text-[10px] uppercase text-theme-muted">Scan / prefill</th>}
+                        <th className="px-2 py-2 text-right text-[10px] uppercase text-theme-muted">Accepted</th>
+                        {receiptColumnVisibility.rejected && <th className="px-2 py-2 text-right text-[10px] uppercase text-theme-muted">Rejected</th>}
+                        {receiptColumnVisibility.reason && <th className="px-2 py-2 text-[10px] uppercase text-theme-muted">Rejection reason</th>}
+                        {receiptColumnVisibility.verification && <th className="px-2 py-2 text-[10px] uppercase text-theme-muted">Verification</th>}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-theme-divider/50">
@@ -1323,47 +1654,146 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
                         const acceptedQty = getLineQuantity(draft, "accepted");
                         const rejectedQty = getLineQuantity(draft, "rejected");
                         const barcodeCounts = getScannedCounts(draft);
+                        const scannedAcceptedQty = draft.scans.filter((scan) => scan.disposition === "accepted").length;
+                        const scannedRejectedQty = draft.scans.filter((scan) => scan.disposition === "rejected").length;
+                        const prefillMatches = draft.barcodePrefillConfirmed && barcodes.some(
+                          (barcode) => barcode.trim().toUpperCase() === draft.prefilledBarcode.trim().toUpperCase()
+                        );
+                        const verificationMatches = barcodes.length > 0
+                          ? prefillMatches || (
+                            draft.scans.length > 0 &&
+                            draft.received_qty === scannedAcceptedQty &&
+                            draft.rejected_qty === scannedRejectedQty
+                          )
+                          : draft.sku_confirmation.trim().toUpperCase() === item.sku.trim().toUpperCase();
                         return (
                           <tr key={item.invoice_line_id} className="align-top">
                             <td className="px-3 py-3">
-                              <div className="font-semibold text-theme-body">{item.product_name}</div>
-                              <div className="mt-1 text-[10px] text-theme-muted">
-                                {barcodes.length > 0 ? (
-                                  <span className="font-mono text-blue-300">
-                                    Barcode{barcodes.length > 1 ? "s" : ""}: {barcodes.join(", ")}
-                                  </span>
-                                ) : (
-                                  <span className="font-mono">No barcode registered · SKU: {item.sku}</span>
-                                )}
-                                {item.color ? ` · ${item.color}` : ""}
-                                {item.size ? ` · ${item.size}` : ""}
-                              </div>
+                              <span className="font-mono text-theme-muted">{receiveInvoiceItems.indexOf(item) + 1}</span>
                             </td>
-                            <td className="px-3 py-3 text-right font-mono">
-                              <div className="text-theme-body">{getRemainingQty(item)}</div>
-                              <div className="text-[9px] text-theme-muted">of {item.document_qty}</div>
-                            </td>
-                            <td className="px-3 py-3">
+                            <td className="px-2 py-2">
                               {barcodes.length > 0 ? (
-                                <div className="space-y-1">
-                                  <span className="text-[10px] font-semibold text-blue-300">Barcode required</span>
+                                <div className="min-w-36 space-y-1">
+                                  <input
+                                    type="text"
+                                    inputMode="none"
+                                    autoComplete="off"
+                                    value={barcodeEntryValues[item.invoice_line_id] ?? ""}
+                                    onChange={(event) => {
+                                      setBarcodeEntryValues((values) => ({
+                                        ...values,
+                                        [item.invoice_line_id]: event.target.value,
+                                      }));
+                                      setBarcodeEntryErrors((errors) => ({
+                                        ...errors,
+                                        [item.invoice_line_id]: "",
+                                      }));
+                                    }}
+                                    onKeyDown={(event) => handleLineBarcodeScan(event, item)}
+                                    placeholder={draft.barcodePrefillConfirmed ? "Clear prefill to scan" : "Scan / Enter"}
+                                    aria-label={`Scan barcode for ${getPsvItemDisplayName(item)}`}
+                                    disabled={draft.barcodePrefillConfirmed}
+                                    className="w-full rounded-md border border-theme-divider bg-theme-surface-2 px-2 py-2 font-mono text-[10px] text-theme-body focus:border-blue-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                                  />
+                                  {barcodeEntryErrors[item.invoice_line_id] && (
+                                    <span role="alert" className="block text-[9px] text-rose-300">
+                                      {barcodeEntryErrors[item.invoice_line_id]}
+                                    </span>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => setExpandedBarcodeLineIds((expanded) => ({
+                                      ...expanded,
+                                      [item.invoice_line_id]: !expanded[item.invoice_line_id],
+                                    }))}
+                                    aria-expanded={Boolean(expandedBarcodeLineIds[item.invoice_line_id])}
+                                    className="block text-[10px] text-blue-300 underline underline-offset-2 hover:text-blue-200"
+                                  >
+                                    {expandedBarcodeLineIds[item.invoice_line_id]
+                                      ? "Hide codes"
+                                      : barcodes.length === 1 ? "View barcode" : "View barcode choices"}
+                                  </button>
+                                  <select
+                                    value={draft.prefilledBarcode}
+                                    disabled={draft.scans.length > 0}
+                                    onChange={(event) => updateReceiptDraft(item.invoice_line_id, (current) => ({
+                                      ...current,
+                                      prefilledBarcode: event.target.value,
+                                      barcodePrefillConfirmed: false,
+                                    }))}
+                                    aria-label={`Choose barcode to prefill for ${getPsvItemDisplayName(item)}`}
+                                    className="w-full rounded-md border border-theme-divider bg-theme-surface-2 px-2 py-1.5 font-mono text-[9px] text-theme-body disabled:opacity-50"
+                                  >
+                                    {barcodes.map((barcode, index) => (
+                                      <option key={`${item.invoice_line_id}-prefill-${index}`} value={barcode}>
+                                        {barcode}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <button
+                                    type="button"
+                                    disabled={draft.scans.length > 0}
+                                    onClick={() => updateReceiptDraft(item.invoice_line_id, (current) => ({
+                                      ...current,
+                                      barcodePrefillConfirmed: !current.barcodePrefillConfirmed,
+                                    }))}
+                                    className={`rounded px-2 py-1 text-[9px] font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${
+                                      draft.barcodePrefillConfirmed
+                                        ? "border border-amber-500/30 text-amber-300 hover:bg-amber-500/10"
+                                        : "border border-blue-500/30 text-blue-300 hover:bg-blue-500/10"
+                                    }`}
+                                  >
+                                    {draft.barcodePrefillConfirmed ? "Clear prefill" : "Confirm barcode prefill"}
+                                  </button>
+                                  {draft.barcodePrefillConfirmed && (
+                                    <span className="block rounded bg-amber-500/10 px-2 py-1 text-[9px] text-amber-200">
+                                      Confirmed, not physically scanned
+                                    </span>
+                                  )}
+                                  {expandedBarcodeLineIds[item.invoice_line_id] && (
+                                    <div className="max-h-24 overflow-y-auto rounded border border-theme-divider bg-theme-surface-2 p-2">
+                                      <div className="mb-1 text-[9px] text-theme-muted">
+                                        Alternative registered codes for this item; select the code shown on the goods.
+                                      </div>
+                                      {barcodes.map((barcode, index) => {
+                                        const normalizedBarcode = barcode.trim().toUpperCase();
+                                        const scannedCount = barcodeCounts[normalizedBarcode] ?? 0;
+                                        return (
+                                          <div
+                                            key={`${item.invoice_line_id}-${barcode}-${index}`}
+                                            className="flex items-center justify-between gap-2 font-mono text-[10px] text-theme-body"
+                                          >
+                                            <span>{barcode}</span>
+                                            {scannedCount > 0 && (
+                                              <span className="shrink-0 text-emerald-300">{scannedCount} scanned</span>
+                                            )}
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
                                   {draft.scans.length > 0 ? (
                                     <div className="max-w-[360px] space-y-1">
-                                      {Object.entries(barcodeCounts).map(([barcode, count]) => (
-                                        <div key={barcode} className="flex items-center justify-between gap-2">
-                                          <span className="font-mono text-[10px] text-theme-body">{barcode} × {count}</span>
+                                      {Object.entries(barcodeCounts).map(([barcode, count], index) => (
+                                        <div key={`${item.invoice_line_id}-${index}`} className="flex items-center justify-between gap-2">
+                                          <span className="text-[10px] text-theme-body">Barcode scan {index + 1} × {count}</span>
                                           <button
                                             type="button"
                                             onClick={() => undoInvoiceBarcodeScan(item, barcode)}
                                             className="rounded border border-rose-500/30 px-2 py-1 text-[9px] text-rose-300 hover:bg-rose-500/10"
+                                            aria-label={`Undo one barcode scan for ${getPsvItemDisplayName(item)}`}
                                           >
                                             Undo one
                                           </button>
                                         </div>
                                       ))}
                                     </div>
+                                  ) : draft.barcodePrefillConfirmed ? (
+                                    <span className="block text-[10px] text-amber-200">
+                                      {draft.prefilledBarcode} × {acceptedQty + rejectedQty} · prefilled, not scanned
+                                    </span>
                                   ) : (
-                                    <span className="block text-[10px] text-theme-muted">No units scanned yet</span>
+                                    <span className="block text-[10px] text-theme-muted">No units scanned or prefilled</span>
                                   )}
                                   {draft.hasScanCorrection && (
                                     <input
@@ -1380,32 +1810,40 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
                                   )}
                                 </div>
                               ) : (
-                                <div className="space-y-1">
-                                  <span className="text-[10px] font-semibold text-amber-300">No barcode registered · SKU check</span>
+                                <div className="min-w-36 space-y-1">
                                   <input
-                                    type="text"
+                                    type="password"
                                     value={draft.sku_confirmation}
                                     onChange={(event) => updateReceiptDraft(item.invoice_line_id, (current) => ({
                                       ...current,
                                       sku_confirmation: event.target.value,
                                     }))}
-                                    placeholder={`Confirm ${item.sku}`}
-                                    aria-label={`Confirm invoice SKU ${item.sku}`}
-                                    className="w-full rounded border border-theme-divider bg-theme-surface-2 px-2 py-1.5 font-mono text-[10px] text-theme-body"
+                                    placeholder="Scan or enter product code from the label"
+                                    aria-label={`Confirm product label code for ${getPsvItemDisplayName(item)}`}
+                                    autoComplete="off"
+                                    className="w-full rounded-md border border-theme-divider bg-theme-surface-2 px-2 py-2 font-mono text-[10px] text-theme-body"
                                   />
-                                  {draft.sku_confirmation && (
-                                    <span className={`text-[9px] ${
-                                      draft.sku_confirmation.trim().toUpperCase() === item.sku.trim().toUpperCase()
-                                        ? "text-emerald-300" : "text-rose-300"
-                                    }`}>
-                                      {draft.sku_confirmation.trim().toUpperCase() === item.sku.trim().toUpperCase()
-                                        ? "SKU confirmed" : "SKU does not match"}
-                                    </span>
-                                  )}
                                 </div>
                               )}
                             </td>
-                            <td className="px-3 py-3 text-right">
+                            {receiptColumnVisibility.article && (
+                              <td className="px-2 py-3 font-mono text-[10px] text-theme-body">
+                                {item.style_code && item.style_code.trim().toUpperCase() !== item.sku.trim().toUpperCase()
+                                  ? item.style_code
+                                  : getPsvItemDisplayName(item)}
+                              </td>
+                            )}
+                            {receiptColumnVisibility.color && <td className="px-2 py-3 text-[10px] text-theme-body">{item.color || "—"}</td>}
+                            {receiptColumnVisibility.size && <td className="px-2 py-3 text-[10px] text-theme-body">{item.size || "—"}</td>}
+                            <td className="px-2 py-3 text-right font-mono text-theme-body">{getRemainingQty(item)}</td>
+                            {receiptColumnVisibility.scanned && (
+                              <td className={`px-2 py-3 text-right font-mono font-semibold ${draft.barcodePrefillConfirmed ? "text-amber-300" : "text-blue-300"}`}>
+                                {barcodes.length > 0
+                                  ? draft.scans.length > 0 ? draft.scans.length : draft.barcodePrefillConfirmed ? `${acceptedQty + rejectedQty} pref.` : "—"
+                                  : "—"}
+                              </td>
+                            )}
+                            <td className="px-2 py-2 text-right">
                               <input
                                 type="number"
                                 min="0"
@@ -1415,19 +1853,12 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
                                   ...current,
                                   received_qty: Math.max(0, Number(event.target.value) || 0),
                                 }))}
-                                className="w-24 rounded border border-theme-divider bg-theme-surface-2 px-2 py-1.5 text-right font-mono text-emerald-300"
-                                aria-label={`Accepted quantity for ${item.sku}`}
+                                className="w-20 rounded-md border border-emerald-500/30 bg-theme-surface-2 px-2 py-2 text-right font-mono font-semibold text-emerald-300"
+                                aria-label={`Accepted quantity for ${getPsvItemDisplayName(item)}`}
                               />
-                              {barcodes.length > 0 && (
-                                <span className="mt-1 block text-[9px] text-theme-muted">
-                                  Verified scans: {acceptedQty}
-                                </span>
-                              )}
                             </td>
-                            <td className="px-3 py-3 text-right">
-                              {barcodes.length > 0 ? (
-                                <span className="font-mono font-semibold text-rose-300">{rejectedQty}</span>
-                              ) : (
+                            {receiptColumnVisibility.rejected && (
+                              <td className="px-2 py-2 text-right">
                                 <input
                                   type="number"
                                   min="0"
@@ -1437,37 +1868,145 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
                                     ...current,
                                     rejected_qty: Math.max(0, Number(event.target.value) || 0),
                                   }))}
-                                  className="w-24 rounded border border-theme-divider bg-theme-surface-2 px-2 py-1.5 text-right font-mono text-rose-300"
-                                  aria-label={`Rejected quantity for ${item.sku}`}
+                                  className="w-20 rounded-md border border-theme-divider bg-theme-surface-2 px-2 py-2 text-right font-mono text-rose-300"
+                                  aria-label={`Rejected quantity for ${getPsvItemDisplayName(item)}`}
                                 />
-                              )}
-                            </td>
-                            <td className="px-3 py-3">
-                              {rejectedQty > 0 ? (
-                                <select
-                                  value={draft.rejection_reason}
-                                  onChange={(event) => updateReceiptDraft(item.invoice_line_id, (current) => ({
-                                    ...current,
-                                    rejection_reason: event.target.value,
-                                  }))}
-                                  className="w-52 rounded border border-theme-divider bg-theme-surface-2 px-2 py-1.5 text-[10px] text-theme-body"
-                                  required
-                                >
-                                  <option value="">Select reason…</option>
-                                  <option value="Packaging Torn / Crushed">Transit damage</option>
-                                  <option value="Fabric Stained / Soiled">Fabric stained / soiled</option>
-                                  <option value="Stitching / Button Defect">Manufacturing defect</option>
-                                  <option value="Barcode Label Missing / Unreadable">Barcode label issue</option>
-                                  <option value="Wrong Size / Color Variant Delivered">Wrong size / color</option>
-                                  <option value="Other / Audit Hold">Other / audit hold</option>
-                                </select>
-                              ) : <span className="text-theme-muted">—</span>}
-                            </td>
+                              </td>
+                            )}
+                            {receiptColumnVisibility.reason && (
+                              <td className="px-2 py-2">
+                                {draft.rejected_qty > 0 ? (
+                                  <select
+                                    value={draft.rejection_reason}
+                                    onChange={(event) => updateReceiptDraft(item.invoice_line_id, (current) => ({
+                                      ...current,
+                                      rejection_reason: event.target.value,
+                                    }))}
+                                    className="w-36 rounded-md border border-theme-divider bg-theme-surface-2 px-2 py-2 text-[10px] text-theme-body"
+                                    required
+                                  >
+                                    <option value="">Select reason</option>
+                                    <option value="Packaging Torn / Crushed">Transit damage</option>
+                                    <option value="Fabric Stained / Soiled">Fabric stained / soiled</option>
+                                    <option value="Stitching / Button Defect">Manufacturing defect</option>
+                                    <option value="Barcode Label Missing / Unreadable">Barcode label issue</option>
+                                    <option value="Wrong Size / Color Variant Delivered">Wrong size / color</option>
+                                    <option value="Other / Audit Hold">Other / audit hold</option>
+                                  </select>
+                                ) : <span className="text-theme-muted">—</span>}
+                              </td>
+                            )}
+                            {receiptColumnVisibility.verification && (
+                              <td className="px-2 py-3">
+                                {barcodes.length > 0 ? (
+                                  <span className={`inline-flex items-center gap-1 text-[10px] font-semibold ${verificationMatches ? "text-emerald-400" : "text-amber-400"}`}>
+                                    <span>{verificationMatches ? "✓" : "!"}</span>
+                                    <span>
+                                      {prefillMatches
+                                        ? "Prefilled · not scanned"
+                                        : verificationMatches ? "Scanned" : draft.scans.length ? "Check counts" : "Barcode required"}
+                                    </span>
+                                  </span>
+                                ) : (
+                                  <span className={`inline-flex items-center gap-1 text-[10px] font-semibold ${verificationMatches ? "text-emerald-400" : "text-amber-400"}`}>
+                                    <span>{verificationMatches ? "✓" : "!"}</span>
+                                    <span>{verificationMatches ? "Label verified" : "Label check required"}</span>
+                                  </span>
+                                )}
+                              </td>
+                            )}
                           </tr>
                         );
                       })}
+                      {additionalScanRows.map((rowId) => (
+                        <tr key={rowId} className="bg-blue-500/5">
+                          <td className="px-2 py-2 text-[10px] text-theme-muted">+</td>
+                          <td className="px-2 py-2">
+                            <input
+                              type="text"
+                              inputMode="none"
+                              autoComplete="off"
+                              value={additionalScanValues[rowId] ?? ""}
+                              onChange={(event) => setAdditionalScanValues((values) => ({
+                                ...values,
+                                [rowId]: event.target.value,
+                              }))}
+                              onKeyDown={(event) => {
+                                if (event.key === "Enter") {
+                                  event.preventDefault();
+                                  handleAdditionalBarcodeScan(rowId, additionalScanValues[rowId] ?? "");
+                                }
+                              }}
+                              placeholder="Scan / Enter barcode"
+                              aria-label="Add barcode scan row"
+                              className="w-full min-w-36 rounded-md border border-theme-divider bg-theme-surface-2 px-2 py-2 font-mono text-[10px] text-theme-body"
+                            />
+                            {additionalScanErrors[rowId] && (
+                              <span role="alert" className="mt-1 block text-[9px] text-rose-300">{additionalScanErrors[rowId]}</span>
+                            )}
+                          </td>
+                          <td colSpan={Math.max(1,
+                            (receiptColumnVisibility.article ? 1 : 0) +
+                            (receiptColumnVisibility.color ? 1 : 0) +
+                            (receiptColumnVisibility.size ? 1 : 0) + 1 +
+                            (receiptColumnVisibility.scanned ? 1 : 0) + 1 +
+                            (receiptColumnVisibility.rejected ? 1 : 0) +
+                            (receiptColumnVisibility.reason ? 1 : 0) +
+                            (receiptColumnVisibility.verification ? 1 : 0)
+                          )} className="px-2 py-2 text-[10px] text-theme-muted">
+                            {additionalScanErrors[rowId] || "Barcode will be matched to its invoice item."}
+                          </td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
+                </div>
+                <aside className="overflow-hidden rounded-xl border border-theme-divider bg-theme-surface-1">
+                  <button
+                    type="button"
+                    onClick={() => setShadowStockExpanded((expanded) => !expanded)}
+                    aria-expanded={shadowStockExpanded}
+                    className="flex w-full items-center justify-between gap-2 border-b border-theme-divider bg-theme-surface-2 px-3 py-3 text-left"
+                  >
+                    <span className="text-[10px] font-semibold text-theme-body">◉ PSV Shadow Stock (Visibility Only)</span>
+                    <span className="text-theme-muted">{shadowStockExpanded ? "⌃" : "⌄"}</span>
+                  </button>
+                  {shadowStockExpanded && (
+                    <div className="space-y-2 p-3">
+                      <p className="rounded-lg border border-blue-500/20 bg-blue-500/10 p-2 text-[9px] leading-relaxed text-blue-200">
+                        Partner stock snapshot is for reference only. It does not verify or record this physical receipt.
+                      </p>
+                      {receiveShadowStockRows.map(({ item, tracking }) => (
+                        <div key={item.invoice_line_id} className="rounded-lg border border-theme-divider p-2">
+                          <div className="mb-2 truncate text-[10px] font-semibold text-theme-body" title={getPsvItemDisplayName(item)}>
+                            {getPsvItemDisplayName(item)}
+                          </div>
+                          {tracking ? (
+                            <div className="grid grid-cols-3 gap-1 text-center">
+                              <div>
+                                <div className="text-[8px] uppercase text-theme-muted">Invoiced</div>
+                                <div className="mt-1 font-mono text-[10px] text-theme-body">{tracking.invoicedQty}</div>
+                              </div>
+                              <div>
+                                <div className="text-[8px] uppercase text-theme-muted">Sold</div>
+                                <div className="mt-1 font-mono text-[10px] text-theme-body">{tracking.confirmedSoldQty}</div>
+                              </div>
+                              <div>
+                                <div className="text-[8px] uppercase text-theme-muted">Returned</div>
+                                <div className="mt-1 font-mono text-[10px] text-theme-body">{tracking.returnedQty}</div>
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-[9px] text-theme-muted">No partner stock snapshot for this item.</span>
+                          )}
+                        </div>
+                      ))}
+                      {!receiveShadowStockRows.length && (
+                        <p className="text-[10px] text-theme-muted">No invoice items to compare.</p>
+                      )}
+                    </div>
+                  )}
+                </aside>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1517,7 +2056,7 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
 
                 <div className="flex items-center justify-between gap-2 border-t border-theme-divider pt-3">
                   <p className="text-[10px] text-theme-muted">
-                    Barcode lines cannot be submitted as typed quantities. SKU-only lines require exact SKU confirmation.
+                    Barcode-tracked items require verified scans; items without a registered barcode require product-label confirmation.
                   </p>
                   <div className="flex shrink-0 gap-2">
                     <button
@@ -2170,11 +2709,11 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
                             )}
                           </td>
 
-                          {/* Product & Dimensions (Style, Color, Size, Barcode) */}
+                          {/* Product & Dimensions */}
                           <td className="px-3 py-3">
-                            <div className="font-medium text-theme-body text-xs line-clamp-1">{item.product_name}</div>
+                            <div className="font-medium text-theme-body text-xs line-clamp-1">{getPsvItemDisplayName(item)}</div>
                             <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                              {item.style_code && (
+                              {item.style_code && item.style_code.trim().toUpperCase() !== item.sku.trim().toUpperCase() && (
                                 <span className="px-1.5 py-0.2 rounded text-[10px] font-mono bg-theme-surface-3 text-indigo-300 border border-indigo-500/20">
                                   ART: {item.style_code}
                                 </span>
@@ -2190,17 +2729,9 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
                                 </span>
                               )}
                               {item.barcodes?.length ? (
-                                <span className="flex flex-wrap gap-1">
-                                  {item.barcodes.map((barcode, index) => (
-                                    <span key={`${item.invoice_line_id}-${barcode}-${index}`} className="text-[10px] text-blue-300 font-mono">
-                                      Barcode: {barcode}
-                                    </span>
-                                  ))}
-                                </span>
+                                <span className="text-[10px] text-blue-300">Barcode verification</span>
                               ) : (
-                                <span className="text-[10px] text-theme-muted font-mono">
-                                  No barcode registered · SKU: {item.sku}
-                                </span>
+                                <span className="text-[10px] text-amber-300">Product label verification</span>
                               )}
                             </div>
                           </td>
@@ -2347,10 +2878,11 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
               {selectedItemForReceive && (
                 <div className="bg-theme-surface-3/50 border border-theme-divider rounded-xl p-3 text-xs space-y-1.5">
                   <div className="font-semibold text-theme-body text-sm">
-                    {selectedItemForReceive?.product_name}
+                    {selectedItemForReceive ? getPsvItemDisplayName(selectedItemForReceive) : ""}
                   </div>
                   <div className="flex flex-wrap gap-2 text-[11px]">
-                    {selectedItemForReceive?.style_code && (
+                    {selectedItemForReceive?.style_code &&
+                      selectedItemForReceive?.style_code?.trim().toUpperCase() !== selectedItemForReceive?.sku?.trim().toUpperCase() && (
                       <span className="text-indigo-300">ART: {selectedItemForReceive?.style_code}</span>
                     )}
                     {selectedItemForReceive?.color && (
@@ -2359,7 +2891,6 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
                     {selectedItemForReceive?.size && (
                       <span className="text-emerald-300">Size: {selectedItemForReceive?.size}</span>
                     )}
-                    <span className="text-theme-muted font-mono">SKU: {selectedItemForReceive?.sku}</span>
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 pt-1 border-t border-theme-divider/50 text-center font-mono text-[11px]">
                     <div>
@@ -2435,14 +2966,14 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
                   </div>
                   {Object.entries(scannedBarcodeCounts).length > 0 && (
                     <div className="space-y-1 border-t border-theme-divider/50 pt-2">
-                      {Object.entries(scannedBarcodeCounts).map(([barcode, count]) => (
+                      {Object.entries(scannedBarcodeCounts).map(([barcode, count], index) => (
                         <div key={barcode} className="flex items-center justify-between gap-2 text-[10px]">
-                          <span className="font-mono text-theme-body">{barcode} × {count}</span>
+                          <span className="text-theme-body">Barcode scan {index + 1} × {count}</span>
                           <button
                             type="button"
                             onClick={() => undoBarcodeScan(barcode)}
                             className="rounded border border-rose-500/30 px-2 py-1 text-rose-300 hover:bg-rose-500/10"
-                            aria-label={`Undo one scan for barcode ${barcode}`}
+                            aria-label={`Undo one barcode scan for ${selectedItemForReceive ? getPsvItemDisplayName(selectedItemForReceive) : "item"}`}
                           >
                             Undo one
                           </button>
@@ -2469,17 +3000,17 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
               ) : selectedItemForReceive ? (
                 <section className="rounded-xl border border-amber-500/30 bg-amber-950/15 p-3 space-y-2">
                   <p className="text-[11px] text-amber-200">
-                    No barcode is registered. Verify the product label by entering the exact invoice SKU before quantity entry.
+                    No barcode is registered. Verify the product label by scanning or entering its product code before quantity entry.
                   </p>
                   <label className="block">
                     <span className="mb-1 block text-[10px] font-semibold text-theme-body">
-                      Confirm SKU: <span className="font-mono text-blue-300">{selectedItemForReceive?.sku}</span>
+                      Confirm product label code
                     </span>
                     <input
-                      type="text"
+                      type="password"
                       autoComplete="off"
-                      aria-label="Confirm invoice SKU"
-                      placeholder="Scan or enter the SKU from the product label"
+                      aria-label="Confirm product label code"
+                      placeholder="Scan or enter product code from the label"
                       value={skuConfirmation}
                       onChange={(event) => setSkuConfirmation(event.target.value)}
                       className="w-full rounded-lg border border-theme-divider bg-theme-surface-2 px-3 py-2 text-sm font-mono text-theme-body focus:border-amber-500 focus:outline-none"
@@ -2487,7 +3018,7 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
                   </label>
                   {skuConfirmation && (
                     <p role={manualSkuConfirmed ? "status" : "alert"} className={`text-[10px] ${manualSkuConfirmed ? "text-emerald-300" : "text-rose-300"}`}>
-                      {manualSkuConfirmed ? "SKU verified. Enter the manually counted quantities." : "SKU does not match the invoice item."}
+                      {manualSkuConfirmed ? "Product label verified. Enter the manually counted quantities." : "Product label code does not match the invoice item."}
                     </p>
                   )}
                   {manualSkuConfirmed && (

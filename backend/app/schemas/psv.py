@@ -213,7 +213,11 @@ class PSVReceiveInvoiceLineReq(BaseModel):
     rejection_reason: Optional[str] = None
     scanned_barcode_counts: Dict[str, int] = Field(
         default_factory=dict,
-        description="Barcode-to-scan-count evidence; when provided, counts must match received plus rejected quantity.",
+        description="Physical barcode scans; scan and prefilled counts together must match received plus rejected quantity.",
+    )
+    prefilled_barcode_counts: Dict[str, int] = Field(
+        default_factory=dict,
+        description="Receiver-confirmed registered barcode prefill, distinct from physical scan evidence.",
     )
 
     @field_validator("scanned_barcode_counts")
@@ -221,6 +225,13 @@ class PSVReceiveInvoiceLineReq(BaseModel):
     def validate_scanned_barcode_counts(cls, value: Dict[str, int]) -> Dict[str, int]:
         if any(not barcode.strip() or count < 1 for barcode, count in value.items()):
             raise ValueError("Scanned barcodes must be non-empty and have a positive scan count.")
+        return value
+
+    @field_validator("prefilled_barcode_counts")
+    @classmethod
+    def validate_prefilled_barcode_counts(cls, value: Dict[str, int]) -> Dict[str, int]:
+        if any(not barcode.strip() or count < 1 for barcode, count in value.items()):
+            raise ValueError("Prefilled barcodes must be non-empty and have a positive count.")
         return value
 
 

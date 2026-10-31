@@ -49,6 +49,42 @@ from ..schemas.psv import (
 )
 
 
+def _registered_barcodes_for_line(
+    product: Optional[Product],
+    item_id: Optional[str],
+    variant_id: Optional[str],
+    barcodes_by_item: Dict[str, List[str]],
+    barcodes_by_variant: Dict[str, List[str]],
+) -> set[str]:
+    registered = set()
+    if product:
+        if product.barcode:
+            registered.add(str(product.barcode).strip().upper())
+        registered.update(
+            str(value).strip().upper()
+            for value in (product.secondary_barcodes or [])
+            if value
+        )
+
+    resolved_variant_id = (product.item_variant_id if product else None) or variant_id
+    if resolved_variant_id:
+        registered.update(
+            value.strip().upper()
+            for value in barcodes_by_variant.get(resolved_variant_id, [])
+            if value
+        )
+    else:
+        resolved_item_id = (product.item_id if product else None) or item_id
+        if resolved_item_id:
+            registered.update(
+                value.strip().upper()
+                for value in barcodes_by_item.get(resolved_item_id, [])
+                if value
+            )
+    registered.discard("")
+    return registered
+
+
 class PSVProjectionService:
     """
     PSV Optional Visibility Projection Engine in SMRITI Retail OS.
@@ -1163,60 +1199,46 @@ class PSVProjectionService:
             prod_id = matched_item.product_id if matched_item else None
             matched_product = products_map.get(prod_id)
 
-            allowed_barcodes = set()
-            if matched_product:
-                allowed_barcodes.add((matched_product.barcode or "").strip().upper())
-                allowed_barcodes.update(
-                    str(value).strip().upper()
-                    for value in (matched_product.secondary_barcodes or [])
-                    if value
-                )
-                if matched_product.item_id:
-                    allowed_barcodes.update(
-                        value.strip().upper()
-                        for value in barcodes_by_item.get(matched_product.item_id, [])
-                    )
-                if matched_product.item_variant_id:
-                    allowed_barcodes.update(
-                        value.strip().upper()
-                        for value in barcodes_by_variant.get(matched_product.item_variant_id, [])
-                    )
-            if matched_item and matched_item.item_id:
-                allowed_barcodes.update(
-                    value.strip().upper()
-                    for value in barcodes_by_item.get(matched_item.item_id, [])
-                )
-            if matched_item and matched_item.variant_id:
-                allowed_barcodes.update(
-                    value.strip().upper()
-                    for value in barcodes_by_variant.get(matched_item.variant_id, [])
-                )
-            allowed_barcodes.discard("")
+            allowed_barcodes = _registered_barcodes_for_line(
+                matched_product,
+                matched_item.item_id if matched_item else None,
+                matched_item.variant_id if matched_item else None,
+                barcodes_by_item,
+                barcodes_by_variant,
+            )
             supplied_barcodes: Dict[str, int] = {}
             for barcode, count in r_line.scanned_barcode_counts.items():
                 normalized = barcode.strip().upper()
                 supplied_barcodes[normalized] = supplied_barcodes.get(normalized, 0) + count
+            supplied_prefilled_barcodes: Dict[str, int] = {}
+            for barcode, count in r_line.prefilled_barcode_counts.items():
+                normalized = barcode.strip().upper()
+                supplied_prefilled_barcodes[normalized] = supplied_prefilled_barcodes.get(normalized, 0) + count
 
             if allowed_barcodes:
-                if not supplied_barcodes:
+                if not supplied_barcodes and not supplied_prefilled_barcodes:
                     raise HTTPException(
                         status_code=400,
-                        detail=f"Scan a registered barcode for invoice item '{line_sku}' before recording receipt.",
+                        detail=f"Scan or confirm a registered barcode prefill for invoice item '{line_sku}' before recording receipt.",
                     )
-                unknown_barcodes = sorted(set(supplied_barcodes) - allowed_barcodes)
+                unknown_barcodes = sorted(
+                    (set(supplied_barcodes) | set(supplied_prefilled_barcodes)) - allowed_barcodes
+                )
                 if unknown_barcodes:
                     raise HTTPException(
                         status_code=400,
-                        detail=f"Scanned barcode does not match invoice item '{line_sku}'.",
+                        detail=f"Barcode does not match invoice item '{line_sku}'.",
                     )
-                scanned_qty = Decimal(sum(supplied_barcodes.values()))
+                verified_qty = Decimal(
+                    sum(supplied_barcodes.values()) + sum(supplied_prefilled_barcodes.values())
+                )
                 entered_qty = r_line.received_qty + r_line.rejected_qty
-                if scanned_qty != entered_qty:
+                if verified_qty != entered_qty:
                     raise HTTPException(
                         status_code=400,
-                        detail="Scanned barcode count must equal accepted quantity plus rejected quantity.",
+                        detail="Barcode scan and confirmed-prefill counts must equal accepted quantity plus rejected quantity.",
                     )
-            elif supplied_barcodes:
+            elif supplied_barcodes or supplied_prefilled_barcodes:
                 raise HTTPException(
                     status_code=400,
                     detail=f"No registered barcode is available for invoice item '{line_sku}'; verify it by SKU.",
@@ -1233,9 +1255,14 @@ class PSVProjectionService:
 
             scan_summary = ""
             if r_line.scanned_barcode_counts:
-                scan_summary = "; barcode scans: " + ", ".join(
+                scan_summary = "; physical barcode scans: " + ", ".join(
                     f"{barcode} x {count}"
                     for barcode, count in sorted(supplied_barcodes.items())
+                )
+            if r_line.prefilled_barcode_counts:
+                scan_summary += "; receiver-confirmed barcode prefill (not physically scanned): " + ", ".join(
+                    f"{barcode} x {count}"
+                    for barcode, count in sorted(supplied_prefilled_barcodes.items())
                 )
             receipt_note = f"Receipt {receipt_ref}"
             if req.remarks:
@@ -1601,23 +1628,13 @@ class PSVProjectionService:
                 i_price = Decimal(str(line.price or 0)) if line.price is not None else None
                 item_id = line.item_id or (prod.item_id if prod else None)
                 variant_id = line.variant_id or (prod.item_variant_id if prod else None)
-                line_barcodes = set()
-                if prod:
-                    if prod.barcode:
-                        line_barcodes.add(prod.barcode.strip())
-                    line_barcodes.update(
-                        str(value).strip()
-                        for value in (prod.secondary_barcodes or [])
-                        if value
-                    )
-                if item_id:
-                    line_barcodes.update(
-                        value.strip() for value in barcodes_by_item.get(item_id, []) if value
-                    )
-                if variant_id:
-                    line_barcodes.update(
-                        value.strip() for value in barcodes_by_variant.get(variant_id, []) if value
-                    )
+                line_barcodes = _registered_barcodes_for_line(
+                    prod,
+                    item_id,
+                    variant_id,
+                    barcodes_by_item,
+                    barcodes_by_variant,
+                )
 
                 # Match receiving and rejection events
                 matched_events: List[PSVStockEvent] = []
