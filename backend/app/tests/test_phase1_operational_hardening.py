@@ -83,6 +83,73 @@ def test_source_billing_commit_is_disabled_by_default(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_source_order_prepare_rejects_order_with_packing_slips():
+    from fastapi import HTTPException
+    from types import SimpleNamespace
+
+    from app.schemas.source_billing import SourceBillingPrepareRequest
+    from app.services.source_billing import SourceBillingService
+
+    session = AsyncMock()
+    result = MagicMock()
+    result.scalar_one_or_none.return_value = "ps-1"
+    session.execute.return_value = result
+    service = SourceBillingService(
+        session,
+        TenantContext(company_id="COMP-XYZ", branch_id="BR-01"),
+    )
+    service._load_order = AsyncMock(return_value=SimpleNamespace(id="order-1"))
+
+    with pytest.raises(HTTPException) as error:
+        await service.prepare(SourceBillingPrepareRequest(
+            source_type="SALES_ORDER",
+            source_document_id="order-1",
+        ))
+
+    assert error.value.status_code == 409
+    assert "Packing Slips" in error.value.detail
+
+
+@pytest.mark.asyncio
+async def test_dispatched_packing_slip_is_not_preparable_for_billing():
+    from fastapi import HTTPException
+    from types import SimpleNamespace
+
+    from app.schemas.source_billing import SourceBillingPrepareRequest
+    from app.services.source_billing import SourceBillingService
+
+    service = SourceBillingService(
+        AsyncMock(),
+        TenantContext(company_id="COMP-XYZ", branch_id="BR-01"),
+    )
+    service._load_packing_slip = AsyncMock(return_value=SimpleNamespace(
+        id="ps-1",
+        order_id="order-1",
+        customer_id="customer-1",
+        status="DISPATCHED",
+        items=[object()],
+    ))
+    service._load_order = AsyncMock(return_value=SimpleNamespace(
+        id="order-1",
+        customer_id="customer-1",
+        status="OPEN",
+    ))
+    service._require_visible_customer = AsyncMock(return_value=SimpleNamespace(
+        id="customer-1",
+        name="Customer",
+    ))
+
+    with pytest.raises(HTTPException) as error:
+        await service.prepare(SourceBillingPrepareRequest(
+            source_type="PACKING_SLIP",
+            source_document_id="ps-1",
+        ))
+
+    assert error.value.status_code == 409
+    assert "dispatched" in error.value.detail.lower()
+
+
+@pytest.mark.asyncio
 async def test_purchase_jurisdiction_dynamic_resolution():
     """Verify PurchaseService.get_jurisdiction resolves dynamically from company GST number."""
     mock_db = AsyncMock()

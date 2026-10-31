@@ -71,6 +71,10 @@ import {
 import { SmritiInvoiceSettlementModal } from "./InvoiceSettlementD.tsx";
 import { BarcodeCSVImportModal, ResolvedCartItem } from "./BarcodeCSVImportModal.tsx";
 import { BulkAddItemsModal } from "./modals/BulkAddItemsModal.tsx";
+import {
+  SourceBillingSelectionModal,
+  type SelectedSourceBilling,
+} from "./modals/SourceBillingSelectionModal.tsx";
 import { PrintPreviewModal } from "../PrintPreviewModal.tsx";
 import { InvoicingTransactionBrowserModal, InvoicingBrowserTab } from "./InvoicingTransactionBrowserModal.tsx";
 import { TransactionAttachmentPanel } from "../common/TransactionAttachmentPanel.tsx";
@@ -309,6 +313,8 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     counts: { salesOrders: number; packingSlips: number; parkedCarts: number; drafts: number };
     errors: string[];
   }>({ loading: false, counts: { salesOrders: 0, packingSlips: 0, parkedCarts: 0, drafts: 0 }, errors: [] });
+  const [sourceBillingModalType, setSourceBillingModalType] = useState<"SALES_ORDER" | "PACKING_SLIP" | null>(null);
+  const [sourceBillingSelection, setSourceBillingSelection] = useState<SelectedSourceBilling | null>(null);
   const [transactionBrowserTab, setTransactionBrowserTab] = useState<InvoicingBrowserTab>("INVOICES");
   const [transactionBrowserInvoiceStatus, setTransactionBrowserInvoiceStatus] = useState<string | undefined>();
   const [transactionBrowserOpenVersion, setTransactionBrowserOpenVersion] = useState(0);
@@ -541,6 +547,14 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     }
 
     if (choice === "DIRECT") {
+      if (sourceBillingSelection) {
+        setSourceBillingSelection(null);
+        setItems([]);
+        setSelectedCustomerPO(null);
+        setHeaderState(prev => ({ ...prev, billingSource: "DIRECT", customerPoId: null, poReference: "" }));
+        onNotification?.("Source Cleared", "The source-backed lines were cleared. Add direct invoice lines to continue.", "info");
+        return;
+      }
       if (headerState.billingSource === "CUSTOMER_PO" && items.length > 0) {
         onNotification?.(
           "Customer PO Lines Preserved",
@@ -573,25 +587,77 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       return;
     }
     if (choice === "SALES_ORDER") {
+      if (activeDraftId) {
+        onNotification?.("Draft Invoice Active", "Submit or cancel the current draft before starting source-based billing.", "error");
+        return;
+      }
       if (items.length > 0) {
-        onNotification?.("Active Bill Preserved", "Hold or finish the current bill before opening Sales Studio. Its order workflow is separate from this invoice.", "info");
+        onNotification?.("Active Bill Preserved", "Remove or finish the current bill before selecting a Sales Order.", "info");
         return;
       }
-      if (!onOpenSalesDocuments) {
-        onNotification?.("Sales Order Workflow Unavailable", "Sales Studio is not available from this billing view.", "error");
-        return;
-      }
-      onNotification?.("Sales Order Workflow", "Opening Sales Studio. Sales orders are managed separately from the active billing invoice.", "info");
-      onOpenSalesDocuments();
+      setSelectedCustomerPO(null);
+      setHeaderState(prev => ({ ...prev, billingSource: "SALES_ORDER", customerPoId: null }));
+      setSourceBillingModalType("SALES_ORDER");
       return;
     }
 
-    if (!onOpenPackingSlips) {
-      onNotification?.("Packing Slip Workflow Unavailable", "Packing Slip Studio is not available from this billing view.", "error");
+    if (activeDraftId) {
+      onNotification?.("Draft Invoice Active", "Submit or cancel the current draft before starting source-based billing.", "error");
       return;
     }
-    onNotification?.("Packing Slip Workflow", "Opening Packing Slip Studio. This workflow does not automatically add slip lines to the current invoice.", "info");
-    onOpenPackingSlips();
+    if (items.length > 0) {
+      onNotification?.("Active Bill Preserved", "Remove or finish the current bill before selecting a Packing Slip.", "info");
+      return;
+    }
+    setSelectedCustomerPO(null);
+    setHeaderState(prev => ({ ...prev, billingSource: "PACKING_SLIP_CONSOLIDATED", customerPoId: null }));
+    setSourceBillingModalType("PACKING_SLIP");
+  };
+
+  const usePreparedBillingSource = (source: SelectedSourceBilling) => {
+    const linesById = new Map(source.prepared.lines.map(line => [line.source_line_id, line]));
+    const sourceLines = source.lines.flatMap((selected, index) => {
+      const line = linesById.get(selected.sourceLineId);
+      if (!line) return [];
+      const quantity = selected.quantity;
+      const rate = Number(line.unit_price || 0);
+      const value = rate * quantity;
+      return [{
+        id: `source-${source.sourceType}-${selected.sourceLineId}`,
+        sNo: index + 1,
+        stockNo: line.code,
+        barcode: line.code,
+        itemDescription: line.name,
+        rate,
+        qty: quantity,
+        value,
+        discCode: "",
+        discQty: 0,
+        discPercent: 0,
+        discAmt: 0,
+        total: value,
+        salesStaff: headerState.salesStaff,
+        productId: line.product_id,
+        hsnCode: line.hsn_code || undefined,
+        gstPercentage: Number(line.gst_rate || 0),
+        sourceLineId: selected.sourceLineId,
+        sourceLineType: source.sourceType,
+      }];
+    });
+    if (!sourceLines.length) {
+      onNotification?.("Source Lines Unavailable", "The prepared source has no valid selected lines. Prepare it again.", "error");
+      return;
+    }
+    setSourceBillingSelection(source);
+    setItems(sourceLines);
+    setHeaderState(prev => ({
+      ...prev,
+      billingSource: source.sourceType === "PACKING_SLIP" ? "PACKING_SLIP_CONSOLIDATED" : "SALES_ORDER",
+      customerPoId: null,
+      poReference: prev.poReference || source.prepared.sales_order_number || "",
+    }));
+    setSourceBillingModalType(null);
+    onNotification?.("Source Prepared", `${source.documentNumber} lines are ready for review and billing.`, "success");
   };
 
   useEffect(() => {
@@ -1277,6 +1343,8 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     setLoadedDocMetadata(null);
     setActiveDraftId(null);
     setItems([]);
+    setSourceBillingSelection(null);
+    setSourceBillingModalType(null);
     setHeaderState(prev => ({
       ...prev,
       docNo: String((parseInt(prev.docNo) || 1) + 1),
@@ -1291,6 +1359,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       placeOfSupplyCode: null,
       poReference: "",
       customerPoId: null,
+      billingSource: "DIRECT",
       salesChannel: "B2B_WHOLESALE",
       psvPartyId: null
     }));
@@ -1737,6 +1806,10 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   }, [items, headerState, lastCompletedInvoice, activeItemSearchField, hasGstProfile, selectedRowIndex, editingLineId]);
 
   const handleSelectCustomer = (c: Customer | null) => {
+    if (sourceBillingSelection && c?.id !== sourceBillingSelection.prepared.customer_id) {
+      onNotification?.("Source Customer Locked", "Clear the source selection before changing its customer account.", "error");
+      return;
+    }
     setHeaderState(prev => ({
       ...prev,
       customer: c,
@@ -1780,6 +1853,10 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   };
 
   function applyCustomerAutoPopulate(r: AutoPopulateCustomerResult | Customer) {
+    if (sourceBillingSelection && r.id !== sourceBillingSelection.prepared.customer_id) {
+      onNotification?.("Source Customer Locked", "Clear the source selection before changing its customer account.", "error");
+      return;
+    }
     const custCode = (r as any).code || (r as any).customer_code || (r as any).returnValue || "";
     const custObj: Customer = {
       id: r.id,
@@ -2422,6 +2499,10 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       onResolvedLine?: (line: BillingLineItem) => void;
     } = {}
   ) => {
+    if (sourceBillingSelection) {
+      onNotification?.("Source Lines Locked", "Source-backed invoice lines can only be changed in the source review before they are added to the bill.", "error");
+      return false;
+    }
     if (isReadOnlyView) {
       onNotification?.("Read-Only View", "Items cannot be added while viewing a completed invoice.", "error");
       return false;
@@ -2942,6 +3023,10 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   };
 
   const handleBarcodeCSVImport = (importedItems: ResolvedCartItem[]) => {
+    if (sourceBillingSelection) {
+      onNotification?.("Source Lines Locked", "Barcode imports cannot be added to a source-backed invoice.", "error");
+      return;
+    }
     const isRel = SmritiSalesPromotionService.isRelianceCustomer(headerState.customer);
     const newLines: BillingLineItem[] = importedItems.map((item, idx) => {
       const mrp = Number(item.catalog_mrp || 0);
@@ -3010,6 +3095,10 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
 
   // Remove Item
   const handleRemoveItem = (id: string) => {
+    if (sourceBillingSelection) {
+      onNotification?.("Source Lines Locked", "Clear the source selection to discard these lines; quantities are changed in source review.", "error");
+      return;
+    }
     setItems(prev => prev.filter(it => it.id !== id).map((it, idx) => ({ ...it, sNo: idx + 1 })));
     if (editingLineId === id) {
       setEditingLineId(null);
@@ -3019,6 +3108,10 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   // Enterprise Retail: Double-click row to edit in Direct Entry Grid (Shoper 9 contract)
   const handleRowDoubleClick = (item: BillingLineItem, idx: number) => {
     if (isReadOnlyView) return;
+    if (sourceBillingSelection) {
+      onNotification?.("Source Lines Locked", "Source-backed line quantities and rates cannot be edited in the invoice grid.", "info");
+      return;
+    }
     setSelectedRowIndex(idx);
     setEditingLineId(item.id);
     setDirectEntry({
@@ -3047,6 +3140,10 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
 
   // Suspend / Hold Invoice (Isolated POS Parked Cart Store - ADR-005 compliant)
   const handleSuspendInvoice = async () => {
+    if (sourceBillingSelection) {
+      onNotification?.("Source Invoice Cannot Be Held", "Source billing is committed only through the reviewed atomic invoice flow.", "error");
+      return;
+    }
     if (items.length === 0) {
       onNotification?.("Suspend Bill", "No items to suspend.", "error");
       return;
@@ -3174,6 +3271,10 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
 
   // Save as Draft Sales Invoice (persisted SalesInvoice, status="Draft", zero stock/GL mutations)
   const handleSaveDraftInvoice = async () => {
+    if (sourceBillingSelection) {
+      onNotification?.("Source Invoice Cannot Be Drafted", "Source billing does not reserve quantities in drafts. Commit it through settlement when ready.", "error");
+      return;
+    }
     if (items.length === 0) {
       onNotification?.("Save as Draft", "No items to save as draft.", "error");
       return;
@@ -3229,8 +3330,8 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         line_no: idx + 1,
         salesperson_name: it.salesStaff || null,
         customer_po_line_id: it.customerPoLineId || null,
-        source_line_type: it.customerPoLineId ? "CUSTOMER_PO" : null,
-        source_line_id: it.customerPoLineId || null
+        source_line_type: it.customerPoLineId ? "CUSTOMER_PO" : it.sourceLineType || null,
+        source_line_id: it.customerPoLineId || it.sourceLineId || null
       })),
       rule_snapshots: {
         transaction_type: isCreditTx ? "Credit" : "Cash",
@@ -3800,12 +3901,33 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         });
         setActiveDraftId(null);
       } else {
-        const saveUrl = headerState.billingSource === "CUSTOMER_PO" && headerState.customerPoId
-          ? `/sales/customer-pos/${headerState.customerPoId}/bill`
-          : "/sales/invoices";
-        const saveBody = headerState.billingSource === "CUSTOMER_PO" && headerState.customerPoId
-          ? { invoice: invoicePayload, lines: items.map(item => ({ customer_po_line_id: item.customerPoLineId, quantity: item.qty })) }
-          : invoicePayload;
+        const sourceLinesMatchCart = sourceBillingSelection
+          && items.length === sourceBillingSelection.lines.length
+          && items.every(item => sourceBillingSelection.lines.some(line =>
+            line.sourceLineId === item.sourceLineId && line.quantity === item.qty
+          ));
+        if (sourceBillingSelection && !sourceLinesMatchCart) {
+          onNotification?.("Source Review Changed", "The source lines no longer match the reviewed invoice. Re-select the source before committing.", "error");
+          return;
+        }
+        const saveUrl = sourceBillingSelection
+          ? "/billing/sources/commit"
+          : headerState.billingSource === "CUSTOMER_PO" && headerState.customerPoId
+            ? `/sales/customer-pos/${headerState.customerPoId}/bill`
+            : "/sales/invoices";
+        const saveBody = sourceBillingSelection
+          ? {
+            source_type: sourceBillingSelection.sourceType,
+            source_document_id: sourceBillingSelection.documentId,
+            lines: sourceBillingSelection.lines.map(line => ({
+              source_line_id: line.sourceLineId,
+              quantity: line.quantity,
+            })),
+            invoice: invoicePayload,
+          }
+          : headerState.billingSource === "CUSTOMER_PO" && headerState.customerPoId
+            ? { invoice: invoicePayload, lines: items.map(item => ({ customer_po_line_id: item.customerPoLineId, quantity: item.qty })) }
+            : invoicePayload;
         const requestFingerprint = JSON.stringify(saveBody);
         if (settlementIdempotencyKeyRef.current?.fingerprint !== requestFingerprint) {
           settlementIdempotencyKeyRef.current = {
@@ -3852,6 +3974,8 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
 
       // Reset for next invoice
       setItems([]);
+      setSourceBillingSelection(null);
+      setHeaderState(prev => ({ ...prev, billingSource: "DIRECT", customerPoId: null }));
         settlementIdempotencyKeyRef.current = null;
       // Re-resolve the next prefix from the server after a successful save —
       // never client-increment docNo, the server counter is the single source of truth.
@@ -4174,7 +4298,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                   <button
                     type="button"
                     onClick={() => { setShowBulkAddItemsModal(true); setShowMoreMenu(false); }}
-                    disabled={isReadOnlyView}
+                    disabled={isReadOnlyView || Boolean(sourceBillingSelection)}
                     className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-left w-full cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <Plus size={14} className="text-emerald-600" />
@@ -4183,7 +4307,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                   <button
                     type="button"
                     onClick={() => { setShowBarcodeCSVImportModal(true); setShowMoreMenu(false); }}
-                    disabled={isReadOnlyView}
+                    disabled={isReadOnlyView || Boolean(sourceBillingSelection)}
                     className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-left w-full cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <FileText size={14} className="text-blue-600" />
@@ -4569,6 +4693,10 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                   <button
                     type="button"
                     onClick={() => {
+                      if (sourceBillingSelection) {
+                        onNotification?.("Source Customer Locked", "Clear the source selection before changing its customer account.", "error");
+                        return;
+                      }
                       setHeaderState(prev => ({ ...prev, customer: null, billedPartyGstinId: null, billedGstin: null, billingLocationId: null, billingStoreCode: null, billingAddress: null, deliveryLocationId: null, deliveryStoreCode: null, deliveryGstin: null, deliveryLocationSnapshot: null, shippingAddress: null, placeOfSupplyCode: null, poReference: "", customerPoId: null }));
                       setSelectedCustomerPO(null);
                       setCustomerPOs([]);
@@ -4669,7 +4797,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                     </p>
                   )}
                   <p className="mt-1 text-[9px] text-slate-600 dark:text-slate-400">
-                    Purchase Orders use the existing billing workflow. Sales Orders and Packing Slips open scoped records; this panel does not convert or allocate them.
+                    Sales Orders and Packing Slips are prepared read-only and invoiced through the atomic source billing service.
                   </p>
                 </section>
               )}
@@ -4683,6 +4811,21 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                     <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">Bill from</span>
                     <span className="text-[11px] text-slate-500 dark:text-slate-400">Choose the source document</span>
                   </div>
+                  {sourceBillingSelection && (
+                    <div className="mb-2 flex items-center justify-between gap-2 rounded-md border border-blue-200 bg-blue-50 px-2.5 py-2 text-xs text-blue-900 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-100">
+                      <span>
+                        Reviewed source: <strong>{sourceBillingSelection.documentNumber}</strong>
+                        {" · "}{sourceBillingSelection.lines.length} line(s)
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleBillingSourceChoice("DIRECT")}
+                        className="rounded border border-blue-300 px-2 py-1 font-semibold hover:bg-white dark:border-blue-700 dark:hover:bg-slate-900"
+                      >
+                        Clear source
+                      </button>
+                    </div>
+                  )}
                   <div className="grid grid-cols-2 gap-1.5 sm:flex sm:flex-wrap">
                     {permittedSources.includes("DIRECT") && (
                       <button
@@ -4718,20 +4861,20 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                       <button
                         type="button"
                         onClick={() => handleBillingSourceChoice("SALES_ORDER")}
-                        disabled={isReadOnlyView || !onOpenSalesDocuments}
+                        disabled={isReadOnlyView || Boolean(sourceBillingSelection)}
                         className="min-h-9 rounded-md border border-slate-300 bg-white px-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
-                        title="Open the separate Sales Studio order workflow"
+                        title="Prepare a Sales Order and commit its invoice atomically"
                       >
-                        Sales Order · Sales Studio
+                        Sales Order
                       </button>
                     )}
                     {permittedSources.includes("PACKING_SLIP_CONSOLIDATED") && (
                       <button
                         type="button"
                         onClick={() => handleBillingSourceChoice("PACKING_SLIP")}
-                        disabled={isReadOnlyView || !onOpenPackingSlips}
+                        disabled={isReadOnlyView || Boolean(sourceBillingSelection)}
                         className="min-h-9 rounded-md border border-slate-300 bg-white px-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
-                        title="Open the separate Packing Slip workflow"
+                        title="Prepare a Packing Slip and commit its invoice atomically"
                       >
                         Packing Slip
                       </button>
@@ -5836,7 +5979,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
             <button
               type="button"
               onClick={handleSuspendInvoice}
-              disabled={isReadOnlyView}
+              disabled={isReadOnlyView || Boolean(sourceBillingSelection)}
               className="px-3 py-1.5 bg-white hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-100 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs"
               title="Hold / Park Invoice (F12)"
             >
@@ -5846,7 +5989,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
             <button
               type="button"
               onClick={handleSaveDraftInvoice}
-              disabled={isReadOnlyView || items.length === 0}
+              disabled={isReadOnlyView || items.length === 0 || Boolean(sourceBillingSelection)}
               className="px-3 py-1.5 bg-white hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-100 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs"
               title="Save as Draft Invoice (No stock deduction / No GL impact)"
             >
@@ -5936,6 +6079,19 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         onImportConfirmed={handleBarcodeCSVImport}
       />
 
+      {sourceBillingModalType && headerState.customer && (
+        <SourceBillingSelectionModal
+          sourceType={sourceBillingModalType}
+          customerId={headerState.customer.id}
+          customerName={headerState.customer.name}
+          onClose={() => {
+            setSourceBillingModalType(null);
+            setHeaderState(prev => ({ ...prev, billingSource: "DIRECT" }));
+          }}
+          onUseSource={usePreparedBillingSource}
+        />
+      )}
+
       {/* 1. Settlement Modal */}
       <SmritiInvoiceSettlementModal
         isOpen={showSettlementModal}
@@ -5978,6 +6134,10 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         subtotal={summaryTotals.salesValue}
         billLevelPromo={billLevelPromo}
         onApplyPromos={(updatedItems, updatedBillPromo) => {
+          if (sourceBillingSelection) {
+            onNotification?.("Source Pricing Locked", "Discounts and promotional overrides are not allowed on source-backed invoices.", "error");
+            return;
+          }
           setItems(updatedItems);
           setIsManualBillPromoOverride(true);
           setBillLevelPromo(updatedBillPromo);

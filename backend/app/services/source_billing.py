@@ -181,6 +181,19 @@ class SourceBillingService:
         slip: Optional[PackingSlip] = None
         if request.source_type == "SALES_ORDER":
             order = await self._load_order(request.source_document_id)
+            existing_slips = await self.session.execute(
+                select(PackingSlip.id).where(
+                    PackingSlip.company_id == self.tenant_ctx.company_id,
+                    PackingSlip.branch_id == self.tenant_ctx.branch_id,
+                    PackingSlip.order_id == order.id,
+                    PackingSlip.is_deleted.is_(False),
+                ).limit(1)
+            )
+            if existing_slips.scalar_one_or_none():
+                raise HTTPException(
+                    status_code=409,
+                    detail="This Sales Order has Packing Slips. Bill through the eligible Packing Slip source to avoid duplicate stock movement.",
+                )
         else:
             slip = await self._load_packing_slip(request.source_document_id)
             order = await self._load_order(slip.order_id)
@@ -423,6 +436,20 @@ class SourceBillingService:
                 raise HTTPException(status_code=409, detail=f"Sales Order is {order_status.lower()} and cannot be billed.")
             if slip and str(slip.status or "").upper() not in {"PACKED", "PARTIALLY_BILLED"}:
                 raise HTTPException(status_code=409, detail=f"Packing Slip is {slip.status.lower()} and cannot be billed.")
+            if not slip:
+                existing_slips = await self.session.execute(
+                    select(PackingSlip).where(
+                        PackingSlip.company_id == self.tenant_ctx.company_id,
+                        PackingSlip.branch_id == self.tenant_ctx.branch_id,
+                        PackingSlip.order_id == order.id,
+                        PackingSlip.is_deleted.is_(False),
+                    ).with_for_update()
+                )
+                if existing_slips.scalars().first():
+                    raise HTTPException(
+                        status_code=409,
+                        detail="This Sales Order has Packing Slips. Bill through the eligible Packing Slip source to avoid duplicate stock movement.",
+                    )
 
             for source_line_id, order_item, slip_item, quantity in source_rows:
                 package_billed = (

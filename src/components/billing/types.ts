@@ -42,6 +42,8 @@ export interface BillingLineItem {
   size?: string;
   attributes?: Record<string, any>;
   customerPoLineId?: string;
+  sourceLineId?: string;
+  sourceLineType?: "SALES_ORDER" | "PACKING_SLIP";
   /** Rec 7 — Price Level Badge: stamped at scan time from the 3-tier resolver */
   priceLevel?: "MRP" | "SELLING_PRICE" | "WHOLESALE_PRICE" | "PRICE_BOOK";
   priceLevelSource?: "COMPANY_POLICY" | "CUSTOMER_PROFILE" | "CASHIER_OVERRIDE";
@@ -212,7 +214,7 @@ export interface BillingHeaderState {
   deliveryLocationSnapshot?: Record<string, any> | null;
   placeOfSupplyCode?: string | null;
   poReference?: string | null;
-  billingSource?: "DIRECT" | "CUSTOMER_PO" | "SALES_ORDER" | "DELIVERY";
+  billingSource?: "DIRECT" | "CUSTOMER_PO" | "SALES_ORDER" | "PACKING_SLIP_CONSOLIDATED" | "DELIVERY";
   customerPoId?: string | null;
 
   // Phase 2 Sales Channel & PSV Mapping
