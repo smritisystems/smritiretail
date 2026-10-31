@@ -25,6 +25,9 @@ def _inspector():
 
 
 def upgrade() -> None:
+    if op.get_bind().exec_driver_sql("SELECT current_database()").scalar() == "smritisys":
+        return
+
     if not _inspector().has_table("customer_relationships"):
         raise RuntimeError(
             "Cannot enforce single-parent customer policy: "

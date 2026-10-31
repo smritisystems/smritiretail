@@ -366,7 +366,7 @@ def run_alembic_upgrade(dbname: str, is_control: bool) -> Tuple[bool, str, str]:
     return (res.returncode == 0, res.stdout, res.stderr)
 
 
-def _get_alembic_head(is_control: bool = False) -> Optional[str]:
+def _get_alembic_head(is_control: bool, dbname: str) -> Optional[str]:
     """
     Queries Alembic's script directory for the current head revision.
     Returns the head revision string or None on failure.
@@ -374,9 +374,17 @@ def _get_alembic_head(is_control: bool = False) -> Optional[str]:
     target = "control" if is_control else "tenant"
     try:
         env = os.environ.copy()
-        env["DATABASE_URL"] = f"postgresql+asyncpg://{PG_USER}:{PG_PASSWORD}@{PG_HOST}:{PG_PORT}/{DEFAULT_CTRL_DB}"
+        database_url = f"postgresql+asyncpg://{PG_USER}:{PG_PASSWORD}@{PG_HOST}:{PG_PORT}/{dbname}"
+        env["DATABASE_URL"] = database_url
         res = subprocess.run(
-            [VENV_ALEMBIC, "-c", ALEMBIC_INI, "-x", f"target={target}", "heads", "--verbose"],
+            [
+                VENV_ALEMBIC,
+                "-c", ALEMBIC_INI,
+                "-x", f"target={target}",
+                "-x", f"db={dbname}",
+                "-x", f"db_url={database_url}",
+                "heads", "--verbose",
+            ],
             cwd=BACKEND_DIR,
             env=env,
             capture_output=True,
@@ -384,8 +392,12 @@ def _get_alembic_head(is_control: bool = False) -> Optional[str]:
             timeout=30,
         )
         for line in res.stdout.splitlines():
-            # Alembic heads output: "v1552 (head)"
+            # Verbose Alembic output is "Rev: v1552 (head)"; non-verbose
+            # output is "v1552 (head)".
             if "(head)" in line:
+                revision_match = re.search(r"\bRev:\s*(\S+)", line)
+                if revision_match:
+                    return revision_match.group(1)
                 return line.strip().split()[0]
     except Exception:
         pass
@@ -399,7 +411,7 @@ def _is_at_head(current_version: Optional[str], dbname: str, is_control: bool) -
     """
     if not current_version:
         return False
-    head = _get_alembic_head(is_control=is_control)
+    head = _get_alembic_head(is_control=is_control, dbname=dbname)
     if head is None:
         # Cannot determine head — do not fail the whole verification
         return True
@@ -741,7 +753,8 @@ def main():
     print(f" Databases Processed : {len(all_dbs)}")
     if not args.no_backup:
         print(f" Backup Directory    : {session_backup_dir}")
-    print(f" Final Alembic Head  : {_get_alembic_head(is_control=False)}")
+    head_database = tenant_dbs[0] if tenant_dbs else control_dbs[0]
+    print(f" Final Alembic Head  : {_get_alembic_head(is_control=not bool(tenant_dbs), dbname=head_database)}")
     print("=" * 70 + "\n")
 
 
