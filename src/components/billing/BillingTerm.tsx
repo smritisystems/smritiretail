@@ -4968,8 +4968,8 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
               </div>
             )}
 
-            {/* Responsive line-item cards for regular screens */}
-            <div className="flex-1 overflow-y-auto min-h-0 p-2 space-y-2 min-[2000px]:hidden">
+            {/* Legacy stacked layout is disabled; the grid below keeps one row per item. */}
+            <div className="hidden">
               {items.length === 0 ? (
                 <div className="flex min-h-24 items-center justify-center rounded-lg border border-dashed border-slate-300 dark:border-slate-700 px-4 py-6 text-center text-sm text-slate-600 dark:text-slate-300">
                   {billingTransactionPolicy?.configuration?.default_scan_mode === "AUTO_ADD"
@@ -5082,9 +5082,9 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
               ))}
             </div>
 
-            {/* Dense table for wide screens */}
-            <div className="hidden min-[2000px]:block flex-1 overflow-x-auto overflow-y-auto min-h-0">
-              <table className="w-full text-left border-collapse min-w-[1480px] tabular-nums">
+            {/* Single-line item rows for all screen sizes. */}
+            <div className="flex flex-1 overflow-x-auto overflow-y-auto min-h-0">
+              <table className="w-full text-left border-collapse min-w-[1480px] whitespace-nowrap tabular-nums">
                 <thead className="sticky top-0 bg-slate-50 dark:bg-slate-800/90 border-b border-slate-200 dark:border-slate-700 z-10 text-[10px] font-semibold text-slate-600 dark:text-slate-300">
                   <tr>
                     <th className="px-2 py-1.5 w-9 text-center">#</th>
