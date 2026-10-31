@@ -25,6 +25,7 @@ from app.models.tenant import Company, Branch
 from app.models.crm import Customer, CustomerDeliveryLocation, CustomerRelationship
 from app.models.psv import PSVParty, PSVStockBalance, PSVStockEvent
 from app.models.inventory import StockMovement
+from app.repositories.customer import CustomerRepository
 from app.core.security import create_access_token, hash_password
 from app.api.deps import TenantContext, get_db, get_company_db, get_tenant_context, get_current_user
 from app.tests.conftest import clear_db
@@ -706,6 +707,8 @@ async def test_parent_child_store_pos_invoice_projects_to_correct_psv_party(db_s
     assert parent.id in hidden_ids
     assert standalone.id in hidden_ids
     assert not ({child.id for child in children} & hidden_ids)
+    customer_repo = CustomerRepository(db_session, tenant)
+    assert await customer_repo.get_billing_visible_id(children[0].id) is None
 
     await crm.update_customer(parent.id, CustomerUpdate(show_child_customers_in_billing=True))
     billing_visible = await BillingCatalogService.get_customers(
@@ -714,6 +717,7 @@ async def test_parent_child_store_pos_invoice_projects_to_correct_psv_party(db_s
     visible_ids = {customer.id for customer in billing_visible.items}
     assert {child.id for child in children} <= visible_ids
     assert standalone.id in visible_ids
+    assert await customer_repo.get_billing_visible_id(children[0].id) == children[0].id
 
     parties = []
     for child, location in zip(children, locations, strict=True):
@@ -1037,4 +1041,3 @@ async def test_canonical_sales_posting_defaults_sales_channel_to_b2b_wholesale(d
     invoice = inv_res.scalars().first()
     assert invoice is not None
     assert invoice.sales_channel == "B2B_WHOLESALE"
-

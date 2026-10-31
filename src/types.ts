@@ -708,6 +708,11 @@ export interface Customer {
   gstNumber?: string;
   pan?: string;
   code?: string;
+  isDependant?: boolean;
+  parentCustomerId?: string;
+  parentCustomerName?: string;
+  primaryAccountCode?: string;
+  primaryAccountName?: string;
   shortName?: string;
   effectiveFrom?: string;
   effectiveTo?: string;

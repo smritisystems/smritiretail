@@ -29,6 +29,7 @@ from ...schemas.sales import (
 )
 
 from ...repositories.sales import SalesInvoiceRepository
+from ...repositories.customer import CustomerRepository
 from ...services.sales import SalesService
 from ...services.customer_po import CustomerPOService
 from ...services.eway_bill_service import EWayBillService
@@ -38,6 +39,12 @@ from ...schemas.customer_po import (
 )
 
 router = APIRouter()
+
+
+async def _require_billing_visible_customer(customer_id: str, db: AsyncSession, tenant_ctx: TenantContext) -> None:
+    visible_id = await CustomerRepository(db, tenant_ctx).get_billing_visible_id(customer_id)
+    if visible_id is None:
+        raise HTTPException(status_code=404, detail="Customer not found or unavailable for billing.")
 
 
 @router.post("/customer-pos", response_model=CustomerPOResponse, status_code=201, summary="Create Customer PO")
@@ -58,6 +65,8 @@ async def list_customer_pos(
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
+    if customer_id:
+        await _require_billing_visible_customer(customer_id, db, tenant_ctx)
     return await CustomerPOService(db, tenant_ctx).list(customer_id=customer_id, q=q, status=status)
 
 
@@ -260,6 +269,8 @@ async def list_sales_invoices_contract(
 ):
     """List sales invoices with optional status/customer filter — canonical contract URL."""
     repo = SalesInvoiceRepository(db, tenant_ctx)
+    if customer_id:
+        await _require_billing_visible_customer(customer_id, db, tenant_ctx)
     if status or customer_id or q:
         return await repo.search(invoice_no=q, customer_id=customer_id, status=status, skip=skip, limit=limit)
     return await repo.get_all(skip=skip, limit=limit)
@@ -267,12 +278,15 @@ async def list_sales_invoices_contract(
 
 @router.get("/invoices/suspended", response_model=List[SalesInvoiceResponse], summary="List Suspended Invoices")
 async def list_suspended_sales_invoices(
+    customer_id: Optional[str] = Query(None, min_length=1),
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """List all currently suspended/held sales invoices for active tenant."""
+    if customer_id:
+        await _require_billing_visible_customer(customer_id, db, tenant_ctx)
     repo = SalesInvoiceRepository(db, tenant_ctx)
-    return await repo.search(status="Suspended", limit=100)
+    return await repo.search(status="Suspended", customer_id=customer_id, limit=100)
 
 
 @router.get(
@@ -581,6 +595,7 @@ async def create_sales_order(
 @router.get("/orders/", response_model=List[SalesOrderResponse])
 async def list_sales_orders(
     customer: Optional[str] = Query(default=None, description="Filter by customer ID or name"),
+    customer_id: Optional[str] = Query(default=None, min_length=1, description="Filter by exact customer ID"),
     status: Optional[str] = Query(default=None, description="Filter by status"),
     fulfillment_status: Optional[str] = Query(default=None, description="Filter by fulfillment status"),
     from_date: Optional[date] = Query(default=None, description="Start date YYYY-MM-DD"),
@@ -591,8 +606,11 @@ async def list_sales_orders(
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     """List sales orders with query parameter filters and tenant isolation."""
+    if customer_id:
+        await _require_billing_visible_customer(customer_id, db, tenant_ctx)
     return await SalesService(db, tenant_ctx).list_sales_orders(
         customer_id=customer,
+        exact_customer_id=customer_id,
         status=status,
         fulfillment_status=fulfillment_status,
         from_date=from_date,

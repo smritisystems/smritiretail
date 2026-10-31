@@ -185,6 +185,8 @@ class FulfillmentEngine:
         search: Optional[str] = None,
         limit: int = 50,
         offset: int = 0,
+        customer_id: Optional[str] = None,
+        branch_id: Optional[str] = None,
     ) -> List[PackingSlipResponse]:
         """Lists packing slips for a company, ordered by creation date desc."""
         stmt = (
@@ -195,6 +197,18 @@ class FulfillmentEngine:
                 PackingSlip.is_deleted == False,
             )
         )
+        if branch_id:
+            stmt = stmt.where(PackingSlip.branch_id == branch_id)
+        if customer_id:
+            stmt = stmt.join(
+                SalesInvoice,
+                and_(
+                    SalesInvoice.id == PackingSlip.sales_invoice_id,
+                    SalesInvoice.company_id == company_id,
+                    SalesInvoice.customer_id == customer_id,
+                    SalesInvoice.is_deleted == False,
+                ),
+            )
         if status and status.upper() != "ALL":
             stmt = stmt.where(PackingSlip.status == status.upper())
         if search:

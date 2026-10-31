@@ -115,6 +115,35 @@ describe("Universal Backend Auto-Populate & Typeahead Service", () => {
     expect(results[0].name).toBe("Super Textiles Ltd");
   });
 
+  it("uses the server billing visibility filter and preserves child identity", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => [{
+        id: "child-1",
+        code: "STORE-1",
+        name: "Reliance Store 1",
+        is_dependant: true,
+        parent_customer_id: "parent-1",
+        primary_account_name: "Reliance Retail Limited",
+        primary_account_code: "RELIANCE",
+      }]
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const [child] = await searchBackendCustomers("STORE-1", undefined, { billingOnly: true });
+
+    expect(fetchMock.mock.calls[0][0]).toContain("billing_only=true");
+    expect(child.isDependant).toBe(true);
+    expect(child.parentCustomerId).toBe("parent-1");
+    expect(child.parentCustomerName).toBe("Reliance Retail Limited");
+    expect(child.primaryAccountCode).toBe("RELIANCE");
+  });
+
+  it("does not fall back to local customers when billing search fails", async () => {
+    await expect(searchBackendCustomers("Reliance", undefined, { billingOnly: true })).rejects.toThrow("currently unreachable");
+  });
+
   it("should auto-populate product details from local product list as user types SKU / barcode / name", async () => {
     const mockProducts: Product[] = [
       {

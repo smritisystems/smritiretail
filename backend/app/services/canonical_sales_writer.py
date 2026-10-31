@@ -42,6 +42,7 @@ from ..core.gst_engine import (
 from ..models.sales import SalesInvoice, SalesInvoiceItem
 from ..models.pos import Shift
 from ..models.crm import Customer, CustomerGroup, CustomerPolicy, CustomerCompanyRelationship, CustomerCreditLedgerEntry, CustomerGSTRegistration, CustomerDeliveryLocation, CustomerBillingLocation
+from ..repositories.customer import CustomerRepository
 from ..models.customer_po import CustomerPurchaseOrder, CustomerPurchaseOrderLine, CustomerPOInvoiceAllocation
 from ..models.pricing import CustomerPriceTier
 from ..models.item_master import ItemBarcode, ItemPrice
@@ -534,6 +535,15 @@ class CanonicalSalesPostingWriter:
                 raise HTTPException(
                     status_code=404,
                     detail=f"SMRITI-CRM-001: Customer '{req.customer_id}' not found for company '{company_id}'.",
+                )
+            billing_visible_id = await CustomerRepository(
+                session,
+                TenantContext(company_id=company_id, branch_id=branch_id),
+            ).get_billing_visible_id(req.customer_id)
+            if billing_visible_id is None:
+                raise HTTPException(
+                    status_code=404,
+                    detail="SMRITI-CRM-002: Customer not found or unavailable for billing.",
                 )
 
         customer_relation = next(

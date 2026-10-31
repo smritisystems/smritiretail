@@ -36,6 +36,11 @@ export interface AutoPopulateCustomerResult {
   destTaxType?: string;
   allowCreditInvoice?: boolean;
   allowCashInvoice?: boolean;
+  isDependant?: boolean;
+  parentCustomerId?: string;
+  parentCustomerName?: string;
+  primaryAccountCode?: string;
+  primaryAccountName?: string;
   allowMiscIssue?: boolean;
 }
 
@@ -98,15 +103,17 @@ if (typeof window !== "undefined") {
  */
 export async function searchBackendCustomers(
   query: string,
-  invoiceScope?: { series: string; from: number; to: number }
+  invoiceScope?: { series: string; from: number; to: number },
+  options: { billingOnly?: boolean } = {}
 ): Promise<AutoPopulateCustomerResult[]> {
   const cleanQ = query.trim();
   if (!cleanQ) {
+    if (options.billingOnly) return [];
     const local = getCustomers();
     return enrichCustomersWithPriceGroups(local.slice(0, 10));
   }
 
-  const scopeKey = invoiceScope ? `:${invoiceScope.series}:${invoiceScope.from}-${invoiceScope.to}` : "";
+  const scopeKey = `${options.billingOnly ? ":billing" : ""}${invoiceScope ? `:${invoiceScope.series}:${invoiceScope.from}-${invoiceScope.to}` : ""}`;
   const cacheKey = `cust:${cleanQ.toLowerCase()}${scopeKey}`;
   const cached = searchCache.get(cacheKey);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
@@ -115,6 +122,7 @@ export async function searchBackendCustomers(
 
   try {
     const params = new URLSearchParams({ q: cleanQ, limit: "15" });
+    if (options.billingOnly) params.set("billing_only", "true");
     if (invoiceScope) {
       params.set("invoice_series", invoiceScope.series);
       params.set("invoice_from", String(invoiceScope.from));
@@ -122,14 +130,16 @@ export async function searchBackendCustomers(
     }
     const res = await apiFetchV1(`/crm/customers/search?${params.toString()}`);
     const rawList = Array.isArray(res) ? res : (res?.items || []);
-    if (rawList.length > 0) {
+    if (rawList.length > 0 || options.billingOnly) {
       const enriched = enrichCustomersWithPriceGroups(rawList);
       searchCache.set(cacheKey, { timestamp: Date.now(), data: enriched });
       return enriched;
     }
-  } catch {
-    // Network fallback
+  } catch (error) {
+    if (options.billingOnly) throw error;
   }
+
+  if (options.billingOnly) return [];
 
   // Fallback to local store filtering
   const localList = getCustomers();
@@ -170,6 +180,11 @@ function enrichCustomersWithPriceGroups(customers: any[]): AutoPopulateCustomerR
       email: c.email,
       gstNumber: c.gstNumber || c.gst_number,
       customerGroupId: c.customerGroupId || c.customer_group_id || "CG-Retail",
+      isDependant: Boolean(c.is_dependant ?? c.isDependant),
+      parentCustomerId: c.parent_customer_id || c.parentCustomerId || undefined,
+      parentCustomerName: c.primary_account_name || c.primaryAccountName || c.parent_customer_name || c.parentCustomerName || undefined,
+      primaryAccountCode: c.primary_account_code || c.primaryAccountCode || undefined,
+      primaryAccountName: c.primary_account_name || c.primaryAccountName || c.parent_customer_name || c.parentCustomerName || undefined,
       outstanding: Number(c.outstanding || 0),
       status: c.status || "Active",
       tags: c.tags || [],

@@ -27,7 +27,6 @@ import {
   BillingPreviewResult,
   prepareBillingPostingLines,
 } from "./billingPreview.ts";
-import { getCustomers, saveCustomers } from "../../services/customerStore.ts";
 import { 
   searchBackendCustomers, 
   searchBackendProducts, 
@@ -128,7 +127,7 @@ interface SmritiBillingTerminalProps {
   initialTransaction?: TransactionType;
   initialSalesChannel?: string;
   onOpenSalesDocuments?: () => void;
-  onOpenPackingSlips?: () => void;
+  onOpenPackingSlips?: (customerId?: string) => void;
   onOpenConsolidatedBilling?: () => void;
   onOpenBillingConfiguration?: () => void;
   onOpenShiftReports?: () => void;
@@ -272,7 +271,6 @@ export function mapSalesFactorsToAdjustmentRows(factors: SmritiSalesFactor[]): A
 
 export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   products = [],
-  customers: initialCustomersProp,
   currentUser,
   onRefreshData,
   onNotification,
@@ -291,6 +289,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   const settlementIdempotencyKeyRef = useRef<{ key: string; fingerprint: string } | null>(null);
   const invoiceCustomerScope = { series: "TT2026-2027", from: 18, to: 137 };
   const billingGridPreferenceKey = `smriti.billing.item-grid.v1:${encodeURIComponent(currentUser?.companyId || "default")}:${encodeURIComponent(currentUser?.name || "operator")}`;
+  const [systemParametersVersion, setSystemParametersVersion] = useState(0);
 
   // Main Line Items Table State
   const [items, setItems] = useState<BillingLineItem[]>([]);
@@ -303,6 +302,16 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   const [customerPOs, setCustomerPOs] = useState<any[]>([]);
   const [selectedCustomerPO, setSelectedCustomerPO] = useState<any | null>(null);
   const [isLoadingCustomerPOs, setIsLoadingCustomerPOs] = useState(false);
+  const [customerPOError, setCustomerPOError] = useState<string | null>(null);
+  const customerPORequestIdRef = useRef(0);
+  const [sourceAvailability, setSourceAvailability] = useState<{
+    loading: boolean;
+    counts: { salesOrders: number; packingSlips: number; parkedCarts: number; drafts: number };
+    errors: string[];
+  }>({ loading: false, counts: { salesOrders: 0, packingSlips: 0, parkedCarts: 0, drafts: 0 }, errors: [] });
+  const [transactionBrowserTab, setTransactionBrowserTab] = useState<InvoicingBrowserTab>("INVOICES");
+  const [transactionBrowserInvoiceStatus, setTransactionBrowserInvoiceStatus] = useState<string | undefined>();
+  const [transactionBrowserOpenVersion, setTransactionBrowserOpenVersion] = useState(0);
 
   const toggleGridColumn = (column: BillingGridColumnKey) => {
     const updated = { ...gridColumnVisibility, [column]: !gridColumnVisibility[column] };
@@ -447,22 +456,31 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     const sysParamKey = `SMRITI.SALES.CHANNEL.${channelKey}.REQUIRES_STORE_LOCATION`;
     const sysParamVal = smritiSystemParameterService.getValue<boolean | null>(sysParamKey, null);
     return channelRequiresStoreLocation(headerState.salesChannel, sysParamVal);
-  }, [headerState.salesChannel]);
+  }, [headerState.salesChannel, systemParametersVersion]);
 
   const loadCustomerPOs = async (customerId: string) => {
+    const requestId = ++customerPORequestIdRef.current;
     if (!customerId || customerId === "CUST-WALKIN") {
       setCustomerPOs([]);
       setSelectedCustomerPO(null);
+      setCustomerPOError(null);
+      setIsLoadingCustomerPOs(false);
       return;
     }
     setIsLoadingCustomerPOs(true);
+    setCustomerPOs([]);
+    setSelectedCustomerPO(null);
+    setCustomerPOError(null);
     try {
       const response = await apiFetchV1<any>(`/sales/customer-pos?customer_id=${encodeURIComponent(customerId)}&status=OPEN`);
+      if (requestId !== customerPORequestIdRef.current) return;
       setCustomerPOs(Array.isArray(response) ? response : response?.items || []);
-    } catch {
+    } catch (error) {
+      if (requestId !== customerPORequestIdRef.current) return;
       setCustomerPOs([]);
+      setCustomerPOError(error instanceof Error ? error.message : "Customer purchase orders could not be loaded.");
     } finally {
-      setIsLoadingCustomerPOs(false);
+      if (requestId === customerPORequestIdRef.current) setIsLoadingCustomerPOs(false);
     }
   };
 
@@ -581,23 +599,91 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   }, [headerState.customer?.id]);
 
   useEffect(() => {
-    void smritiSystemParameterService.load();
+    const customer = headerState.customer;
+    if (!customer?.isDependant || !customer.id) {
+      setSourceAvailability({
+        loading: false,
+        counts: { salesOrders: 0, packingSlips: 0, parkedCarts: 0, drafts: 0 },
+        errors: [],
+      });
+      return;
+    }
+
+    let active = true;
+    const customerId = encodeURIComponent(customer.id);
+    setSourceAvailability({
+      loading: true,
+      counts: { salesOrders: 0, packingSlips: 0, parkedCarts: 0, drafts: 0 },
+      errors: [],
+    });
+
+    const asList = (value: any): any[] => Array.isArray(value) ? value : value?.items || value?.data || [];
+    void Promise.allSettled([
+      apiFetchV1<any>(`/sales/orders?customer_id=${customerId}&limit=1000`),
+      apiFetchV1<any>(`/fulfillment/packing-slips?customer_id=${customerId}&status=PACKED&limit=200`),
+      apiFetchV1<any>(`/pos/parked-carts?customer_id=${customerId}`),
+      apiFetchV1<any>(`/sales/invoices/suspended?customer_id=${customerId}`),
+      apiFetchV1<any>(`/sales/invoices?customer_id=${customerId}&status=Draft&limit=100`),
+    ]).then(results => {
+      if (!active) return;
+      const failures: string[] = [];
+      const getResult = (index: number, label: string): any[] => {
+        const result = results[index];
+        if (result.status === "rejected") {
+          failures.push(`${label}: ${result.reason instanceof Error ? result.reason.message : "could not be loaded"}`);
+          return [];
+        }
+        return asList(result.value);
+      };
+      const terminalOrderStatuses = new Set(["CANCELLED", "CLOSED", "COMPLETED", "INVOICED", "REJECTED"]);
+      const openOrders = getResult(0, "Sales orders").filter(order =>
+        !terminalOrderStatuses.has(String(order.status || "").toUpperCase())
+        && !terminalOrderStatuses.has(String(order.fulfillment_status || "").toUpperCase())
+      );
+      const slips = getResult(1, "Packing slips");
+      const carts = getResult(2, "Held bills");
+      const suspended = getResult(3, "Suspended bills");
+      const drafts = getResult(4, "Draft invoices");
+      setSourceAvailability({
+        loading: false,
+        counts: { salesOrders: openOrders.length, packingSlips: slips.length, parkedCarts: carts.length + suspended.length, drafts: drafts.length },
+        errors: failures,
+      });
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [headerState.customer?.id, headerState.customer?.isDependant]);
+
+  useEffect(() => {
+    let active = true;
+    void smritiSystemParameterService.load().then(() => {
+      if (active) setSystemParametersVersion(version => version + 1);
+    });
+    return () => {
+      active = false;
+    };
   }, []);
 
   // Corporate B2B Multi-State GST, Billing & Delivery Location State
   const [customerGstRegistrations, setCustomerGstRegistrations] = useState<CustomerGSTRegistrationDTO[]>([]);
   const [customerDeliveryLocations, setCustomerDeliveryLocations] = useState<CustomerDeliveryLocationDTO[]>([]);
   const [isLoadingB2BData, setIsLoadingB2BData] = useState<boolean>(false);
+  const [customerB2BDataError, setCustomerB2BDataError] = useState<string | null>(null);
+  const [customerBillingLocationNeedsDefault, setCustomerBillingLocationNeedsDefault] = useState(false);
   const activeCustomerFetchIdRef = useRef<string | null>(null);
 
   const fetchCustomerB2BData = async (customerId: string) => {
     activeCustomerFetchIdRef.current = customerId;
     setIsLoadingB2BData(true);
+    setCustomerB2BDataError(null);
+    setCustomerBillingLocationNeedsDefault(false);
     try {
       const [regsRes, locsRes, blocRes] = await Promise.all([
-        apiFetchV1(`/crm/customers/${customerId}/gst-registrations`).catch(() => []),
-        apiFetchV1(`/crm/customers/${customerId}/delivery-locations`).catch(() => []),
-        apiFetchV1(`/crm/customers/${customerId}/billing-locations`).catch(() => []),
+        apiFetchV1(`/crm/customers/${encodeURIComponent(customerId)}/gst-registrations`),
+        apiFetchV1(`/crm/customers/${encodeURIComponent(customerId)}/delivery-locations`),
+        apiFetchV1(`/crm/customers/${encodeURIComponent(customerId)}/billing-locations`),
       ]);
       if (activeCustomerFetchIdRef.current !== customerId) return;
 
@@ -646,14 +732,20 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       setCustomerGstRegistrations(regs);
       setCustomerDeliveryLocations(locs);
 
-      // 1. Primary GST auto-selection (auto-select default or first available):
-      const primaryReg = regs.find(r => r.is_primary) || (regs.length > 0 ? regs[0] : null);
+      // 1. Auto-select only a primary or sole GST registration.
+      const primaryReg = regs.find(r => r.is_primary) || (regs.length === 1 ? regs[0] : null);
 
       // 2. Default Billing Location auto-selection (auto-select default or first available):
-      const defaultBloc = blocs.find(b => b.is_default) || (blocs.length > 0 ? blocs[0] : null);
+      const defaultBloc = blocs.find(b => b.is_default) || (blocs.length === 1 ? blocs[0] : null);
+      setCustomerBillingLocationNeedsDefault(blocs.length === 0 || (blocs.length > 1 && !defaultBloc));
 
       // 3. Default Shipping / Delivery Location auto-selection (auto-select default, primary, or first available):
-      const defaultDelLoc = locs.find(l => l.is_default) || locs.find(l => (l as any).is_primary) || (locs.length > 0 ? locs[0] : null);
+      const defaultDelLoc = locs.find(l => l.is_default) || locs.find(l => (l as any).is_primary) || (locs.length === 1 ? locs[0] : null);
+      const locationNotices: string[] = [];
+      if (regs.length > 1 && !primaryReg) locationNotices.push("Select a GST registration; this customer has multiple registrations and no primary.");
+      if (blocs.length === 0) locationNotices.push("This customer has no configured billing address.");
+      if (blocs.length > 1 && !defaultBloc) locationNotices.push("This customer has multiple billing addresses and no configured default.");
+      if (locs.length > 1 && !defaultDelLoc) locationNotices.push("Select the correct delivery Store Code; this customer has multiple locations and no configured default.");
 
       const delSnapshot = defaultDelLoc ? {
         id: defaultDelLoc.id,
@@ -684,6 +776,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         deliveryLocationSnapshot: delSnapshot,
         shippingAddress: defaultDelLoc ? [defaultDelLoc.address_line1, defaultDelLoc.city, defaultDelLoc.state_name].filter(Boolean).join(", ") : null,
       }));
+      setCustomerB2BDataError(locationNotices.length > 0 ? locationNotices.join(" ") : null);
 
       // Auto-resolve PSV party for default delivery location if present
       if (defaultDelLoc?.id) {
@@ -704,8 +797,13 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
           console.warn("[BillingTerm] Automatic PSV account resolution notice:", err);
         });
       }
-    } catch {
-      // Offline fallback
+    } catch (error) {
+      if (activeCustomerFetchIdRef.current === customerId) {
+        setCustomerGstRegistrations([]);
+        setCustomerDeliveryLocations([]);
+        setCustomerBillingLocationNeedsDefault(false);
+        setCustomerB2BDataError(error instanceof Error ? error.message : "Customer billing and delivery details could not be loaded.");
+      }
     } finally {
       if (activeCustomerFetchIdRef.current === customerId) {
         setIsLoadingB2BData(false);
@@ -830,16 +928,11 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     DEFAULT_ADDON_ROWS.map(r => ({ ...r }))
   );
 
-  // Customers State & Auto-Populate Search
-  // getCustomers() returns backend-seeded cache (populated by refreshCustomerCache on login).
-  // Empty array on cold start is correct — Billing search uses backend typeahead, not this list.
-  const [customers, setCustomers] = useState<Customer[]>(() => {
-    if (initialCustomersProp && initialCustomersProp.length > 0) return initialCustomersProp;
-    return getCustomers(); // returns [] if cache not yet warm; backend typeahead still works
-  });
+  // Billing customer search is server-filtered so parent visibility policy cannot be bypassed by cache.
   const [customerSearchInput, setCustomerSearchInput] = useState<string>("");
   const [showCustomerDropdown, setShowCustomerDropdown] = useState<boolean>(false);
   const [isCustomerSearching, setIsCustomerSearching] = useState<boolean>(false);
+  const [customerSearchError, setCustomerSearchError] = useState<string | null>(null);
   const [customerSuggestions, setCustomerSuggestions] = useState<TypeaheadOption[]>([]);
   const [customerSelectedIndex, setCustomerSelectedIndex] = useState<number>(0);
   const customerDebounceRef = useRef<any>(null);
@@ -971,6 +1064,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   const [showBulkAddItemsModal, setShowBulkAddItemsModal] = useState<boolean>(false);
   const [showBarcodeCSVImportModal, setShowBarcodeCSVImportModal] = useState<boolean>(false);
   const [expandedHeldBillId, setExpandedHeldBillId] = useState<string | null>(null);
+  const [suspendedBillsError, setSuspendedBillsError] = useState<string | null>(null);
   const [showTransactionBrowserModal, setShowTransactionBrowserModal] = useState<boolean>(false);
   const [isReadOnlyView, setIsReadOnlyView] = useState<boolean>(false);
   const [activeDraftId, setActiveDraftId] = useState<string | null>(null);
@@ -985,7 +1079,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   } | null>(null);
   const [showPrintModal, setShowPrintModal] = useState<boolean>(false);
   const [showAttachmentPanel, setShowAttachmentPanel] = useState<boolean>(false);
-  const [suspendedBills, setSuspendedBills] = useState<{ id: string; holdSlipNumber?: string; header: BillingHeaderState; items: BillingLineItem[]; transporterRows?: any[]; addonRows?: any[]; rule_snapshots?: any; date: string; netAmount: number }[]>([]);
+  const [suspendedBills, setSuspendedBills] = useState<{ id: string; holdSlipNumber?: string; sourceType?: "PARKED_CART" | "SUSPENDED_INVOICE"; header: BillingHeaderState; items: BillingLineItem[]; transporterRows?: any[]; addonRows?: any[]; rule_snapshots?: any; date: string; netAmount: number }[]>([]);
   const [lastCompletedInvoice, setLastCompletedInvoice] = useState<any>(null);
 
   const [showDefinePrefixModal, setShowDefinePrefixModal] = useState<boolean>(false);
@@ -1337,47 +1431,23 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     adapter: (result: LookupResult) => {
       // ── Customer lookup ────────────────────────────────────────────────────
       if (result.entity === "customer") {
-        const custCode = (result.record?.code as string) || (result.record?.customer_code as string) || result.returnValue || "";
-        const custObj: Customer = {
-          id: result.id ?? "",
-          code: custCode,
-          name: result.displayValue || "",
-          mobile: (result.record?.mobile as string) || (result.record?.phone as string) || "",
-          gstNumber: (result.record?.gst_number as string) || (result.record?.gstNumber as string) || "",
-          customerGroupId: (result.record?.customer_group_id as string) || (result.record?.customerGroupId as string) || "CG-Retail",
-          priceGroupCode: (result.record?.price_group_code as string) || (result.record?.priceGroupCode as string) || undefined,
-          itemClassificationPriceFactorApplicable: Boolean(result.record?.item_classification_price_factor_applicable ?? result.record?.itemClassificationPriceFactorApplicable),
-          creditLimit: Number(result.record?.credit_limit ?? result.record?.creditLimit ?? 0) || undefined,
-          creditDays: Number(result.record?.credit_days ?? result.record?.creditDays ?? 0) || undefined,
-          status: (result.record?.status as string) || "Active",
-          outstanding: Number(result.record?.outstanding_balance ?? result.record?.outstanding ?? 0),
-          createdDate: (result.record?.created_at as string) || new Date().toISOString().split("T")[0],
-        };
-        setHeaderState(prev => ({
-          ...prev,
-          customer: custObj,
-          billedPartyGstinId: null,
-          billedGstin: null,
-          deliveryLocationId: null,
-          deliveryStoreCode: custCode ? (custCode.replace(/^[A-Z]+-/, "") || custCode) : null,
-          deliveryGstin: null,
-          deliveryLocationSnapshot: null,
-          psvPartyId: null,
-          placeOfSupplyCode: null,
-          poReference: ""
-        }));
-        setCustomerSearchInput(result.displayValue || "");
-        if (custObj.id) {
-          fetchCustomerB2BData(custObj.id);
-          void loadBillingTransactionPolicy(custObj.id);
-          setItems(prev => recomputeCartForCustomer(prev, custObj));
-        } else {
-          setCustomerGstRegistrations([]);
-          setCustomerDeliveryLocations([]);
-          void loadBillingTransactionPolicy();
-          setItems(prev => recomputeCartForCustomer(prev, null));
+        const lookupId = result.id || (result.record?.id as string) || "";
+        if (!lookupId) {
+          onNotification?.("Customer Not Selected", "The customer lookup did not return a customer ID. Use the Billing customer search.", "error");
+          return;
         }
-        setCreditOverrideReason("");
+        void searchBackendCustomers(lookupId, invoiceCustomerScope, { billingOnly: true })
+          .then(results => {
+            const allowedCustomer = results.find(customer => customer.id === lookupId);
+            if (!allowedCustomer) {
+              onNotification?.("Customer Unavailable", "This customer is not enabled for billing by its parent account.", "error");
+              return;
+            }
+            applyCustomerAutoPopulate(allowedCustomer);
+          })
+          .catch(error => {
+            onNotification?.("Customer Lookup Failed", error instanceof Error ? error.message : "The billing customer could not be verified.", "error");
+          });
         return;
       }
 
@@ -1481,39 +1551,19 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     }
   };
 
-  const fetchCustomers = async () => {
-    try {
-      const params = new URLSearchParams({
-        limit: "100",
-        invoice_series: invoiceCustomerScope.series,
-        invoice_from: String(invoiceCustomerScope.from),
-        invoice_to: String(invoiceCustomerScope.to),
-      });
-      const res = await apiFetchV1(`/crm/customers?${params.toString()}`);
-      const list = Array.isArray(res) ? res : (res?.items || []);
-      if (list.length > 0) {
-        setCustomers(list);
-        saveCustomers(list);
-        return;
-      }
-    } catch {
-      // Offline fallback
-    }
-    const local = getCustomers();
-    setCustomers(local || []);
-  };
-
-  const fetchSuspendedInvoices = async () => {
-    try {
-      const [posRes, legacyRes] = await Promise.allSettled([
-        apiFetchV1<any[]>("/pos/parked-carts"),
-        apiFetchV1<any>("/sales/invoices/suspended")
-      ]);
+  const fetchSuspendedInvoices = async (customerId?: string) => {
+    setSuspendedBillsError(null);
+    const customerQuery = customerId ? `?customer_id=${encodeURIComponent(customerId)}` : "";
+    const [posRes, legacyRes] = await Promise.allSettled([
+      apiFetchV1<any[]>(`/pos/parked-carts${customerQuery}`),
+      apiFetchV1<any>(`/sales/invoices/suspended${customerQuery}`)
+    ]);
 
       const mappedPos = posRes.status === "fulfilled" && Array.isArray(posRes.value)
         ? posRes.value.map((c: any) => ({
             id: c.id,
             holdSlipNumber: c.hold_slip_number,
+            sourceType: "PARKED_CART" as const,
             header: c.cart_snapshot?.headerState || {
               billType: "Product" as BillType,
               transaction: "Cash" as TransactionType,
@@ -1538,6 +1588,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       const mappedLegacy = listLegacy.map((inv: any) => ({
         id: inv.id,
         holdSlipNumber: inv.invoice_no,
+        sourceType: "SUSPENDED_INVOICE" as const,
         header: {
           billType: "Product" as BillType,
           transaction: (inv.payment_mode === "CASH" ? "Cash" : "Credit") as TransactionType,
@@ -1575,16 +1626,16 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       }));
 
       setSuspendedBills([...mappedPos, ...mappedLegacy]);
-    } catch {
-      // offline fallback
-    }
+    const failures = [
+      posRes.status === "rejected" ? "Held carts could not be loaded." : "",
+      legacyRes.status === "rejected" ? "Suspended invoices could not be loaded." : "",
+    ].filter(Boolean);
+    setSuspendedBillsError(failures.length ? failures.join(" ") : null);
   };
 
   // Focus direct entry row on mount & fetch live data
   useEffect(() => {
-    fetchCustomers();
     fetchProducts();
-    fetchSuspendedInvoices();
     directStockNoRef.current?.focus();
   }, []);
 
@@ -1611,6 +1662,9 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         setShowDefineFactorsModal(true);
       } else if (e.key === "F4" || (e.altKey && e.key === "6")) {
         e.preventDefault();
+        setTransactionBrowserTab("INVOICES");
+        setTransactionBrowserInvoiceStatus(undefined);
+        setTransactionBrowserOpenVersion(version => version + 1);
         setShowTransactionBrowserModal(true);
       } else if (e.key === "F7") {
         e.preventDefault();
@@ -1683,30 +1737,41 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   }, [items, headerState, lastCompletedInvoice, activeItemSearchField, hasGstProfile, selectedRowIndex, editingLineId]);
 
   const handleSelectCustomer = (c: Customer | null) => {
-    const custCode = c?.code || "";
     setHeaderState(prev => ({
       ...prev,
       customer: c,
       billedPartyGstinId: null,
       billedGstin: null,
+      billingLocationId: null,
+      billingStoreCode: null,
+      billingAddress: null,
       deliveryLocationId: null,
-      deliveryStoreCode: custCode ? (custCode.replace(/^[A-Z]+-/, "") || custCode) : null,
+      deliveryStoreCode: null,
       deliveryGstin: null,
       deliveryLocationSnapshot: null,
+      shippingAddress: null,
       psvPartyId: null,
       placeOfSupplyCode: null,
       poReference: "",
       customerPoId: null
     }));
     setSelectedCustomerPO(null);
+    customerPORequestIdRef.current += 1;
+    setCustomerPOs([]);
+    setCustomerPOError(null);
+    setIsLoadingCustomerPOs(false);
     if (c) {
       setCustomerSearchInput(c.name);
       fetchCustomerB2BData(c.id);
       void loadBillingTransactionPolicy(c.id);
       setItems(prev => recomputeCartForCustomer(prev, c));
     } else {
+      activeCustomerFetchIdRef.current = null;
+      setIsLoadingB2BData(false);
       setCustomerGstRegistrations([]);
       setCustomerDeliveryLocations([]);
+      setCustomerB2BDataError(null);
+      setCustomerBillingLocationNeedsDefault(false);
       void loadBillingTransactionPolicy();
       setItems(prev => recomputeCartForCustomer(prev, null));
     }
@@ -1714,7 +1779,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     setShowCustomerDropdown(false);
   };
 
-  const applyCustomerAutoPopulate = (r: AutoPopulateCustomerResult | Customer) => {
+  function applyCustomerAutoPopulate(r: AutoPopulateCustomerResult | Customer) {
     const custCode = (r as any).code || (r as any).customer_code || (r as any).returnValue || "";
     const custObj: Customer = {
       id: r.id,
@@ -1723,34 +1788,53 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       mobile: (r as any).mobile || (r as any).phone || "",
       gstNumber: (r as any).gstNumber || (r as any).gst_number,
       customerGroupId: (r as any).customerGroupId || (r as any).customer_group_id || "CG-Retail",
+      isDependant: Boolean((r as any).isDependant ?? (r as any).is_dependant),
+      parentCustomerId: (r as any).parentCustomerId || (r as any).parent_customer_id || undefined,
+      parentCustomerName: (r as any).parentCustomerName || (r as any).primaryAccountName || (r as any).primary_account_name || (r as any).parent_customer_name || undefined,
+      primaryAccountCode: (r as any).primaryAccountCode || (r as any).primary_account_code || undefined,
+      primaryAccountName: (r as any).primaryAccountName || (r as any).primary_account_name || (r as any).parentCustomerName || undefined,
       priceGroupCode: (r as any).priceGroupCode || (r as any).price_group_code || undefined,
       itemClassificationPriceFactorApplicable: Boolean((r as any).itemClassificationPriceFactorApplicable ?? (r as any).item_classification_price_factor_applicable),
       creditLimit: Number((r as any).creditLimit ?? (r as any).credit_limit ?? 0) || undefined,
       status: (r as any).status || "Active",
       outstanding: (r as any).outstanding || (r as any).outstanding_balance || 0,
       createdDate: (r as any).createdDate || (r as any).created_at || new Date().toISOString().split("T")[0]
-    };
+    }
 
     setHeaderState(prev => ({
       ...prev,
       customer: custObj,
       billedPartyGstinId: null,
       billedGstin: null,
+      billingLocationId: null,
+      billingStoreCode: null,
+      billingAddress: null,
       deliveryLocationId: null,
-      deliveryStoreCode: custCode ? (custCode.replace(/^[A-Z]+-/, "") || custCode) : null,
+      deliveryStoreCode: null,
       deliveryGstin: null,
       deliveryLocationSnapshot: null,
+      shippingAddress: null,
       psvPartyId: null,
       placeOfSupplyCode: null,
       poReference: ""
     }));
 
     setCustomerSearchInput(r.name);
+    customerPORequestIdRef.current += 1;
+    setSelectedCustomerPO(null);
+    setCustomerPOs([]);
+    setCustomerPOError(null);
+    setIsLoadingCustomerPOs(false);
     setShowCustomerDropdown(false);
     if (custObj.id) {
       fetchCustomerB2BData(custObj.id);
       void loadBillingTransactionPolicy(custObj.id);
       setItems(prev => recomputeCartForCustomer(prev, custObj));
+    } else {
+      customerPORequestIdRef.current += 1;
+      setCustomerPOs([]);
+      setCustomerPOError(null);
+      setIsLoadingCustomerPOs(false);
     }
     setCreditOverrideReason("");
     onNotification?.("Customer Auto-Populated", `Auto-populated ${r.name} from backend.`, "success");
@@ -1759,6 +1843,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   const handleCustomerSearchChange = (val: string) => {
     setCustomerSearchInput(val);
     setShowCustomerDropdown(true);
+    setCustomerSearchError(null);
 
     if (!val.trim()) {
       setHeaderState(prev => ({
@@ -1766,16 +1851,29 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         customer: null,
         billedPartyGstinId: null,
         billedGstin: null,
+        billingLocationId: null,
+        billingStoreCode: null,
+        billingAddress: null,
         deliveryLocationId: null,
         deliveryStoreCode: null,
         deliveryGstin: null,
         deliveryLocationSnapshot: null,
+        shippingAddress: null,
         placeOfSupplyCode: null,
         poReference: ""
       }));
       setCustomerSuggestions([]);
+      setCustomerPOs([]);
+      setSelectedCustomerPO(null);
+      setCustomerPOError(null);
+      setIsLoadingCustomerPOs(false);
       setCustomerGstRegistrations([]);
       setCustomerDeliveryLocations([]);
+      setCustomerB2BDataError(null);
+      setCustomerBillingLocationNeedsDefault(false);
+      setIsLoadingB2BData(false);
+      activeCustomerFetchIdRef.current = null;
+      customerPORequestIdRef.current += 1;
       void loadBillingTransactionPolicy();
       return;
     }
@@ -1785,11 +1883,11 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
 
     customerDebounceRef.current = setTimeout(async () => {
       try {
-        const results = await searchBackendCustomers(val, invoiceCustomerScope);
+        const results = await searchBackendCustomers(val, invoiceCustomerScope, { billingOnly: true });
         const options: TypeaheadOption[] = results.map(r => ({
           id: r.id,
           title: r.name,
-          subtitle: `${r.mobile || "No Mobile"} • ${r.customerGroupId || "CG-Retail"}`,
+          subtitle: `${r.isDependant ? `Child of ${r.parentCustomerName || r.primaryAccountName || r.primaryAccountCode || "parent account"} • ` : ""}${r.mobile || "No Mobile"} • ${r.customerGroupId || "CG-Retail"}`,
           badge: r.outstanding > 0 ? `Bal: ₹${r.outstanding}` : "Clear",
           badgeColor: r.outstanding > 0 ? "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200" : "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300",
           iconType: "customer",
@@ -1809,6 +1907,9 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         if (exact) {
           applyCustomerAutoPopulate(exact);
         }
+      } catch (error) {
+        setCustomerSuggestions([]);
+        setCustomerSearchError(error instanceof Error ? error.message : "Billing customer search could not be completed.");
       } finally {
         setIsCustomerSearching(false);
       }
@@ -2936,7 +3037,11 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   };
 
   const handleReturnInvoice = () => {
-    fetchSuspendedInvoices();
+    openRecallModal();
+  };
+
+  const openRecallModal = () => {
+    void fetchSuspendedInvoices(headerState.customer?.isDependant ? headerState.customer.id : undefined);
     setShowRecallModal(true);
   };
 
@@ -2950,7 +3055,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     const suspendedNo = `HOLD-${headerState.docPrefix || "POS"}-${headerState.docNo || "1"}-${Date.now().toString().slice(-4)}`;
     const parkedPayload = {
       hold_slip_number: suspendedNo,
-      branch_id: headerState.deliveryLocationId || "BR-001",
+      branch_id: normalizeBranchId(getTenantCompanyContext().branchId),
       customer_id: headerState.customer?.id || null,
       customer_name: headerState.customer?.name || "Counter Cash Sale",
       customer_phone: headerState.customer?.mobile || null,
@@ -2972,6 +3077,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       const suspended = {
         id: saved.id || suspendedNo,
         holdSlipNumber: saved.hold_slip_number || suspendedNo,
+        sourceType: "PARKED_CART" as const,
         header: { ...headerState },
         items: [...items],
         transporterRows: [...transporterRows],
@@ -2992,44 +3098,32 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       }));
       setCustomerSearchInput("");
       onNotification?.("Invoice Suspended", `Bill ${suspended.holdSlipNumber} parked in isolated cart storage. Zero inventory/credit impact.`, "success");
-    } catch {
-      // Local fallback
-      const suspended = {
-        id: suspendedNo,
-        holdSlipNumber: suspendedNo,
-        header: { ...headerState },
-        items: [...items],
-        transporterRows: [...transporterRows],
-        addonRows: [...addonRows],
-        rule_snapshots: parkedPayload.cart_snapshot,
-        date: new Date().toLocaleTimeString(),
-        netAmount: summaryTotals.netAmount
-      };
-      setSuspendedBills(prev => [suspended, ...prev]);
-      setItems([]);
-      setActiveDraftId(null);
-      setTransporterRows(DEFAULT_TRANSPORTER_ROWS.map(r => ({ ...r })));
-      setAddonRows(DEFAULT_ADDON_ROWS.map(r => ({ ...r })));
-      setHeaderState(prev => ({
-        ...prev,
-        docNo: String((parseInt(prev.docNo) || 1) + 1),
-        customer: null
-      }));
-      setCustomerSearchInput("");
-      onNotification?.("Invoice Suspended (Local)", `Bill ${suspended.holdSlipNumber} held locally.`, "success");
+    } catch (error) {
+      onNotification?.(
+        "Hold Could Not Be Saved",
+        error instanceof Error ? error.message : "The bill remains open because the server did not save the held cart.",
+        "error"
+      );
     }
   };
 
   // Recall Suspended Invoice / Parked Cart
   const handleRecallInvoice = async (suspended: any) => {
-    if (suspended.holdSlipNumber) {
-      try {
-        await apiFetchV1(`/pos/parked-carts/${encodeURIComponent(suspended.holdSlipNumber)}/recall`, {
-          method: "POST"
-        });
-      } catch (e) {
-        // Fallback or already recalled
-      }
+    if (suspended.sourceType !== "PARKED_CART" || !suspended.holdSlipNumber) {
+      onNotification?.("Resume Unavailable", "Only server-backed parked carts can be recalled here. Legacy suspended invoices are view-only.", "error");
+      return;
+    }
+    try {
+      await apiFetchV1(`/pos/parked-carts/${encodeURIComponent(suspended.holdSlipNumber)}/recall`, {
+        method: "POST"
+      });
+    } catch (error) {
+      onNotification?.(
+        "Held Cart Could Not Be Recalled",
+        error instanceof Error ? error.message : "The server did not recall this held cart; the current bill is unchanged.",
+        "error"
+      );
+      return;
     }
     setHeaderState(suspended.header);
     setItems(suspended.items);
@@ -3062,16 +3156,20 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     onNotification?.("Invoice Recalled", `Restored bill ${suspended.holdSlipNumber || suspended.header.docNo}`, "success");
   };
 
-  const handleDiscardSuspendedBill = async (suspendedId: string, holdSlipNumber?: string) => {
-    if (holdSlipNumber) {
-      try {
-        await apiFetchV1(`/pos/parked-carts/${encodeURIComponent(holdSlipNumber)}`, { method: "DELETE" });
-      } catch (e) {
-        console.warn("[BillingTerm] Failed to delete parked cart from server:", e);
-      }
+  const handleDiscardSuspendedBill = async (bill: any) => {
+    if (bill.sourceType !== "PARKED_CART" || !bill.holdSlipNumber) return;
+    try {
+      await apiFetchV1(`/pos/parked-carts/${encodeURIComponent(bill.holdSlipNumber)}`, { method: "DELETE" });
+    } catch (error) {
+      onNotification?.(
+        "Parked Cart Could Not Be Deleted",
+        error instanceof Error ? error.message : "The server did not delete this parked cart.",
+        "error"
+      );
+      return;
     }
-    setSuspendedBills(prev => prev.filter(b => b.id !== suspendedId));
-    onNotification?.("Parked Cart Discarded", `Parked cart ${holdSlipNumber || suspendedId} removed.`, "info");
+    setSuspendedBills(prev => prev.filter(existing => existing.id !== bill.id));
+    onNotification?.("Parked Cart Discarded", `Parked cart ${bill.holdSlipNumber} removed.`, "info");
   };
 
   // Save as Draft Sales Invoice (persisted SalesInvoice, status="Draft", zero stock/GL mutations)
@@ -3550,6 +3648,24 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       return;
     }
 
+    if (headerState.customer?.isDependant && !headerState.deliveryLocationId) {
+      onNotification?.(
+        "Child Delivery Location Required",
+        "Select a delivery location belonging to the selected child account before billing.",
+        "error"
+      );
+      return;
+    }
+
+    if (headerState.customer?.isDependant && customerBillingLocationNeedsDefault) {
+      onNotification?.(
+        "Child Billing Address Required",
+        "Configure a default billing address for this child account in the customer profile before billing.",
+        "error"
+      );
+      return;
+    }
+
     if (isStoreLocationRequired && (!headerState.deliveryLocationId || !headerState.deliveryStoreCode)) {
       console.error("[SETTLEMENT BLOCKED] isStoreLocationRequired missing", { dId: headerState.deliveryLocationId, dCode: headerState.deliveryStoreCode });
       onNotification?.(
@@ -3899,15 +4015,18 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
           status: newCust.status
         })
       });
-      if (res && res.id) {
-        newCust.id = res.id;
-        newCust.code = res.code || res.id;
-      }
+      if (!res?.id) throw new Error("The customer service did not return a saved customer ID.");
+      newCust.id = res.id;
+      newCust.code = res.code || res.id;
       window.dispatchEvent(new CustomEvent("smriti_customer_updated"));
-    } catch (e) {
-      console.warn("[Quick Customer] Backend persistence fallback to local:", e);
+    } catch (error) {
+      onNotification?.(
+        "Customer Could Not Be Saved",
+        error instanceof Error ? error.message : "The customer was not saved; it cannot be selected for billing.",
+        "error"
+      );
+      return;
     }
-    setCustomers(prev => [newCust, ...prev]);
     handleSelectCustomer(newCust);
     setShowAddCustomerModal(false);
     setNewCustName("");
@@ -3916,17 +4035,9 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     onNotification?.("Customer Added", `Customer ${newCust.name} selected.`, "success");
   };
 
-  const filteredCustomers = useMemo(() => {
-    if (!customerSearchInput.trim()) return customers;
-    const q = customerSearchInput.toLowerCase().trim();
-    return customers.filter(c => 
-      c.name?.toLowerCase().includes(q) ||
-      (c.mobile && c.mobile.includes(q)) ||
-      (c.id && c.id.toLowerCase().includes(q)) ||
-      (c.code && c.code.toLowerCase().includes(q)) ||
-      ((c as any).phone && (c as any).phone.includes(q))
-    );
-  }, [customers, customerSearchInput]);
+  const visibleSuspendedBills = headerState.customer?.isDependant
+    ? suspendedBills.filter(bill => bill.header.customer?.id === headerState.customer?.id)
+    : suspendedBills;
 
   return (
     <div 
@@ -4142,7 +4253,13 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                   <div className="h-px bg-slate-200 dark:bg-slate-700 my-1" />
                   <button
                     type="button"
-                    onClick={() => { setShowTransactionBrowserModal(true); setShowMoreMenu(false); }}
+                    onClick={() => {
+                      setTransactionBrowserTab("INVOICES");
+                      setTransactionBrowserInvoiceStatus(undefined);
+                      setTransactionBrowserOpenVersion(version => version + 1);
+                      setShowTransactionBrowserModal(true);
+                      setShowMoreMenu(false);
+                    }}
                     className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-left w-full cursor-pointer"
                   >
                     <History size={14} className="text-amber-600" />
@@ -4150,7 +4267,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                   </button>
                   <button
                     type="button"
-                    onClick={() => { setShowRecallModal(true); setShowMoreMenu(false); }}
+                    onClick={() => { openRecallModal(); setShowMoreMenu(false); }}
                     className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-left w-full cursor-pointer"
                   >
                     <RotateCcw size={14} className="text-purple-600" />
@@ -4365,8 +4482,6 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                         if (customerSuggestions.length > 0) {
                           const selected = customerSuggestions[customerSelectedIndex] || customerSuggestions[0];
                           if (selected?.metadata) applyCustomerAutoPopulate(selected.metadata as any);
-                        } else if (filteredCustomers.length > 0) {
-                          handleSelectCustomer(filteredCustomers[0]);
                         }
                       } else if (e.key === "ArrowDown") {
                         if (customerSuggestions.length > 0) {
@@ -4402,6 +4517,11 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                     onClose={() => setShowCustomerDropdown(false)}
                     emptyMessage="No matching customers found in database"
                   />
+                  {customerSearchError && (
+                    <span role="alert" className="absolute left-0 top-full z-10 mt-1 rounded bg-rose-50 px-2 py-1 text-[10px] font-semibold text-rose-700 shadow dark:bg-rose-950 dark:text-rose-200">
+                      Billing customer search failed: {customerSearchError}
+                    </span>
+                  )}
                 </div>
 
                 <button
@@ -4428,6 +4548,11 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                   <span className="text-[11px] text-slate-500 dark:text-slate-400">
                     {headerState.customer.customerGroupId || "Retail"}
                   </span>
+                  {headerState.customer.isDependant && (
+                    <span className="shrink-0 rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-semibold text-blue-800 dark:bg-blue-950/60 dark:text-blue-200">
+                      Child of {headerState.customer.parentCustomerName || headerState.customer.primaryAccountName || headerState.customer.primaryAccountCode || "parent account"}
+                    </span>
+                  )}
                   {headerState.customer.mobile && (
                     <>
                       <span className="text-slate-400" aria-hidden="true">·</span>
@@ -4444,9 +4569,19 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                   <button
                     type="button"
                     onClick={() => {
-                      setHeaderState(prev => ({ ...prev, customer: null, billedPartyGstinId: null, billedGstin: null, deliveryLocationId: null, deliveryStoreCode: null, deliveryGstin: null, placeOfSupplyCode: null, poReference: "", customerPoId: null }));
+                      setHeaderState(prev => ({ ...prev, customer: null, billedPartyGstinId: null, billedGstin: null, billingLocationId: null, billingStoreCode: null, billingAddress: null, deliveryLocationId: null, deliveryStoreCode: null, deliveryGstin: null, deliveryLocationSnapshot: null, shippingAddress: null, placeOfSupplyCode: null, poReference: "", customerPoId: null }));
                       setSelectedCustomerPO(null);
+                      setCustomerPOs([]);
+                      setCustomerPOError(null);
+                      setIsLoadingCustomerPOs(false);
+                      customerPORequestIdRef.current += 1;
                       setCustomerSearchInput("");
+                      activeCustomerFetchIdRef.current = null;
+                      setIsLoadingB2BData(false);
+                      setCustomerGstRegistrations([]);
+                      setCustomerDeliveryLocations([]);
+                      setCustomerB2BDataError(null);
+                      setCustomerBillingLocationNeedsDefault(false);
                     }}
                     className="ml-auto shrink-0 text-slate-400 hover:text-rose-600 p-1 cursor-pointer transition"
                     title="Clear selected customer"
@@ -4464,6 +4599,79 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                   <span className="text-[11px] text-slate-500 dark:text-slate-400">Retail</span>
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300">Default</span>
                 </div>
+              )}
+              {headerState.customer?.isDependant && (
+                <section aria-label="Child account billing sources" className="w-full basis-full rounded-lg border border-blue-200 bg-blue-50/70 p-2 dark:border-blue-900 dark:bg-blue-950/30">
+                  <div className="mb-1 flex items-center justify-between gap-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-blue-900 dark:text-blue-200">Available for this child account</span>
+                    {sourceAvailability.loading && <span role="status" className="text-[10px] text-blue-700 dark:text-blue-300">Checking…</span>}
+                  </div>
+                  <div className="grid grid-cols-2 gap-1 sm:grid-cols-3 xl:grid-cols-5">
+                    <button
+                      type="button"
+                      disabled={isLoadingCustomerPOs || customerPOs.length === 0}
+                      onClick={() => {
+                        setShowMoreDetails(true);
+                        setHeaderState(prev => ({ ...prev, billingSource: "CUSTOMER_PO" }));
+                        window.setTimeout(() => document.getElementById("customer-po-select")?.focus(), 0);
+                      }}
+                      className="rounded border border-blue-200 bg-white px-2 py-1 text-left text-[10px] font-semibold text-slate-700 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                    >
+                      Purchase Orders <strong className="ml-1">{isLoadingCustomerPOs ? "…" : customerPOs.length}</strong>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={sourceAvailability.loading || sourceAvailability.counts.salesOrders === 0}
+                      onClick={() => {
+                        setTransactionBrowserTab("ORDERS");
+                        setTransactionBrowserInvoiceStatus(undefined);
+                        setTransactionBrowserOpenVersion(version => version + 1);
+                        setShowTransactionBrowserModal(true);
+                      }}
+                      className="rounded border border-blue-200 bg-white px-2 py-1 text-left text-[10px] font-semibold text-slate-700 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                    >
+                      Sales Orders <strong className="ml-1">{sourceAvailability.loading ? "…" : sourceAvailability.counts.salesOrders}</strong>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={sourceAvailability.loading || sourceAvailability.counts.packingSlips === 0}
+                      onClick={() => onOpenPackingSlips?.(headerState.customer?.id)}
+                      className="rounded border border-blue-200 bg-white px-2 py-1 text-left text-[10px] font-semibold text-slate-700 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                    >
+                      Packing Slips <strong className="ml-1">{sourceAvailability.loading ? "…" : sourceAvailability.counts.packingSlips}</strong>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={sourceAvailability.loading || sourceAvailability.counts.parkedCarts === 0}
+                      onClick={openRecallModal}
+                      className="rounded border border-blue-200 bg-white px-2 py-1 text-left text-[10px] font-semibold text-slate-700 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                    >
+                      Held Bills <strong className="ml-1">{sourceAvailability.loading ? "…" : sourceAvailability.counts.parkedCarts}</strong>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={sourceAvailability.loading || sourceAvailability.counts.drafts === 0}
+                      onClick={() => {
+                        setTransactionBrowserTab("INVOICES");
+                        setTransactionBrowserInvoiceStatus("Draft");
+                        setTransactionBrowserOpenVersion(version => version + 1);
+                        setShowTransactionBrowserModal(true);
+                      }}
+                      className="rounded border border-blue-200 bg-white px-2 py-1 text-left text-[10px] font-semibold text-slate-700 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                    >
+                      Draft Bills <strong className="ml-1">{sourceAvailability.loading ? "…" : sourceAvailability.counts.drafts}</strong>
+                    </button>
+                  </div>
+                  {(customerPOError || sourceAvailability.errors.length > 0) && (
+                    <p role="status" className="mt-1 text-[10px] font-medium text-rose-700 dark:text-rose-300">
+                      {customerPOError && `Purchase Orders: ${customerPOError} `}
+                      {sourceAvailability.errors.join(" ")}
+                    </p>
+                  )}
+                  <p className="mt-1 text-[9px] text-slate-600 dark:text-slate-400">
+                    Purchase Orders use the existing billing workflow. Sales Orders and Packing Slips open scoped records; this panel does not convert or allocate them.
+                  </p>
+                </section>
               )}
             </div>
 
@@ -4534,6 +4742,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                     <label className="mt-2 block text-xs font-medium text-slate-700 dark:text-slate-200">
                       Customer Purchase Order
                       <select
+                        id="customer-po-select"
                         aria-label="Customer PO"
                         data-testid="customer-po-select"
                         value={headerState.customerPoId || ""}
@@ -4553,16 +4762,21 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                     </label>
                   )}
 
-                  {isStoreLocationRequired && (
+                  {(isStoreLocationRequired || headerState.customer?.isDependant) && (
                     <label className="mt-2 block text-xs font-medium text-slate-700 dark:text-slate-200">
-                      Delivery Store Code <span className="text-rose-600">*</span>
+                      Delivery Store Code {isStoreLocationRequired && <span className="text-rose-600">*</span>}
+                      {isLoadingB2BData && (
+                        <span role="status" className="ml-2 text-[10px] font-medium text-blue-700 dark:text-blue-300">
+                          Loading child locations…
+                        </span>
+                      )}
                       {customerDeliveryLocations.length > 1 ? (
                         <select
                           aria-label="Delivery Location"
                           data-testid="delivery-location-select"
                           value={headerState.deliveryLocationId || ""}
                           onChange={event => handleDeliveryLocationChange(event.target.value)}
-                          disabled={isReadOnlyView}
+                          disabled={isReadOnlyView || isLoadingB2BData}
                           className="mt-1 min-h-9 w-full rounded-md border border-slate-300 bg-white px-2 text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
                         >
                           <option value="">-- Select store code --</option>
@@ -4577,9 +4791,16 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                           data-testid="delivery-store-code-display"
                           className="mt-1 flex min-h-9 items-center rounded-md border border-slate-300 bg-slate-100 px-2 font-mono text-sm font-bold text-blue-800 dark:border-slate-700 dark:bg-slate-800 dark:text-blue-200"
                         >
-                          {customerDeliveryLocations[0]
+                          {isLoadingB2BData
+                            ? "Loading store locations…"
+                            : customerDeliveryLocations[0]
                             ? `${customerDeliveryLocations[0].store_code} · ${customerDeliveryLocations[0].location_name}`
                             : "No delivery store code available"}
+                        </span>
+                      )}
+                      {customerB2BDataError && (
+                        <span role="alert" className="mt-1 block text-[10px] font-semibold text-rose-700 dark:text-rose-300">
+                          {customerB2BDataError}
                         </span>
                       )}
                     </label>
@@ -4699,7 +4920,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
               <div className="flex items-center gap-1.5">
                 <button
                   type="button"
-                  onClick={() => setShowRecallModal(true)}
+                  onClick={openRecallModal}
                   className={`flex-1 h-8 rounded-lg border text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer ${
                     suspendedBills.length > 0
                       ? "bg-purple-50 dark:bg-purple-950/40 border-purple-300 dark:border-purple-800 text-purple-700 dark:text-purple-300"
@@ -5799,11 +6020,16 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
             </div>
 
             <div className="p-4 max-h-72 overflow-y-auto">
-              {suspendedBills.length === 0 ? (
+              {suspendedBillsError && (
+                <p role="alert" className="mb-2 rounded bg-rose-50 p-2 text-xs text-rose-800 dark:bg-rose-950 dark:text-rose-200">
+                  {suspendedBillsError}
+                </p>
+              )}
+              {visibleSuspendedBills.length === 0 ? (
                 <p className="text-center py-6 text-xs text-on-surface-variant">No suspended invoices currently on hold.</p>
               ) : (
                 <div className="flex flex-col gap-2">
-                  {suspendedBills.map((bill, idx) => (
+                  {visibleSuspendedBills.map((bill, idx) => (
                     <div
                       key={bill.id}
                       className="bg-surface-container-low border border-outline-variant p-3 rounded flex flex-col hover:bg-secondary-fixed/30 transition"
@@ -5828,21 +6054,29 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                             <span>Inspect</span>
                             {expandedHeldBillId === bill.id ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => handleRecallInvoice(bill)}
-                            className="bg-primary hover:bg-primary-container text-on-primary px-3 py-1 rounded text-xs font-bold transition"
-                          >
-                            Recall
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDiscardSuspendedBill(bill.id, bill.holdSlipNumber)}
-                            className="p-1 border border-rose-300 dark:border-rose-800 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 rounded text-[11px] flex items-center transition"
-                            title="Discard / Delete Parked Cart"
-                          >
-                            <Trash2 size={13} />
-                          </button>
+                          {bill.sourceType === "PARKED_CART" ? (
+                            <button
+                              type="button"
+                              onClick={() => void handleRecallInvoice(bill)}
+                              className="bg-primary hover:bg-primary-container text-on-primary px-3 py-1 rounded text-xs font-bold transition"
+                            >
+                              Recall
+                            </button>
+                          ) : (
+                            <span className="rounded border border-amber-300 px-2 py-1 text-[10px] font-semibold text-amber-800 dark:border-amber-800 dark:text-amber-200">
+                              Legacy suspended · view only
+                            </span>
+                          )}
+                          {bill.sourceType === "PARKED_CART" && (
+                            <button
+                              type="button"
+                              onClick={() => void handleDiscardSuspendedBill(bill)}
+                              className="p-1 border border-rose-300 dark:border-rose-800 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 rounded text-[11px] flex items-center transition"
+                              title="Discard / Delete Parked Cart"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          )}
                         </div>
                       </div>
 
@@ -6011,8 +6245,12 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
 
       {/* 7. Commercial Transactions & Audit Browser Modal (F4 / Alt+6) */}
       <InvoicingTransactionBrowserModal
+        key={`${transactionBrowserOpenVersion}:${headerState.customer?.isDependant ? headerState.customer.id : "all"}:${transactionBrowserTab}:${transactionBrowserInvoiceStatus || "all"}`}
         isOpen={showTransactionBrowserModal}
         onClose={() => setShowTransactionBrowserModal(false)}
+        customerId={headerState.customer?.isDependant ? headerState.customer.id : undefined}
+        invoiceStatus={transactionBrowserInvoiceStatus}
+        initialTab={transactionBrowserTab}
         onSelectDocument={handleSelectDocumentFromBrowser}
         onPrintPdf={(docId) => void openCanonicalInvoicePrint(docId)}
         onNotification={(title, msg, type) => onNotification?.(title, msg, type === "error" ? "error" : "success")}

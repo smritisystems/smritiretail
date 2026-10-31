@@ -18,6 +18,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.deps import get_company_db, get_current_user, get_tenant_context, TenantContext
+from ...repositories.customer import CustomerRepository
 from ...services.fulfillment_engine import FulfillmentEngine
 from ...schemas.fulfillment import (
     PackingSlipCreateRequest,
@@ -55,6 +56,7 @@ def _extract_user_info(current_user: Any, tenant_ctx: TenantContext) -> Tuple[st
 @router.get("/pack", response_model=List[PackingSlipResponse], summary="List Packing Slips")
 @router.get("/packing-slips", response_model=List[PackingSlipResponse], summary="List Packing Slips (Canonical)")
 async def list_packing_slips(
+    customer_id: Optional[str] = Query(None, description="Filter by exact invoice customer ID"),
     status: Optional[str] = Query(None, description="Status filter: PACKED, BILLED, CANCELLED, ALL"),
     search: Optional[str] = Query(None, description="Search by number or invoice/order reference"),
     limit: int = Query(50, ge=1, le=200),
@@ -65,9 +67,13 @@ async def list_packing_slips(
 ):
     """Lists packing slips for company tenant."""
     company_id, _ = _extract_user_info(current_user, tenant_ctx)
+    if customer_id and await CustomerRepository(db, tenant_ctx).get_billing_visible_id(customer_id) is None:
+        raise HTTPException(status_code=404, detail="Customer not found or unavailable for billing.")
     return await FulfillmentEngine.list_packing_slips(
         session=db,
         company_id=company_id,
+        customer_id=customer_id,
+        branch_id=tenant_ctx.branch_id,
         status=status,
         search=search,
         limit=limit,

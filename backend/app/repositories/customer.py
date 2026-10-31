@@ -102,6 +102,17 @@ class CustomerRepository(BaseRepository[Customer]):
         )
         return stmt.filter(visibility_filter)
 
+    async def get_billing_visible_id(self, customer_id: str) -> Optional[str]:
+        stmt = select(Customer.id).filter(
+            Customer.id == customer_id,
+            Customer.is_deleted == False,
+            Customer.status == "Active",
+        )
+        stmt = self._apply_tenant_filter(stmt)
+        stmt = self._apply_billing_visibility_filter(stmt)
+        result = await self.db.execute(stmt)
+        return result.scalar_one_or_none()
+
     async def get(self, id: str) -> Optional[Customer]:
         stmt = (
             select(Customer)
@@ -694,4 +705,3 @@ class CustomerExternalIdentityRepository(BaseRepository):
         stmt = self._apply_company_filter(stmt)
         result = await self.db.execute(stmt)
         return result.scalars().first()
-

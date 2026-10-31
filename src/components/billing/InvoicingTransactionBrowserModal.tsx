@@ -47,6 +47,9 @@ export interface InvoicingTransactionBrowserModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSelectDocument: (docType: InvoicingBrowserTab, doc: any) => void;
+  customerId?: string;
+  invoiceStatus?: string;
+  initialTab?: InvoicingBrowserTab;
   onPrintPdf?: (docId: string) => void;
   onNotification?: (title: string, msg: string, type: "success" | "error" | "info" | "warning") => void;
 }
@@ -56,9 +59,12 @@ const InvoicingTransactionBrowserModalBase: React.FC<InvoicingTransactionBrowser
   onClose,
   onSelectDocument,
   onPrintPdf,
-  onNotification
+  onNotification,
+  customerId,
+  invoiceStatus,
+  initialTab = "INVOICES"
 }) => {
-  const [activeTab, setActiveTab] = useState<InvoicingBrowserTab>("INVOICES");
+  const [activeTab, setActiveTab] = useState<InvoicingBrowserTab>(initialTab);
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -75,13 +81,16 @@ const InvoicingTransactionBrowserModalBase: React.FC<InvoicingTransactionBrowser
     setError(null);
     try {
       if (activeTab === "INVOICES" || activeTab === "CANCELLED") {
-        const res = await apiFetchV1<any>("/sales/invoices?page_size=100");
+        const params = new URLSearchParams({ page_size: "100" });
+        if (customerId) params.set("customer_id", customerId);
+        if (invoiceStatus) params.set("status", invoiceStatus);
+        const res = await apiFetchV1<any>(`/sales/invoices?${params.toString()}`);
         const list = Array.isArray(res) ? res : (res?.items || res?.data || []);
         setInvoices(list);
       } else if (activeTab === "ORDERS") {
         const [ordersRes, posRes] = await Promise.allSettled([
-          apiFetchV1<any[]>("/sales/orders"),
-          apiFetchV1<any[]>("/sales/customer-pos?status=ALL")
+          apiFetchV1<any[]>(customerId ? `/sales/orders?customer_id=${encodeURIComponent(customerId)}&limit=1000` : "/sales/orders"),
+          apiFetchV1<any[]>(customerId ? `/sales/customer-pos?customer_id=${encodeURIComponent(customerId)}&status=ALL` : "/sales/customer-pos?status=ALL")
         ]);
         const orderList = ordersRes.status === "fulfilled" && Array.isArray(ordersRes.value) ? ordersRes.value : [];
         const poList = posRes.status === "fulfilled" && Array.isArray(posRes.value) ? posRes.value : [];
@@ -91,7 +100,8 @@ const InvoicingTransactionBrowserModalBase: React.FC<InvoicingTransactionBrowser
         const list = Array.isArray(res) ? res : (res?.items || []);
         setReturns(list);
       } else if (activeTab === "SUSPENDED") {
-        const res = await apiFetchV1<any>("/sales/invoices/suspended");
+        const query = customerId ? `?customer_id=${encodeURIComponent(customerId)}` : "";
+        const res = await apiFetchV1<any>(`/sales/invoices/suspended${query}`);
         const list = Array.isArray(res) ? res : (res?.items || []);
         setSuspended(list);
       }
@@ -108,7 +118,7 @@ const InvoicingTransactionBrowserModalBase: React.FC<InvoicingTransactionBrowser
     if (isOpen) {
       void fetchData();
     }
-  }, [isOpen, activeTab]);
+  }, [isOpen, activeTab, customerId, invoiceStatus]);
 
   // Filtered rows
   const filteredRows = useMemo(() => {

@@ -815,6 +815,7 @@ class SalesService:
         to_date: Optional[date] = None,
         skip: int = 0,
         limit: int = 1000,
+        exact_customer_id: Optional[str] = None,
     ) -> List[SalesOrder]:
         stmt = (
             select(SalesOrder)
@@ -838,6 +839,8 @@ class SalesService:
             stmt = stmt.where(
                 (SalesOrder.customer_id == customer_id) | (SalesOrder.customer_name.ilike(f"%{customer_id}%"))
             )
+        if exact_customer_id:
+            stmt = stmt.where(SalesOrder.customer_id == exact_customer_id)
         if status:
             stmt = stmt.where(SalesOrder.status == status)
         if fulfillment_status:

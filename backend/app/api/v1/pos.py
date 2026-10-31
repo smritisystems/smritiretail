@@ -26,6 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 
 from ...api.deps import get_company_db, get_tenant_context, require_role, TenantContext, get_current_user
+from ...repositories.customer import CustomerRepository
 from ...models.auth import UserRole, User
 from ...models.pos import POSParkedCart, POSShiftDenominationCount
 from ...models.sales import InvoiceCustomerChangeLog
@@ -506,9 +507,12 @@ async def park_cart(
 )
 async def list_active_parked_carts(
     branch_id: Optional[str] = Query(None),
+    customer_id: Optional[str] = Query(None, min_length=1),
     tenant: TenantContext = Depends(get_tenant_context),
     db: AsyncSession = Depends(get_company_db),
 ):
+    if customer_id and await CustomerRepository(db, tenant).get_billing_visible_id(customer_id) is None:
+        raise HTTPException(status_code=404, detail="Customer not found or unavailable for billing.")
     now = datetime.now(timezone.utc)
     query = select(POSParkedCart).where(
         and_(
@@ -518,8 +522,11 @@ async def list_active_parked_carts(
             POSParkedCart.is_deleted == False,
         )
     )
-    if branch_id:
-        query = query.where(POSParkedCart.branch_id == branch_id)
+    effective_branch_id = tenant.branch_id or branch_id
+    if effective_branch_id:
+        query = query.where(POSParkedCart.branch_id == effective_branch_id)
+    if customer_id:
+        query = query.where(POSParkedCart.customer_id == customer_id)
     query = query.order_by(POSParkedCart.parked_at.desc())
 
     res = await db.execute(query)
@@ -712,4 +719,3 @@ async def save_shift_denominations(
 
     await db.commit()
     return {"status": "SUCCESS", "records_saved": len(records), "shift_id": shift_id}
-

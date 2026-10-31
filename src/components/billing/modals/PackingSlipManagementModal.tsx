@@ -59,6 +59,7 @@ export interface PackingSlipManagementModalProps {
   products: any[];
   currentUser?: any;
   effectiveConfig?: any;
+  customerId?: string;
   onSelectSlipForBilling?: (slip: PackingSlipRecord) => void;
   onNotification?: (title: string, msg: string, type: "success" | "error" | "info" | "warning") => void;
 }
@@ -70,6 +71,7 @@ export const PackingSlipManagementModal: React.FC<PackingSlipManagementModalProp
   products = [],
   currentUser,
   effectiveConfig,
+  customerId,
   onSelectSlipForBilling,
   onNotification,
 }) => {
@@ -104,12 +106,13 @@ export const PackingSlipManagementModal: React.FC<PackingSlipManagementModalProp
     if (isOpen) {
       loadPackingSlips();
     }
-  }, [isOpen]);
+  }, [isOpen, customerId]);
 
   const loadPackingSlips = async () => {
     setLoadError(null);
     try {
-      const data = await apiFetchV1<any[]>("/fulfillment/packing-slips");
+      const query = customerId ? `?customer_id=${encodeURIComponent(customerId)}&status=PACKED&limit=200` : "";
+      const data = await apiFetchV1<any[]>(`/fulfillment/packing-slips${query}`);
       setSlips(Array.isArray(data) ? data.map((d: any) => ({
         id: d.id,
         packingSlipNumber: d.packing_slip_number || d.packingSlipNumber,

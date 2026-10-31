@@ -110,6 +110,7 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
   const [showDynamicPricingModal, setShowDynamicPricingModal] = useState<boolean>(false);
   const [showOmniOrderModal, setShowOmniOrderModal] = useState<boolean>(false);
   const [showPackingSlipModal, setShowPackingSlipModal] = useState<boolean>(false);
+  const [packingSlipCustomerId, setPackingSlipCustomerId] = useState<string | undefined>();
   const [showBillingPolicyModal, setShowBillingPolicyModal] = useState<boolean>(false);
   const [billingProfileData, setBillingProfileData] = useState<any>(null);
   const [billingEffectiveConfiguration, setBillingEffectiveConfiguration] = useState<any>({});
@@ -372,7 +373,10 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
               initialTransaction={getBillingDefaults(initialMode).transaction}
               initialSalesChannel={getBillingDefaults(initialMode).salesChannel}
               onOpenSalesDocuments={() => setAuxView("SALES_MANAGEMENT")}
-              onOpenPackingSlips={() => setShowPackingSlipModal(true)}
+              onOpenPackingSlips={(customerId) => {
+                setPackingSlipCustomerId(customerId);
+                setShowPackingSlipModal(true);
+              }}
               onOpenBillingConfiguration={canManageBillingPolicy ? () => { void openBillingPolicyModal(); } : undefined}
               onOpenShiftReports={() => setAuxView("SHIFT_REPORTS")}
               onOpenEodReport={() => setAuxView("EOD_Z_REPORT")}
@@ -533,7 +537,11 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
       {showPackingSlipModal && (
         <PackingSlipManagementModal
           isOpen={showPackingSlipModal}
-          onClose={() => setShowPackingSlipModal(false)}
+          onClose={() => {
+            setShowPackingSlipModal(false);
+            setPackingSlipCustomerId(undefined);
+          }}
+          customerId={packingSlipCustomerId}
           customers={customers}
           products={products}
           currentUser={currentUser}
