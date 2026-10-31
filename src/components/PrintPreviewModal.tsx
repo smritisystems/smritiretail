@@ -679,10 +679,16 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ isOpen, on
       const sharedWatermarkLayout = params.get("wm_layout");
       const sharedWatermarkCustomUrl = params.get("wm_custom_url");
 
+      const isDraftDoc = Boolean(initData?.isDraft || initData?.is_draft || initData?.status === "Draft" || initData?.status === "DRAFT");
       if (sharedWatermarkEnabled === "true") {
         setIsWatermarkEnabled(true);
       } else if (sharedWatermarkEnabled === "false") {
         setIsWatermarkEnabled(false);
+      } else if (isDraftDoc) {
+        setIsWatermarkEnabled(true);
+        setWatermarkPresetId("draft");
+        setWatermarkUrl(WATERMARK_PRESETS[0].url);
+        setWatermarkOpacity(20);
       }
       
       if (sharedWatermarkPresetId) {
@@ -1038,8 +1044,13 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ isOpen, on
               <Printer size={20} />
             </div>
             <div>
-              <h2 className="text-sm md:text-base font-bold font-display text-theme-primary tracking-wide">
+              <h2 className="text-sm md:text-base font-bold font-display text-theme-primary tracking-wide flex items-center gap-2">
                 SMRITI Interactive Print & Preview Engine
+                {(documentData?.isDraft || documentData?.status === "Draft" || documentData?.status === "DRAFT") && (
+                  <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 uppercase tracking-wider">
+                    Draft Tax Invoice
+                  </span>
+                )}
               </h2>
               <p className="text-[10px] md:text-xs text-theme-muted">
                 Designated active tab context: <span className="font-semibold text-blue-400 uppercase font-mono">{activeTabId}</span>

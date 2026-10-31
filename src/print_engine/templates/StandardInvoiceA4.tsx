@@ -286,6 +286,7 @@ export const StandardInvoiceA4: React.FC<{ data?: InvoiceData }> = ({ data = {} 
   const parsed = parseNotes(data.notes);
   const isPurchaseOrder = data.documentType === "purchase-order";
   const isJobWorkOrder = data.documentType === "job-work-order";
+  const isDraft = Boolean((data as any)?.isDraft || (data as any)?.is_draft || (data as any)?.status === "Draft" || (data as any)?.status === "DRAFT");
   const currencySymbol = data.currencySymbol || "₹";
   
   // Dynamic Corporate Identity & Company Info (from data or active tenant profile)
@@ -465,6 +466,13 @@ export const StandardInvoiceA4: React.FC<{ data?: InvoiceData }> = ({ data = {} 
             className="w-[210mm] h-[297mm] min-h-[297mm] bg-white text-slate-900 p-[10mm_12mm_12mm_12mm] mx-auto box-border text-xs font-sans relative flex flex-col justify-between border border-slate-300 print:border-none print:p-0 mb-6 print:mb-0 break-after-page print:break-after-page"
             style={{ pageBreakAfter: pageNum < totalPages ? "always" : "auto", breakAfter: pageNum < totalPages ? "page" : "auto" }}
           >
+            {isDraft && (
+              <div className="absolute inset-0 pointer-events-none flex items-center justify-center overflow-hidden z-0 select-none">
+                <div className="text-[110px] font-black font-mono text-red-500/12 tracking-widest transform -rotate-35 uppercase border-4 border-dashed border-red-500/20 px-8 py-4 rounded-3xl">
+                  DRAFT
+                </div>
+              </div>
+            )}
             <div>
               {/* TOP HEADER SECTION */}
               <div>
@@ -504,8 +512,8 @@ export const StandardInvoiceA4: React.FC<{ data?: InvoiceData }> = ({ data = {} 
                     </div>
                     
                     <div className="text-right flex flex-col items-end">
-                      <div className="bg-slate-900 text-white font-bold text-[10.5px] uppercase tracking-widest px-2.5 py-1 rounded inline-block">
-                        {isJobWorkOrder ? "JOB WORK ORDER" : isPurchaseOrder ? "PURCHASE ORDER" : "TAX INVOICE"}
+                      <div className={`${isDraft ? "bg-amber-600 border border-amber-700" : "bg-slate-900"} text-white font-bold text-[10.5px] uppercase tracking-widest px-2.5 py-1 rounded inline-block`}>
+                        {isDraft ? "DRAFT TAX INVOICE" : isJobWorkOrder ? "JOB WORK ORDER" : isPurchaseOrder ? "PURCHASE ORDER" : "TAX INVOICE"}
                       </div>
                       <div className="text-[9px] text-slate-500 mt-0.5">(E. &amp; O.E.)</div>
                       <div className="mt-1 text-right">
@@ -522,7 +530,7 @@ export const StandardInvoiceA4: React.FC<{ data?: InvoiceData }> = ({ data = {} 
                   <div className="flex justify-between items-center border-b-2 border-slate-900 pb-2 mb-3">
                     <div className="flex items-center gap-2">
                       {logoUrl && <img src={logoUrl} alt={companyName || "Logo"} className="h-5 w-auto object-contain" />}
-                      <span className="font-extrabold text-xs text-slate-900 uppercase tracking-tight">{companyName || "COMPANY NAME NOT SET"} — {isJobWorkOrder ? "JOB WORK ORDER" : isPurchaseOrder ? "PURCHASE ORDER" : "TAX INVOICE"}</span>
+                      <span className="font-extrabold text-xs text-slate-900 uppercase tracking-tight">{companyName || "COMPANY NAME NOT SET"} — {isDraft ? "DRAFT TAX INVOICE" : isJobWorkOrder ? "JOB WORK ORDER" : isPurchaseOrder ? "PURCHASE ORDER" : "TAX INVOICE"}</span>
                     </div>
                     <span className="text-[11px] font-bold font-mono text-slate-700">{isJobWorkOrder ? "Job Work No" : isPurchaseOrder ? "PO No" : "Invoice No"}: {invoiceNo} | Date: {formattedDate}</span>
                   </div>
@@ -847,6 +855,11 @@ export const StandardInvoiceA4: React.FC<{ data?: InvoiceData }> = ({ data = {} 
                       <strong className="text-slate-800">SMRITISYS</strong> • SMRITI Retail OS • Enterprise Commerce Suite • smritibooks.com
                     </p>
                   </div>
+                  {isDraft && (
+                    <div className="mt-1.5 py-1 px-3 bg-amber-50 border border-amber-300 text-amber-800 text-center font-mono text-[9px] font-extrabold rounded">
+                      *** DRAFT TAX INVOICE — FOR VERIFICATION &amp; AUDIT ONLY — NOT A STATUTORY TAX DOCUMENT ***
+                    </div>
+                  )}
 
                 </div>
               )}

@@ -1163,30 +1163,8 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     }
   };
 
-  const handleReprintInvoice = () => {
-    if (lastCompletedInvoice) {
-      setShowPrintModal(true);
-      if (lastCompletedInvoice.invoiceId) {
-        void openCanonicalInvoicePrint(lastCompletedInvoice.invoiceId);
-      }
-      return;
-    }
-
-    if (items.length > 0) {
-      onNotification?.(
-        "Print blocked",
-        "This bill is not finalized. Settle & Save the invoice before opening print preview.",
-        "error"
-      );
-      return;
-    }
-
-    onNotification?.(
-      "Reprint",
-      "No finalized invoice is available to print. Held or local-suspended bills cannot be printed until saved.",
-      "error"
-    );
-  };
+  const handleReprintInvoiceRef = useRef<() => void>(() => {});
+  const handleReprintInvoice = () => handleReprintInvoiceRef.current();
 
   // References
   const directStockNoRef = useRef<HTMLInputElement>(null);
@@ -3047,6 +3025,87 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     }
   };
 
+  const handlePrintDraftPreview = () => {
+    if (items.length === 0) {
+      onNotification?.(
+        "Draft Print Preview",
+        "Cart is empty. Add items or scan barcodes before previewing a draft invoice.",
+        "error"
+      );
+      return;
+    }
+
+    const draftDocNo = activeDraftId 
+      ? (headerState.docNo || `DRAFT-${activeDraftId.slice(-6)}`) 
+      : (headerState.docNo || "DRAFT-PREVIEW");
+
+    setLastCompletedInvoice({
+      id: activeDraftId || "DRAFT-CURRENT",
+      invoiceId: activeDraftId || undefined,
+      invoiceNumber: draftDocNo,
+      date: headerState.billDate || new Date().toISOString().split("T")[0],
+      customerName: headerState.customer?.name || (typeof headerState.customer === "string" ? headerState.customer : "Retail Cash Customer"),
+      customerMobile: (headerState.customer as any)?.phone || (headerState.customer as any)?.mobile || "",
+      customerGstin: headerState.billedGstin || (headerState.customer as any)?.gstin || (headerState.customer as any)?.gstNumber || "",
+      billingAddress: headerState.billingAddress || (headerState.customer as any)?.address || "",
+      shippingAddress: headerState.shippingAddress || (headerState.customer as any)?.address || headerState.billingAddress || "",
+      items: items.map((it, idx) => ({
+        code: it.stockNo,
+        name: it.itemDescription,
+        description: it.itemDescription,
+        quantity: it.qty,
+        rate: it.rate,
+        mrp: it.mrp || it.rate,
+        discount: postingLines[idx]?.discountAmount ?? 0,
+        tax: 0,
+        amount: it.amount,
+        hsn: it.hsnCode || "64041990",
+        hsnCode: it.hsnCode || "64041990",
+        gstRate: it.gstPercentage,
+      })),
+      subtotal: summaryTotals.salesValue,
+      discount: summaryTotals.itemDiscount + summaryTotals.billDiscount,
+      tax: summaryTotals.totalTax,
+      total: summaryTotals.netAmount,
+      totalTendered: 0,
+      changeDue: 0,
+      paymentMode: headerState.transaction === "Credit" ? "CREDIT" : "DRAFT",
+      status: "Draft",
+      isDraft: true,
+      salesStaff: headerState.salesStaff || "POS Cashier",
+      terms: "DRAFT TAX INVOICE — FOR VERIFICATION ONLY. Subject to final review and statutory numbering."
+    });
+
+    setShowPrintModal(true);
+    onNotification?.(
+      "Draft Print Preview",
+      `Opened Draft Tax Invoice print preview for ${draftDocNo}.`,
+      "info"
+    );
+  };
+
+  const handleActualReprintInvoice = () => {
+    if (lastCompletedInvoice) {
+      setShowPrintModal(true);
+      if (lastCompletedInvoice.invoiceId && !lastCompletedInvoice.isDraft) {
+        void openCanonicalInvoicePrint(lastCompletedInvoice.invoiceId);
+      }
+      return;
+    }
+
+    if (items.length > 0) {
+      handlePrintDraftPreview();
+      return;
+    }
+
+    onNotification?.(
+      "Reprint",
+      "No invoice is currently loaded or available to print. Add items to cart to preview a draft bill.",
+      "error"
+    );
+  };
+  handleReprintInvoiceRef.current = handleActualReprintInvoice;
+
   // Statutory Amendment Handlers (ADR-005 Compliant)
   const handleCancelAndReissue = async () => {
     if (!loadedDocMetadata?.id) return;
@@ -3902,6 +3961,15 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                   </button>
                   <button
                     type="button"
+                    onClick={() => { handlePrintDraftPreview(); setShowMoreMenu(false); }}
+                    disabled={items.length === 0}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-left w-full cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <Printer size={14} className="text-amber-500" />
+                    <span>Print Draft Tax Invoice Preview</span>
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => { handleExactCashSettlementRef.current?.(); setShowMoreMenu(false); }}
                     disabled={isReadOnlyView || items.length === 0}
                     className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-left w-full cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
@@ -4034,6 +4102,15 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handlePrintDraftPreview}
+              className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+              title="Print Draft Tax Invoice Preview"
+            >
+              <Printer size={13} />
+              <span>Print Draft Preview</span>
+            </button>
             <button
               type="button"
               onClick={handleSaveDraftInvoice}
@@ -5340,9 +5417,9 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
             <button
               type="button"
               onClick={handleReprintInvoice}
-              disabled={!lastCompletedInvoice?.invoiceId && items.length === 0}
+              disabled={!lastCompletedInvoice && items.length === 0}
               className="px-3 py-1.5 bg-white hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-100 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed"
-              title={lastCompletedInvoice?.invoiceId ? "Print Preview / Reprint (Ctrl+P)" : "Print is unavailable until the bill is finalized and saved"}
+              title={lastCompletedInvoice?.invoiceId ? "Print Preview / Reprint (Ctrl+P)" : items.length > 0 ? "Print Draft Tax Invoice Preview (Ctrl+P)" : "Print is unavailable until items are added or bill is saved"}
             >
               <Printer size={14} className="text-blue-600" />
               <span>Print</span>
@@ -5700,9 +5777,15 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
             total: lastCompletedInvoice.total,
             paid: lastCompletedInvoice.totalTendered,
             change: lastCompletedInvoice.changeDue,
+            customerAddress: lastCompletedInvoice.billingAddress || "",
+            shippingName: lastCompletedInvoice.customerName,
+            shippingAddress: lastCompletedInvoice.shippingAddress || lastCompletedInvoice.billingAddress || "",
+            shippingGst: lastCompletedInvoice.customerGstin || "",
             cashier: headerState.salesStaff || "POS Cashier",
             paymentMethod: lastCompletedInvoice.paymentMode,
-            terms: "Subject to local jurisdiction. Goods once sold will not be taken back without valid invoice."
+            isDraft: Boolean(lastCompletedInvoice.isDraft || lastCompletedInvoice.status === "Draft"),
+            status: lastCompletedInvoice.status || (lastCompletedInvoice.isDraft ? "Draft" : "Submitted"),
+            terms: lastCompletedInvoice.terms || "Subject to local jurisdiction. Goods once sold will not be taken back without valid invoice."
           }}
           onClose={() => setShowPrintModal(false)}
         />

@@ -1240,7 +1240,8 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
     return psvParties.filter(
       (p) =>
         p.name.toLowerCase().includes(q) ||
-        p.location.toLowerCase().includes(q)
+        p.location.toLowerCase().includes(q) ||
+        (p.storeCode ?? "").toLowerCase().includes(q)
     );
   }, [psvParties, search]);
 
@@ -2136,9 +2137,14 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
                           </span>
                         </div>
 
-                        {/* Location */}
-                        <div className="text-xs text-theme-muted mb-2.5">
-                          📍 {p.location}
+                        {/* Store identifier and location */}
+                        <div className="mb-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-theme-muted">
+                          {p.storeCode && (
+                            <span className="font-semibold text-blue-400">
+                              Store Code: <span className="font-mono">{p.storeCode}</span>
+                            </span>
+                          )}
+                          <span>📍 {p.location}</span>
                         </div>
 
                         {/* Quick stats */}
@@ -2195,7 +2201,14 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
                       <h3 className="font-display font-bold text-xl text-theme-body">
                         {activeParty.name}
                       </h3>
-                      <p className="text-xs text-theme-muted mt-0.5">📍 {activeParty.location}</p>
+                      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-theme-muted">
+                        {activeParty.storeCode && (
+                          <span className="font-semibold text-blue-400">
+                            Store Code: <span className="font-mono">{activeParty.storeCode}</span>
+                          </span>
+                        )}
+                        <span>📍 {activeParty.location}</span>
+                      </div>
                     </div>
                     <div className="text-right shrink-0">
                       <div className="text-[10px] text-theme-muted uppercase tracking-wide">
