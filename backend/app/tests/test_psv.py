@@ -104,7 +104,10 @@ async def test_list_psv_parties_returns_partner_inventory(db_session):
     party_id = f"psv-party-{uuid.uuid4().hex[:6]}"
     party = PSVParty(
         id=party_id,
+        company_id=user.company_id,
         name="Southern Distributor",
+        store_code="REL001",
+        store_name_snapshot="Bangalore Store",
         location="Bangalore",
         stock_count=84,
         sell_through=43.5,
@@ -136,6 +139,8 @@ async def test_list_psv_parties_returns_partner_inventory(db_session):
     assert len(payload) >= 1
     partner = next(p for p in payload if p["id"] == party_id)
     assert partner["name"] == "Southern Distributor"
+    assert partner["store_code"] == "REL001"
+    assert partner["store_name_snapshot"] == "Bangalore Store"
     assert (partner.get("stockCount") == 84 or partner.get("stock_count") == 84)
     assert (float(partner.get("sellThrough") or partner.get("sell_through") or 0)) == 43.5
     sku_list = partner.get("skuTracking") or partner.get("sku_tracking") or []

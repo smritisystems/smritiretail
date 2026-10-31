@@ -336,31 +336,6 @@ function MetricTile({
 }
 
 /* ─────────────────────────────────────────────────────────
-   SUB-COMPONENT — Item Row
-───────────────────────────────────────────────────────── */
-function SkuRow({ sku }: { sku: PSVPartySkuTracking }) {
-  const lying = computeSkuLyingWithPartner(sku);
-  const sellThrough = computeSkuSellThrough(sku);
-  return (
-    <tr className="hover:bg-theme-surface-2/40 transition-colors">
-      <td className="px-4 py-3">
-        <div className="font-medium text-theme-body text-sm">{sku.productName || sku.sku}</div>
-        <div className="text-[10px] text-theme-muted font-mono mt-0.5">{sku.sku}</div>
-      </td>
-      <td className="px-3 py-3 text-right text-theme-body text-sm font-mono">{sku.invoicedQty}</td>
-      <td className="px-3 py-3 text-right text-emerald-400 text-sm font-semibold font-mono">{sku.confirmedSoldQty}</td>
-      <td className="px-3 py-3 text-right text-rose-400 text-sm font-mono">{sku.returnedQty}</td>
-      <td className="px-3 py-3 text-right text-blue-400 text-sm font-bold font-mono">{lying}</td>
-      <td className="px-4 py-3 text-right">
-        <span className={`px-2 py-0.5 rounded-md text-xs font-bold border ${sellThroughColour(sellThrough)}`}>
-          {sellThrough.toFixed(0)}%
-        </span>
-      </td>
-    </tr>
-  );
-}
-
-/* ─────────────────────────────────────────────────────────
    MAIN COMPONENT
 ───────────────────────────────────────────────────────── */
 export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
@@ -1340,8 +1315,10 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
       return;
     }
     const dimensionLabel = overviewDataView === "sizes" ? "Size" : "Color";
-    const headers = [dimensionLabel, "SKU Count", "Projected Stock", "Sent", "Sold", "Returned"];
+    const headers = ["Store Code", "Store Name", dimensionLabel, "SKU Count", "Projected Stock", "Sent", "Sold", "Returned"];
     const rows = dimensionRows.map((row) => [
+      activeParty?.storeCode || "",
+      activeParty?.storeNameSnapshot || activeParty?.name || "",
       row.label,
       row.skuCount,
       row.stockQty,
@@ -2590,11 +2567,14 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
                                 : "Review slow-moving articles below; replenish only where demand supports it."}
                           </span>
                         </div>
+                        <p className="text-[9px] text-theme-muted">
+                          Movement signals use cumulative sold ÷ sent quantities as a proxy; recency-based velocity is not available in the current PSV feed.
+                        </p>
                         <div className="overflow-x-auto rounded-xl border border-theme-divider bg-theme-surface-3/40">
                           <table className="w-full min-w-[760px] border-collapse text-left">
                             <thead className="bg-theme-surface-2">
                               <tr className="border-b border-theme-divider">
-                                {["Article / Product", "Style", "Color", "Size", "SKU", "Stock Left", "Sent", "Sold", "Returned", "Sell Through", "Movement"].map((heading) => (
+                                {["Article / Product", "Style", "Color", "Size", "SKU", "Stock Left", "Sent", "Sold", "Returned", "Sell Through", "Sell-through Signal"].map((heading) => (
                                   <th key={heading} className="px-3 py-2 text-[9px] font-bold uppercase tracking-wide text-theme-muted">{heading}</th>
                                 ))}
                               </tr>
@@ -2604,10 +2584,10 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
                                 const soldPct = computeSkuSellThrough(sku);
                                 const movement = sku.invoicedQty <= 0
                                   ? "No sales data"
-                                  : soldPct < 20 ? "Slow moving" : soldPct < 50 ? "Normal" : "Fast moving";
-                                const movementClass = movement === "Slow moving"
+                                  : soldPct < 20 ? "Low sell-through" : soldPct < 50 ? "Moderate sell-through" : "High sell-through";
+                                const movementClass = movement === "Low sell-through"
                                   ? "text-rose-300 bg-rose-500/10 border-rose-500/20"
-                                  : movement === "Fast moving"
+                                  : movement === "High sell-through"
                                     ? "text-emerald-300 bg-emerald-500/10 border-emerald-500/20"
                                     : "text-amber-300 bg-amber-500/10 border-amber-500/20";
                                 return (

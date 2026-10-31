@@ -114,3 +114,4 @@ In enterprise Modern Trade distribution, purchase orders and goods delivery note
 ## 13. Related RFCs
 - `RFC-2026-11`: WhatsApp-Simplicity Retail Counter Checkout UX
 - `RFC-2026-14`: Draft Document Lifecycle & Pre-Settlement Logistics Audit
+
