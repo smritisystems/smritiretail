@@ -209,6 +209,7 @@ describe("Universal Backend Auto-Populate & Typeahead Service", () => {
     expect(item1.stockQty).toBe(38);
     expect(item1.size).toBe("40");
     expect(item1.color).toBe("Sky Blue");
+    expect(item1.article).toBe("STK-SHIRT-01");
     expect(item1.gstPercentage).toBe(5);
     expect(item1.brand).toBe("SMRITI Heritage");
     expect(item1.category).toBe("Formal Wear");

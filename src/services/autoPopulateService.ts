@@ -48,6 +48,7 @@ export interface AutoPopulateProductResult {
   sku: string;
   name: string;
   description: string;
+  article?: string;
 
   // Initial 5–7 Important Related Details
   mrp: number;
@@ -258,12 +259,14 @@ function mapToProductResult(p: any): AutoPopulateProductResult {
     sku,
     name,
     description: desc,
+    article: p.article || p.article_no || p.articleNo || p.article_code || p.articleCode ||
+      p.style_code || p.styleCode || p.style || p.style_no || p.styleNo || undefined,
     sellingPrice: Number(p.sellingPrice || p.selling_price || p.price || p.rate || p.mrp || 0),
     mrp: Number(p.mrp || p.sellingPrice || p.selling_price || p.price || 0),
     costPrice: Number(p.costPrice || p.cost_price || p.buying_price || p.purchasePrice || 0),
     stockQty: Number(p.stockQty || p.stock_quantity || p.physical_on_hand || p.stock || p.availableStock || 0),
-    size: p.size || "Standard",
-    color: p.color || "Standard",
+    size: p.size || p.variant_size || p.variantSize || undefined,
+    color: p.color || p.colour || p.variant_color || p.variantColor || undefined,
     gstPercentage: Number(p.gstPercentage || p.gst_percentage || p.tax_rate || p.gstRate || 18),
     isTaxInclusive: p.isTaxInclusive ?? p.is_tax_inclusive,
     is_tax_inclusive: p.is_tax_inclusive ?? p.isTaxInclusive,

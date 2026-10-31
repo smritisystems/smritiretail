@@ -492,6 +492,9 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         stockNo: line.code,
         barcode: line.code,
         itemDescription: line.description,
+        article: line.article_no || line.articleNo || line.style_code || line.styleCode || line.article || line.style,
+        color: line.color || line.colour || line.variant_color || line.variantColor,
+        size: line.size || line.variant_size || line.variantSize,
         rate: Number(line.unit_price || 0),
         qty: Number(line.quantity_remaining || 0),
         value: Number(line.unit_price || 0) * Number(line.quantity_remaining || 0),
@@ -777,6 +780,9 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     barcode: string;
     stockNo: string;
     itemDescription: string;
+    article?: string;
+    color?: string;
+    size?: string;
     rate: string;
     qty: string;
     discCode: string;
@@ -2170,6 +2176,9 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       stockNo: stockVal,
       barcode: barcodeVal,
       itemDescription: p.name || (p as any).itemDescription || (p as any).description || "",
+      article: p.article || (p as any).article_no || (p as any).articleNo || (p as any).style_code || (p as any).styleCode,
+      color: p.color || (p as any).colour || (p as any).variant_color || (p as any).variantColor,
+      size: p.size || (p as any).variant_size || (p as any).variantSize,
       rate: rateVal,
       discCode: bestPromo.promo ? bestPromo.promoCode : (directEntry.discCode || "ILD"),
       discPercent: bestPromo.promo ? bestPromo.discountPct.toFixed(2) : (directEntry.discPercent || "0.00"),
@@ -2368,8 +2377,9 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
             sku: uniRes.variant_sku || uniRes.item_code,
             barcode: uniRes.barcode || rawCode,
             article_no: uniRes.article_no || uniRes.articleNo || uniRes.style_code || uniRes.styleCode,
-            color: uniRes.color,
-            size: uniRes.size,
+            article: uniRes.article || uniRes.style,
+            color: uniRes.color || uniRes.colour || uniRes.variant_color || uniRes.variantColor || uniRes.variant?.color,
+            size: uniRes.size || uniRes.variant_size || uniRes.variantSize || uniRes.variant?.size,
             selling_price: uniRes.selling_price,
             mrp: uniRes.mrp,
             cost_price: uniRes.cost_price,
@@ -2607,9 +2617,9 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
               stockNo: matched.sku || it.stockNo,
               barcode: matched.barcode || it.barcode,
               itemDescription: matched.product_name || it.itemDescription,
-              article: matched.article_no || matched.articleNo || matched.style_code || matched.styleCode || matched.article || matched.style || it.article,
-              color: matched.color || it.color,
-              size: matched.size || it.size,
+              article: matched.article_no || matched.articleNo || matched.style_code || matched.styleCode || matched.article || matched.style || entry.article || it.article,
+              color: matched.color || matched.colour || matched.variant_color || matched.variantColor || entry.color || it.color,
+              size: matched.size || matched.variant_size || matched.variantSize || entry.size || it.size,
               rate: computedLine.rate,
               qty: computedLine.qty,
               value: computedLine.value,
@@ -2733,9 +2743,9 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         isTaxInclusive: matched.isTaxInclusive ?? matched.is_tax_inclusive,
         mrp: Number(matched.mrp),
         brand: matched.brand,
-        article: matched.article_no || matched.articleNo || matched.style_code || matched.styleCode || matched.article || matched.style,
-        color: matched.color,
-        size: matched.size,
+        article: matched.article_no || matched.articleNo || matched.style_code || matched.styleCode || matched.article || matched.style || entry.article,
+        color: matched.color || matched.colour || matched.variant_color || matched.variantColor || entry.color,
+        size: matched.size || matched.variant_size || matched.variantSize || entry.size,
         // Rec 7 — Price Level Badge: stamp the resolved level + source at scan time
         priceLevel: resolvedLevel as BillingLineItem["priceLevel"],
         priceLevelSource: resolvedSource as BillingLineItem["priceLevelSource"],
@@ -3375,6 +3385,9 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
           stockNo: it.code || it.stock_no || "SKU",
           barcode: it.barcode || it.ean || it.code || "",
           itemDescription: it.name || it.description || "Line Item",
+          article: it.article_no || it.articleNo || it.article_code || it.articleCode || it.style_code || it.styleCode || it.style,
+          color: it.color || it.colour || it.variant_color || it.variantColor,
+          size: it.size || it.variant_size || it.variantSize,
           rate,
           qty,
           value: taxable,
@@ -4895,26 +4908,25 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
             </div>
 
             {/* Single-line item rows for all screen sizes. */}
-            <div className="flex flex-1 overflow-x-auto overflow-y-auto min-h-0">
-              <table className="w-full text-left border-collapse min-w-[1480px] whitespace-nowrap tabular-nums">
+            <div className="flex flex-1 items-start overflow-x-auto overflow-y-auto min-h-0">
+              <table className="h-auto w-full min-w-0 table-fixed self-start text-left border-collapse whitespace-nowrap tabular-nums">
                 <thead className="sticky top-0 bg-slate-50 dark:bg-slate-800/90 border-b border-slate-200 dark:border-slate-700 z-10 text-[10px] font-semibold text-slate-600 dark:text-slate-300">
                   <tr>
-                    <th className="px-2 py-1.5 w-9 text-center">#</th>
-                    <th className="px-2 py-1.5 w-[110px]">Stock No (F11)</th>
-                    {gridColumnVisibility.barcode && <th className="px-2 py-1.5 w-[130px]">Barcode</th>}
-                    {gridColumnVisibility.article && <th className="px-2 py-1.5 w-[110px]">Article</th>}
-                    {gridColumnVisibility.color && <th className="px-2 py-1.5 w-[80px]">Color</th>}
-                    {gridColumnVisibility.size && <th className="px-2 py-1.5 w-[60px]">Size</th>}
-                    <th className="px-2.5 py-1.5">Item Description</th>
-                    <th className="px-2 py-1.5 w-[82px] text-right">Rate (₹)</th>
-                    <th className="px-2 py-1.5 w-[62px] text-right">Qty</th>
-                    <th className="px-2 py-1.5 w-[84px] text-right">Gross (₹)</th>
-                    <th className="px-2 py-1.5 w-[68px] text-right">Disc %</th>
-                    <th className="px-2 py-1.5 w-[78px] text-right">Disc (₹)</th>
-                    <th className="px-2 py-1.5 w-[66px] text-right" title="Tax rate resolved from the item's authoritative tax configuration">GST (RO)</th>
-                    <th className="px-2 py-1.5 w-[92px] text-right font-bold text-blue-700 dark:text-blue-300">Total (₹)</th>
-                    <th className="px-2 py-1.5 w-[120px]">Salesperson</th>
-                    <th className="px-1.5 py-1.5 w-8 text-center"></th>
+                    <th className="w-[3%] px-1 py-1.5 text-center">#</th>
+                    {gridColumnVisibility.barcode && <th className="w-[9%] px-1 py-1.5">Barcode</th>}
+                    {gridColumnVisibility.article && <th className="w-[7%] px-1 py-1.5">Article</th>}
+                    {gridColumnVisibility.color && <th className="w-[5%] px-1 py-1.5">Color</th>}
+                    {gridColumnVisibility.size && <th className="w-[4%] px-1 py-1.5">Size</th>}
+                    <th className="w-[22%] px-1.5 py-1.5">Item Description</th>
+                    <th className="w-[6%] px-1 py-1.5 text-right">Rate (₹)</th>
+                    <th className="w-[5%] px-1 py-1.5 text-right">Qty</th>
+                    <th className="w-[7%] px-1 py-1.5 text-right">Gross (₹)</th>
+                    <th className="w-[5%] px-1 py-1.5 text-right">Disc %</th>
+                    <th className="w-[6%] px-1 py-1.5 text-right">Disc (₹)</th>
+                    <th className="w-[4%] px-1 py-1.5 text-right" title="Tax rate resolved from the item's authoritative tax configuration">GST</th>
+                    <th className="w-[7%] px-1 py-1.5 text-right font-bold text-blue-700 dark:text-blue-300">Total (₹)</th>
+                    <th className="w-[7%] px-1 py-1.5">Salesperson</th>
+                    <th className="w-[3%] px-1 py-1.5 text-center"></th>
                   </tr>
                 </thead>
                 <tbody className="text-[11px]">
@@ -4938,22 +4950,19 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                       <td className="px-2 py-1 text-center font-mono text-slate-500 text-[10px]">
                         {item.sNo}
                       </td>
-                      <td className="px-2 py-1 font-mono font-semibold text-blue-700 dark:text-blue-300">
-                        {item.stockNo}
-                      </td>
                       {gridColumnVisibility.barcode && (
-                        <td className="px-2 py-1 font-mono text-slate-600 dark:text-slate-400">{item.barcode || "—"}</td>
+                        <td className="overflow-hidden text-ellipsis px-1 py-1 font-mono text-slate-600 dark:text-slate-400" title={item.barcode || ""}>{item.barcode || "—"}</td>
                       )}
                       {gridColumnVisibility.article && (
-                        <td className="px-2 py-1 font-mono text-slate-600 dark:text-slate-400">{item.article || "—"}</td>
+                        <td className="overflow-hidden text-ellipsis px-1 py-1 font-mono text-slate-600 dark:text-slate-400" title={item.article || ""}>{item.article || "—"}</td>
                       )}
                       {gridColumnVisibility.color && (
-                        <td className="px-2 py-1 text-slate-600 dark:text-slate-400">{item.color || "—"}</td>
+                        <td className="overflow-hidden text-ellipsis px-1 py-1 text-slate-600 dark:text-slate-400" title={item.color || ""}>{item.color || "—"}</td>
                       )}
                       {gridColumnVisibility.size && (
-                        <td className="px-2 py-1 text-slate-600 dark:text-slate-400">{item.size || "—"}</td>
+                        <td className="overflow-hidden text-ellipsis px-1 py-1 text-slate-600 dark:text-slate-400" title={item.size || ""}>{item.size || "—"}</td>
                       )}
-                      <td className="px-2.5 py-1 truncate max-w-xs font-medium text-slate-800 dark:text-slate-100">
+                      <td className="overflow-hidden text-ellipsis px-1.5 py-1 font-medium text-slate-800 dark:text-slate-100" title={item.itemDescription}>
                         <span>{item.itemDescription}</span>
                         {item.priceLevel && (
                           <span
@@ -4972,32 +4981,32 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                           </span>
                         )}
                       </td>
-                      <td className="px-2 py-1 text-right font-mono text-slate-700 dark:text-slate-300">
+                      <td className="overflow-hidden text-ellipsis px-1 py-1 text-right font-mono text-slate-700 dark:text-slate-300">
                         {Number(item.rate).toFixed(2)}
                       </td>
-                      <td className="px-2 py-1 text-right font-mono font-semibold text-slate-900 dark:text-slate-100">
+                      <td className="overflow-hidden text-ellipsis px-1 py-1 text-right font-mono font-semibold text-slate-900 dark:text-slate-100">
                         {item.qty}
                       </td>
-                      <td className="px-2 py-1 text-right font-mono text-slate-600 dark:text-slate-400">
+                      <td className="overflow-hidden text-ellipsis px-1 py-1 text-right font-mono text-slate-600 dark:text-slate-400">
                         {Number(item.value).toFixed(2)}
                       </td>
-                      <td className="px-2 py-1 text-right font-mono text-slate-600 dark:text-slate-400">
+                      <td className="overflow-hidden text-ellipsis px-1 py-1 text-right font-mono text-slate-600 dark:text-slate-400">
                         {item.discPercent ? `${item.discPercent}%` : "-"}
                       </td>
-                      <td className="px-2 py-1 text-right font-mono text-rose-600 dark:text-rose-400">
+                      <td className="overflow-hidden text-ellipsis px-1 py-1 text-right font-mono text-rose-600 dark:text-rose-400">
                         {item.discAmt > 0 ? item.discAmt.toFixed(2) : "-"}
                       </td>
                       <td
-                        className="px-2 py-1 text-right font-mono text-slate-500 dark:text-slate-400"
+                        className="overflow-hidden text-ellipsis px-1 py-1 text-right font-mono text-slate-500 dark:text-slate-400"
                         aria-label={`GST ${Number(item.gstPercentage ?? 0)} percent, read only`}
                         title="Read-only tax rate from authoritative item tax configuration"
                       >
                         {Number(item.gstPercentage ?? 0)}%
                       </td>
-                      <td className="px-2 py-1 text-right font-mono font-bold text-blue-700 dark:text-blue-300">
+                      <td className="overflow-hidden text-ellipsis px-1 py-1 text-right font-mono font-bold text-blue-700 dark:text-blue-300">
                         {Number(item.total).toFixed(2)}
                       </td>
-                      <td className="px-1.5 py-0.5">
+                      <td className="overflow-hidden px-1 py-0.5">
                         <select
                           aria-label={`Salesperson for ${item.stockNo}`}
                           data-testid={`line-salesperson-${item.id}`}
@@ -5036,21 +5045,19 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                     </tr>
                   ))}
 
-                  {/* Clean empty placeholders if rows < 4 */}
-                  {Array.from({ length: Math.max(0, 4 - items.length) }).map((_, i) => (
-                    <tr key={"empty-" + i} className={`h-8 border-b border-slate-100 dark:border-slate-700/70 ${i % 2 === 0 ? "bg-white dark:bg-[#1e293b]" : "bg-slate-50/70 dark:bg-slate-800/25"}`}>
-                      <td className="px-2 py-1 text-center text-slate-400 text-[10px]">
-                        {items.length + i + 1}
-                      </td>
-                      <td colSpan={11 + BILLING_GRID_COLUMNS.filter(({ key }) => gridColumnVisibility[key]).length} className="px-2.5 py-1 text-slate-400/60 italic text-[11px]">
-                        {items.length === 0 && i === 0
-                          ? billingTransactionPolicy?.configuration?.default_scan_mode === "AUTO_ADD"
-                            ? "Scan a barcode or exact Stock No to add items automatically..."
-                            : "Scan or enter a Stock No, then confirm the item to add it..."
-                          : ""}
+                  {items.length === 0 && (
+                    <tr className="h-8 border-b border-slate-100 bg-white dark:border-slate-700/70 dark:bg-[#1e293b]">
+                      <td className="px-2 py-1 text-center font-mono text-slate-400 text-[10px]">1</td>
+                      <td
+                        colSpan={11 + BILLING_GRID_COLUMNS.filter(({ key }) => gridColumnVisibility[key]).length}
+                        className="px-2.5 py-1 text-slate-400 italic text-[11px]"
+                      >
+                        {billingTransactionPolicy?.configuration?.default_scan_mode === "AUTO_ADD"
+                          ? "Scan a barcode or exact Stock No to add an item."
+                          : "Scan or enter a Stock No, then confirm the item to add it."}
                       </td>
                     </tr>
-                  ))}
+                  )}
                 </tbody>
               </table>
             </div>
