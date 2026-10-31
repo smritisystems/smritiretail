@@ -316,6 +316,11 @@ class CanonicalSalesPostingWriter:
                     continue  # Fee/free lines are exempt from price level enforcement
 
                 client_price = Decimal(str(getattr(line_item, "unit_price", None) or 0))
+                is_verified_source_line = (
+                    source_billing_authorized
+                    and getattr(line_item, "source_line_type", None) in {"SALES_ORDER", "PACKING_SLIP"}
+                    and bool(getattr(line_item, "source_line_id", None))
+                )
 
                 # Determine variant_id: prefer explicit variant_id, fall back to product_id
                 vid = (getattr(line_item, "variant_id", None) or
@@ -348,7 +353,7 @@ class CanonicalSalesPostingWriter:
                     )
 
                 # ── Gate 2: Price level ceiling (only when override is DISABLED) ──
-                if not cashier_override_permitted and auth_price is not None:
+                if not is_verified_source_line and not cashier_override_permitted and auth_price is not None:
                     if effective_level == "SELLING_PRICE":
                         auth_ceil = Decimal(str(auth_price.selling_price or 0))
                         level_label = "standard selling price"
@@ -622,7 +627,15 @@ class CanonicalSalesPostingWriter:
         )
 
         promotion_result = None
-        if req.promotion_campaign_id or req.promotion_coupon_code or req.promotion_coupon_id:
+        if source_billing_authorized and any(
+            not (
+                getattr(item, "source_line_type", None) in {"SALES_ORDER", "PACKING_SLIP"}
+                and getattr(item, "source_line_id", None)
+            )
+            for item in req.items
+        ):
+            raise HTTPException(status_code=403, detail="Source-authorized billing requires verified source identifiers on every invoice line.")
+        if not source_billing_authorized and (req.promotion_campaign_id or req.promotion_coupon_code or req.promotion_coupon_id):
             promotion_result = await PromotionsEngine.evaluate_promotions(
                 session=session,
                 company_id=company_id,
@@ -957,12 +970,13 @@ class CanonicalSalesPostingWriter:
             session=session,
             req=req,
             db_customer=db_customer,
-            customer_discount_policy=customer_discount_policy,
+            customer_discount_policy=None if source_billing_authorized else customer_discount_policy,
             is_interstate=is_interstate,
             promotion_result=promotion_result,
             authorized_price_override=authorized_price_override,
             authorized_discount_override=authorized_discount_override,
             authorized_adjustment_override=authorized_adjustment_override,
+            source_billing_authorized=source_billing_authorized,
         )
 
         total_gross = calc_result.gross_amount

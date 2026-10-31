@@ -68,6 +68,7 @@ class HeadlessBillingCore:
         authorized_price_override: bool = False,
         authorized_discount_override: bool = False,
         authorized_adjustment_override: bool = False,
+        source_billing_authorized: bool = False,
     ) -> BillingCalculationResult:
         """
         Executes the canonical billing calculation sequence:
@@ -514,7 +515,12 @@ class HeadlessBillingCore:
                     )
 
                 # 2. Rate Deviation Check: requires supervisor override or explicit RBAC permission if different from authoritative rate
-                if rate != auth_sp and rate != auth_mrp and not price_override_allowed:
+                is_verified_source_line = (
+                    source_billing_authorized
+                    and getattr(item, "source_line_type", None) in {"SALES_ORDER", "PACKING_SLIP"}
+                    and bool(getattr(item, "source_line_id", None))
+                )
+                if rate != auth_sp and rate != auth_mrp and not price_override_allowed and not is_verified_source_line:
                     raise HTTPException(
                         status_code=400,
                         detail={

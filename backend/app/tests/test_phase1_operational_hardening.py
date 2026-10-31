@@ -111,6 +111,93 @@ async def test_source_order_prepare_rejects_order_with_packing_slips():
 
 
 @pytest.mark.asyncio
+async def test_source_order_prepare_is_read_only_and_uses_committed_balance():
+    from types import SimpleNamespace
+
+    from app.schemas.source_billing import SourceBillingPrepareRequest
+    from app.services.source_billing import SourceBillingService
+
+    session = AsyncMock()
+    order_line = SimpleNamespace(
+        id=71,
+        quantity=Decimal("10"),
+        billed_quantity=Decimal("1"),
+        line_status="OPEN",
+        product_id="product-1",
+        item_id="item-1",
+        variant_id="variant-1",
+        code="SKU-1",
+        name="Sample item",
+        price=Decimal("12.50"),
+        gst_rate=Decimal("5"),
+        hsn_code="6109",
+    )
+    order = SimpleNamespace(
+        id="order-1",
+        order_no="SO-1",
+        customer_id="customer-1",
+        customer_gstin=None,
+        status="OPEN",
+        items=[order_line],
+    )
+    service = SourceBillingService(
+        session,
+        TenantContext(company_id="COMP-XYZ", branch_id="BR-01"),
+    )
+    service._load_order = AsyncMock(return_value=order)
+    service._require_visible_customer = AsyncMock(return_value=SimpleNamespace(
+        id="customer-1",
+        name="Customer",
+    ))
+    service._allocated_order_quantity = AsyncMock(return_value=Decimal("3"))
+    result = MagicMock()
+    result.scalar_one_or_none.return_value = None
+    session.execute.return_value = result
+
+    response = await service.prepare(SourceBillingPrepareRequest(
+        source_type="SALES_ORDER",
+        source_document_id="order-1",
+    ))
+
+    assert response.customer_id == "customer-1"
+    assert response.lines[0].previously_billed_quantity == Decimal("3")
+    assert response.lines[0].remaining_quantity == Decimal("7")
+    assert response.lines[0].unit_price == Decimal("12.50")
+    session.commit.assert_not_awaited()
+    session.add.assert_not_called()
+    session.flush.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_source_billing_commit_stays_disabled_by_default(monkeypatch):
+    from fastapi import HTTPException
+
+    from app.schemas.source_billing import (
+        SourceBillingCommitRequest,
+        SourceBillingLineRequest,
+    )
+    from app.schemas.sales import SalesInvoiceBase
+    from app.services.source_billing import SourceBillingService
+
+    monkeypatch.delenv("SMRITI_SOURCE_BILLING_ENABLED", raising=False)
+    service = SourceBillingService(
+        AsyncMock(),
+        TenantContext(company_id="COMP-XYZ", branch_id="BR-01"),
+    )
+    request = SourceBillingCommitRequest(
+        source_type="SALES_ORDER",
+        source_document_id="order-1",
+        lines=[SourceBillingLineRequest(source_line_id="71", quantity=Decimal("1"))],
+        invoice=SalesInvoiceBase(),
+    )
+
+    with pytest.raises(HTTPException) as error:
+        await service.commit(request, "test-idempotency-key")
+
+    assert error.value.status_code == 503
+
+
+@pytest.mark.asyncio
 async def test_dispatched_packing_slip_is_not_preparable_for_billing():
     from fastapi import HTTPException
     from types import SimpleNamespace
