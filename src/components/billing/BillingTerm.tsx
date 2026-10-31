@@ -3058,7 +3058,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         mrp: it.mrp || it.rate,
         discount: postingLines[idx]?.discountAmount ?? 0,
         tax: 0,
-        amount: it.amount,
+        amount: it.total || it.value || (it.rate * it.qty),
         hsn: it.hsnCode || "64041990",
         hsnCode: it.hsnCode || "64041990",
         gstRate: it.gstPercentage,

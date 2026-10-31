@@ -199,6 +199,10 @@ export interface PSVPartySkuTracking {
   invoicedQty: number;      // Quantity dispatched to partner via SalesInvoices
   confirmedSoldQty: number; // Quantity sold by partner (from report)
   returnedQty: number;      // Quantity returned back via SalesReturns
+  styleCode?: string | null;
+  color?: string | null;
+  size?: string | null;
+  category?: string | null;
 }
 
 export interface PSVParty {

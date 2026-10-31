@@ -27,6 +27,10 @@ class PSVSkuTrackingResponse(BaseModel):
     invoiced_qty: int = 0
     confirmed_sold_qty: int = 0
     returned_qty: int = 0
+    style_code: Optional[str] = None
+    color: Optional[str] = None
+    size: Optional[str] = None
+    category: Optional[str] = None
 
 
 class PSVPartyResponse(BaseModel):

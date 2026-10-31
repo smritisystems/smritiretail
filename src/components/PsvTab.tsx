@@ -115,6 +115,7 @@ function getPsvItemDisplayName(item: PSVQuantityReconciliationItem | null | unde
 
 type PSVReceiptMode = "prefill" | "csv" | "scan";
 type PSVReceiptDisplayMode = "compact" | "wide" | "fullscreen";
+type PSVOverviewDataView = "stores" | "articles" | "sizes" | "colors";
 const MAX_CSV_BARCODE_UNITS = 10000;
 type PSVReceiptColumn = "article" | "color" | "size" | "scanned" | "rejected" | "reason" | "verification";
 
@@ -159,6 +160,16 @@ function parseCsv(text: string): string[][] {
 function csvCell(value: string | number): string {
   const text = String(value);
   return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+function downloadCsv(filename: string, rows: Array<Array<string | number>>): void {
+  const csv = rows.map((row) => row.map(csvCell).join(",")).join("\r\n");
+  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
 }
 
 /* ─────────────────────────────────────────────────────────
@@ -373,6 +384,7 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
     psvParties[0]?.id || ""
   );
   const [search, setSearch] = useState("");
+  const [overviewDataView, setOverviewDataView] = useState<PSVOverviewDataView>("stores");
   const hasMounted = useRef(false);
 
   // Reconciliation State
@@ -459,6 +471,7 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
   }, [psvParties, selectedPartyId]);
 
   const activeParty = psvParties.find((p) => p.id === selectedPartyId);
+
   const receivingParty = psvParties.find((party) => party.id === receiveForm.party_id);
   const receiveShadowStockRows = receiveInvoiceItems.map((item) => ({
     item,
@@ -1240,6 +1253,7 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
     return psvParties.filter(
       (p) =>
         p.name.toLowerCase().includes(q) ||
+        (p.storeNameSnapshot ?? "").toLowerCase().includes(q) ||
         p.location.toLowerCase().includes(q) ||
         (p.storeCode ?? "").toLowerCase().includes(q)
     );
@@ -1253,6 +1267,87 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
     }).format(val);
 
   const tip = activeParty ? tipForParty(activeParty) : null;
+  const dimensionRows = useMemo(() => {
+    const groups = new Map<string, {
+      label: string;
+      skuCount: Set<string>;
+      stockQty: number;
+      sentQty: number;
+      soldQty: number;
+      returnedQty: number;
+    }>();
+    for (const sku of activeParty?.skuTracking ?? []) {
+      const label = (overviewDataView === "sizes" ? sku.size : sku.color)?.trim() || "Not specified";
+      const group = groups.get(label) ?? {
+        label,
+        skuCount: new Set<string>(),
+        stockQty: 0,
+        sentQty: 0,
+        soldQty: 0,
+        returnedQty: 0,
+      };
+      group.skuCount.add(sku.sku);
+      group.stockQty += computeSkuLyingWithPartner(sku);
+      group.sentQty += Number(sku.invoicedQty || 0);
+      group.soldQty += Number(sku.confirmedSoldQty || 0);
+      group.returnedQty += Number(sku.returnedQty || 0);
+      groups.set(label, group);
+    }
+    return [...groups.values()].map((group) => ({
+      ...group,
+      skuCount: group.skuCount.size,
+    })).sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
+  }, [activeParty?.skuTracking, overviewDataView]);
+
+  const exportPsvReport = () => {
+    if (overviewDataView === "stores") {
+      const headers = ["Store Code", "Store Name", "Location", "Stock Left", "Sold Units", "Sold %", "Weeks Left", "Locked Capital", "Health"];
+      const rows = filteredParties.map((party) => [
+        party.storeCode || "",
+        party.storeNameSnapshot || party.name,
+        party.location,
+        Number(party.stockCount || 0),
+        (party.skuTracking ?? []).reduce((total, sku) => total + Number(sku.confirmedSoldQty || 0), 0),
+        Number(party.sellThrough || 0).toFixed(1),
+        Number(party.weeksOfCover || 0).toFixed(1),
+        Number(party.capitalLocked || 0),
+        party.status,
+      ]);
+      downloadCsv("psv-store-stock-report.csv", [headers, ...rows]);
+      return;
+    }
+    if (overviewDataView === "articles") {
+      const headers = ["Store Code", "Store Name", "Article", "SKU", "Stock Left", "Sent", "Sold", "Returned", "Sell Through %", "Movement"];
+      const rows = (activeParty?.skuTracking ?? []).map((sku) => {
+        const sellThrough = computeSkuSellThrough(sku);
+        return [
+          activeParty?.storeCode || "",
+          activeParty?.storeNameSnapshot || activeParty?.name || "",
+          sku.productName,
+          sku.sku,
+          computeSkuLyingWithPartner(sku),
+          sku.invoicedQty,
+          sku.confirmedSoldQty,
+          sku.returnedQty,
+          sellThrough.toFixed(1),
+          sku.invoicedQty <= 0 ? "No sales data" : sellThrough < 20 ? "Slow moving" : sellThrough < 50 ? "Normal" : "Fast moving",
+        ];
+      });
+      downloadCsv("psv-article-stock-report.csv", [headers, ...rows]);
+      return;
+    }
+    const dimensionLabel = overviewDataView === "sizes" ? "Size" : "Color";
+    const headers = [dimensionLabel, "SKU Count", "Projected Stock", "Sent", "Sold", "Returned"];
+    const rows = dimensionRows.map((row) => [
+      row.label,
+      row.skuCount,
+      row.stockQty,
+      row.sentQty,
+      row.soldQty,
+      row.returnedQty,
+    ]);
+    downloadCsv(`psv-${overviewDataView}-inward-report.csv`, [headers, ...rows]);
+  };
 
   /* ── EMPTY STATE ── */
   if (psvParties.length === 0 && !loadingRecon) {
@@ -2097,7 +2192,7 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-theme-muted text-sm">🔍</span>
                   <input
                     type="text"
-                    placeholder="Search distributor or city…"
+                    placeholder="Search distributor, store, code, city or location…"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     className="w-full bg-theme-surface-2 border border-theme-divider rounded-lg pl-8 pr-3 py-2 text-sm text-theme-body placeholder:text-theme-muted focus:outline-none focus:border-blue-500"
@@ -2128,7 +2223,7 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
                         {/* Name + status */}
                         <div className="flex items-center justify-between gap-2 mb-2">
                           <span className="font-semibold text-sm text-theme-body truncate">
-                            {p.name}
+                            {p.storeNameSnapshot || p.name}
                           </span>
                           <span
                             className={`text-[10px] font-bold px-2 py-0.5 rounded-full border whitespace-nowrap ${sig.cls}`}
@@ -2261,6 +2356,45 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
                     />
                   </div>
 
+                  <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3">
+                    <div className="mb-2 flex items-center gap-2 text-[11px] font-bold text-theme-body">
+                      <span className="text-emerald-400">✦</span> Suggested Actions
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {Number(activeParty.stockCount || 0) > 0 && Number(activeParty.weeksOfCover || 0) < 2 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setReconPartyFilter(activeParty.id);
+                            setActiveSubTab("reconciliation");
+                          }}
+                          className="rounded-lg border border-theme-divider bg-theme-surface-1 px-2.5 py-1.5 text-left text-[10px] text-theme-body hover:border-blue-500/40"
+                        >
+                          ↗ Low stock cover — review replenishment
+                        </button>
+                      )}
+                      {(activeParty.skuTracking ?? []).some(
+                        (sku) => sku.invoicedQty > 0 && computeSkuSellThrough(sku) < 20 && computeSkuLyingWithPartner(sku) > 0
+                      ) && (
+                        <button
+                          type="button"
+                          onClick={() => setOverviewDataView("articles")}
+                          className="rounded-lg border border-theme-divider bg-theme-surface-1 px-2.5 py-1.5 text-left text-[10px] text-theme-body hover:border-amber-500/40"
+                        >
+                          ◉ Slow-moving stock — review promotion or store follow-up
+                        </button>
+                      )}
+                      {Number(activeParty.sellThrough || 0) >= 50 && Number(activeParty.weeksOfCover || 0) >= 2 && (
+                        <span className="rounded-lg border border-theme-divider bg-theme-surface-1 px-2.5 py-1.5 text-[10px] text-theme-muted">
+                          Stock and sell-through are healthy; continue regular review.
+                        </span>
+                      )}
+                      {!activeParty.skuTracking?.length && Number(activeParty.stockCount || 0) <= 0 && (
+                        <span className="text-[10px] text-theme-muted">No stock movement data yet to suggest an action.</span>
+                      )}
+                    </div>
+                  </div>
+
                   {/* Explainer */}
                   <div className="bg-blue-950/30 border border-blue-500/20 rounded-xl p-4">
                     <div className="text-xs font-bold text-blue-300 uppercase tracking-wider mb-2">
@@ -2347,45 +2481,182 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
                     </div>
                   )}
 
-                  {/* Per-Product Breakdown */}
-                  {activeParty.skuTracking && activeParty.skuTracking.length > 0 && (
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="text-sm font-semibold text-theme-body">
-                          📋 Product-by-Product Breakdown
-                        </h4>
+                  <section className="space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex flex-wrap gap-1 rounded-lg bg-theme-surface-2 p-1">
+                        {([
+                          ["stores", "Store-wise Stock"],
+                          ["articles", "Article-wise Stock"],
+                          ["sizes", "Size-wise Stock"],
+                          ["colors", "Color-wise Stock"],
+                        ] as const).map(([view, label]) => (
+                          <button
+                            key={view}
+                            type="button"
+                            onClick={() => setOverviewDataView(view)}
+                            className={`rounded-md px-2.5 py-1.5 text-[10px] font-semibold transition-colors ${
+                              overviewDataView === view
+                                ? "bg-blue-600 text-white shadow-sm"
+                                : "text-theme-muted hover:bg-theme-surface-3 hover:text-theme-body"
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="flex flex-wrap gap-2">
                         <button
                           type="button"
                           onClick={() => {
                             setReconPartyFilter(activeParty.id);
                             setActiveSubTab("reconciliation");
                           }}
-                          className="text-xs text-blue-400 hover:text-blue-300 font-medium underline flex items-center gap-1"
+                          className="rounded-lg border border-theme-divider bg-theme-surface-2 px-3 py-1.5 text-[10px] font-semibold text-theme-body hover:bg-theme-surface-3"
                         >
-                          View Invoice Reconciliation for {activeParty.name} →
+                          Invoice Reconciliation · Inward / Receiver
+                        </button>
+                        <button
+                          type="button"
+                          onClick={exportPsvReport}
+                          className="rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-1.5 text-[10px] font-semibold text-blue-300 hover:bg-blue-500/20"
+                        >
+                          Export CSV
                         </button>
                       </div>
-                      <div className="overflow-x-auto border border-theme-divider rounded-xl bg-theme-surface-3/40">
-                        <table className="w-full text-left border-collapse">
-                          <thead>
-                            <tr className="bg-theme-surface-2 border-b border-theme-divider">
-                              <th className="px-4 py-3 text-[10px] font-bold uppercase text-theme-muted tracking-wider">Product</th>
-                              <th className="px-3 py-3 text-[10px] font-bold uppercase text-theme-muted tracking-wider text-right">Sent 📤</th>
-                              <th className="px-3 py-3 text-[10px] font-bold uppercase text-theme-muted tracking-wider text-right">Sold ✅</th>
-                              <th className="px-3 py-3 text-[10px] font-bold uppercase text-theme-muted tracking-wider text-right">Returned 🔄</th>
-                              <th className="px-3 py-3 text-[10px] font-bold uppercase text-theme-muted tracking-wider text-right">Still There 📦</th>
-                              <th className="px-4 py-3 text-[10px] font-bold uppercase text-theme-muted tracking-wider text-right">Sold %</th>
+                    </div>
+
+                    {(overviewDataView === "sizes" || overviewDataView === "colors") && (
+                      <p className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-[10px] text-amber-200">
+                        Projected partner stock is grouped using the size/color attributes registered on each tracked SKU. Stock follows the PSV visibility ledger and is not a physical count.
+                      </p>
+                    )}
+
+                    {overviewDataView === "stores" && (
+                      <div className="overflow-x-auto rounded-xl border border-theme-divider bg-theme-surface-3/40">
+                        <table className="w-full min-w-[820px] border-collapse text-left">
+                          <thead className="bg-theme-surface-2">
+                            <tr className="border-b border-theme-divider">
+                              {["#", "Store Code", "Store Name", "Location", "Stock Left", "Sold Units", "Sold %", "Weeks Left", "Locked Capital", "Health"].map((heading) => (
+                                <th key={heading} className="whitespace-nowrap px-2.5 py-2 text-[9px] font-bold uppercase tracking-wide text-theme-muted">{heading}</th>
+                              ))}
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-theme-divider/50">
-                            {activeParty.skuTracking.map((sku) => (
-                              <SkuRow key={sku.sku} sku={sku} />
-                            ))}
+                            {filteredParties.map((party, index) => {
+                              const signal = statusSignal(party.status);
+                              const soldUnits = (party.skuTracking ?? []).reduce(
+                                (total, sku) => total + Number(sku.confirmedSoldQty || 0), 0
+                              );
+                              return (
+                                <tr key={party.id} className={`cursor-pointer hover:bg-theme-surface-2/60 ${party.id === activeParty.id ? "bg-blue-500/5" : ""}`} onClick={() => setSelectedPartyId(party.id)}>
+                                  <td className="px-2.5 py-2 text-[10px] text-theme-muted">{index + 1}</td>
+                                  <td className="px-2.5 py-2 font-mono text-[10px] font-semibold text-blue-400">{party.storeCode || "—"}</td>
+                                  <td className="px-2.5 py-2 text-[10px] font-medium text-theme-body">{party.storeNameSnapshot || party.name}</td>
+                                  <td className="px-2.5 py-2 text-[10px] text-theme-muted">{party.location}</td>
+                                  <td className="px-2.5 py-2 text-right font-mono text-[10px] text-theme-body">{Number(party.stockCount || 0)}</td>
+                                  <td className="px-2.5 py-2 text-right font-mono text-[10px] text-emerald-400">{soldUnits}</td>
+                                  <td className="px-2.5 py-2 text-right font-mono text-[10px] text-theme-body">{Number(party.sellThrough || 0).toFixed(0)}%</td>
+                                  <td className="px-2.5 py-2 text-right font-mono text-[10px] text-theme-body">{Number(party.weeksOfCover || 0).toFixed(1)} wk</td>
+                                  <td className="px-2.5 py-2 text-right font-mono text-[10px] text-rose-300">{formatCurrency(Number(party.capitalLocked || 0))}</td>
+                                  <td className="px-2.5 py-2">
+                                    <span className={`whitespace-nowrap rounded-full border px-2 py-0.5 text-[9px] font-semibold ${signal.cls}`}>{signal.emoji} {signal.label}</span>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                            {!filteredParties.length && (
+                              <tr><td colSpan={10} className="p-6 text-center text-xs text-theme-muted">No stores match this search.</td></tr>
+                            )}
                           </tbody>
                         </table>
                       </div>
-                    </div>
-                  )}
+                    )}
+
+                    {overviewDataView === "articles" && (
+                      <div className="space-y-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-theme-divider bg-theme-surface-2/60 px-3 py-2">
+                          <span className="text-[10px] font-semibold text-theme-body">
+                            Suggested actions for {activeParty.storeNameSnapshot || activeParty.name}
+                          </span>
+                          <span className="text-[10px] text-theme-muted">
+                            {Number(activeParty.weeksOfCover || 0) < 2 && Number(activeParty.stockCount || 0) > 0
+                              ? "Low cover: review replenishment."
+                              : Number(activeParty.sellThrough || 0) < 25
+                                ? "Slow sell-through: consider a promotion or store follow-up."
+                                : "Review slow-moving articles below; replenish only where demand supports it."}
+                          </span>
+                        </div>
+                        <div className="overflow-x-auto rounded-xl border border-theme-divider bg-theme-surface-3/40">
+                          <table className="w-full min-w-[760px] border-collapse text-left">
+                            <thead className="bg-theme-surface-2">
+                              <tr className="border-b border-theme-divider">
+                                {["Article / Product", "SKU", "Stock Left", "Sent", "Sold", "Returned", "Sell Through", "Movement"].map((heading) => (
+                                  <th key={heading} className="px-3 py-2 text-[9px] font-bold uppercase tracking-wide text-theme-muted">{heading}</th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-theme-divider/50">
+                              {(activeParty.skuTracking ?? []).map((sku) => {
+                                const soldPct = computeSkuSellThrough(sku);
+                                const movement = sku.invoicedQty <= 0
+                                  ? "No sales data"
+                                  : soldPct < 20 ? "Slow moving" : soldPct < 50 ? "Normal" : "Fast moving";
+                                const movementClass = movement === "Slow moving"
+                                  ? "text-rose-300 bg-rose-500/10 border-rose-500/20"
+                                  : movement === "Fast moving"
+                                    ? "text-emerald-300 bg-emerald-500/10 border-emerald-500/20"
+                                    : "text-amber-300 bg-amber-500/10 border-amber-500/20";
+                                return (
+                                  <tr key={sku.sku} className="hover:bg-theme-surface-2/40">
+                                    <td className="px-3 py-2 text-[10px] font-medium text-theme-body">{sku.productName || sku.sku}</td>
+                                    <td className="px-3 py-2 font-mono text-[9px] text-theme-muted">{sku.sku}</td>
+                                    <td className="px-3 py-2 text-right font-mono text-[10px] text-blue-300">{computeSkuLyingWithPartner(sku)}</td>
+                                    <td className="px-3 py-2 text-right font-mono text-[10px] text-theme-body">{sku.invoicedQty}</td>
+                                    <td className="px-3 py-2 text-right font-mono text-[10px] text-emerald-300">{sku.confirmedSoldQty}</td>
+                                    <td className="px-3 py-2 text-right font-mono text-[10px] text-rose-300">{sku.returnedQty}</td>
+                                    <td className="px-3 py-2 text-right font-mono text-[10px] text-theme-body">{soldPct.toFixed(0)}%</td>
+                                    <td className="px-3 py-2"><span className={`whitespace-nowrap rounded-full border px-2 py-0.5 text-[9px] font-semibold ${movementClass}`}>{movement}</span></td>
+                                  </tr>
+                                );
+                              })}
+                              {!activeParty.skuTracking?.length && (
+                                <tr><td colSpan={8} className="p-6 text-center text-xs text-theme-muted">No article-level sales tracking is available for this store.</td></tr>
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+
+                    {(overviewDataView === "sizes" || overviewDataView === "colors") && (
+                      <div className="overflow-x-auto rounded-xl border border-theme-divider bg-theme-surface-3/40">
+                        <table className="w-full min-w-[680px] border-collapse text-left">
+                          <thead className="bg-theme-surface-2">
+                            <tr className="border-b border-theme-divider">
+                              {[overviewDataView === "sizes" ? "Size" : "Color", "SKUs", "Projected Stock", "Sent", "Sold", "Returned"].map((heading) => (
+                                <th key={heading} className="px-3 py-2 text-[9px] font-bold uppercase tracking-wide text-theme-muted">{heading}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-theme-divider/50">
+                            {dimensionRows.map((row) => (
+                              <tr key={row.label}>
+                                <td className="px-3 py-2 text-[10px] font-semibold text-theme-body">{row.label}</td>
+                                <td className="px-3 py-2 text-right text-[10px] text-theme-body">{row.skuCount}</td>
+                                <td className="px-3 py-2 text-right font-mono text-[10px] text-blue-300">{row.stockQty}</td>
+                                <td className="px-3 py-2 text-right font-mono text-[10px] text-theme-body">{row.sentQty}</td>
+                                <td className="px-3 py-2 text-right font-mono text-[10px] text-emerald-300">{row.soldQty}</td>
+                                <td className="px-3 py-2 text-right font-mono text-[10px] text-rose-300">{row.returnedQty}</td>
+                              </tr>
+                            ))}
+                            {!dimensionRows.length && (
+                              <tr><td colSpan={6} className="p-6 text-center text-xs text-theme-muted">No SKU stock tracking is available for this catalog dimension.</td></tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </section>
 
                   {/* Tip Card */}
                   {tip && (
@@ -2441,7 +2712,7 @@ export const PsvTab: React.FC<PsvTabProps> = ({ psvParties, currentUser }) => {
                   <option value="">🏢 All Distributors & Stores</option>
                   {psvParties.map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.name} ({p.location})
+                      {p.storeCode ? `${p.storeCode} · ` : ""}{p.storeNameSnapshot || p.name} ({p.location})
                     </option>
                   ))}
                 </select>

@@ -100,6 +100,10 @@ function normalizePsvParty(p: any): PSVParty {
       invoicedQty: Number(s.invoiced_qty ?? s.invoicedQty ?? 0),
       confirmedSoldQty: Number(s.confirmed_sold_qty ?? s.confirmedSoldQty ?? 0),
       returnedQty: Number(s.returned_qty ?? s.returnedQty ?? 0),
+      styleCode: s.style_code ?? s.styleCode ?? null,
+      color: s.color ?? null,
+      size: s.size ?? null,
+      category: s.category ?? null,
     })),
   };
 }

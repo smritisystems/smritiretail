@@ -119,10 +119,17 @@ async def list_psv_parties(
         for h in history:
             h["stock"] = int(live_stock or party.stock_count)
 
-        sku_list = [
-            PSVSkuTrackingResponse.model_validate(s)
-            for s in (party.sku_tracking or [])
-        ]
+        sku_list = []
+        for tracking in party.sku_tracking or []:
+            response_tracking = PSVSkuTrackingResponse.model_validate(tracking)
+            if tracking.product:
+                response_tracking = response_tracking.model_copy(update={
+                    "style_code": tracking.product.style_code,
+                    "color": tracking.product.color,
+                    "size": tracking.product.size,
+                    "category": tracking.product.category,
+                })
+            sku_list.append(response_tracking)
         current_stock = int(live_stock) if live_stock is not None else int(party.stock_count or 0)
         current_st = float(party.sell_through or 0.0)
         current_woc = float(party.weeks_of_cover or 0.0)
