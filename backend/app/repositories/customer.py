@@ -46,10 +46,24 @@ class CustomerRepository(BaseRepository[Customer]):
                 )
                 .exists()
             )
+            hierarchy_exists = (
+                select(1)
+                .select_from(CustomerRelationship)
+                .filter(
+                    or_(
+                        CustomerRelationship.parent_customer_id == Customer.id,
+                        CustomerRelationship.dependant_customer_id == Customer.id,
+                    ),
+                    CustomerRelationship.company_id == self.tenant_ctx.company_id,
+                    CustomerRelationship.is_deleted == False,
+                )
+                .exists()
+            )
             company_filter = or_(
                 Customer.company_id == self.tenant_ctx.company_id,
                 Customer.company_id.is_(None),
                 rel_exists,
+                hierarchy_exists,
             )
             stmt = stmt.filter(company_filter)
 

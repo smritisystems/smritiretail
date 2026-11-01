@@ -108,6 +108,29 @@ def test_customer_repository_model_c_tenant_filter_generation():
     assert "EXISTS" in sql_str
 
 
+def test_customer_repository_tenant_filter_includes_company_scoped_hierarchy():
+    """A customer linked by this company's hierarchy is visible to that tenant."""
+    from sqlalchemy.future import select
+
+    tenant_ctx = TenantContext(
+        company_id="COMP-002",
+        branch_id="MAIN",
+        role=UserRole.MANAGER,
+    )
+    repo = CustomerRepository(MagicMock(), tenant_ctx)
+
+    sql_str = str(
+        repo._apply_tenant_filter(select(Customer)).compile(
+            compile_kwargs={"literal_binds": False}
+        )
+    )
+
+    assert "customer_relationships.parent_customer_id" in sql_str
+    assert "customer_relationships.dependant_customer_id" in sql_str
+    assert "customer_relationships.company_id =" in sql_str
+    assert "customer_relationships.is_deleted =" in sql_str
+
+
 @pytest.mark.asyncio
 async def test_require_cross_company_customer_access_sysadmin_allowed():
     """Verify SYSADMIN role is immediately permitted for cross-company lookup."""
