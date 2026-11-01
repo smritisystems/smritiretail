@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { apiFetchV1 } from "../../../lib/apiFetchV1.ts";
+import { calculateSourceDiscountAmount } from "../../../utils/sourceBillingDiscount.ts";
 
 type SourceType = "SALES_ORDER" | "PACKING_SLIP";
 
@@ -17,6 +18,10 @@ interface PreparedLine {
   name: string;
   remaining_quantity: number | string;
   unit_price: number | string;
+  discount_percent?: number | string;
+  discount_amount?: number | string;
+  discount_quantity_basis?: number | string;
+  previously_billed_order_quantity?: number | string;
   gst_rate?: number | string | null;
   hsn_code?: string | null;
   eligible: boolean;
@@ -210,13 +215,24 @@ export function SourceBillingSelectionModal({
               <div className="overflow-x-auto rounded-md border border-slate-200 dark:border-slate-700">
                 <table className="w-full text-left text-xs">
                   <thead className="bg-slate-50 dark:bg-slate-800">
-                    <tr><th className="p-2">Item</th><th className="p-2 text-right">Rate</th><th className="p-2 text-right">Remaining</th><th className="p-2 text-right">Bill Qty</th></tr>
+                    <tr><th className="p-2">Item</th><th className="p-2 text-right">Rate</th><th className="p-2 text-right">SO Disc.</th><th className="p-2 text-right">Remaining</th><th className="p-2 text-right">Bill Qty</th></tr>
                   </thead>
                   <tbody>
                     {eligibleLines.map(line => (
                       <tr key={line.source_line_id} className="border-t border-slate-100 dark:border-slate-800">
                         <td className="p-2"><span className="font-medium">{line.name}</span><span className="block text-slate-500">{line.code}</span></td>
                         <td className="p-2 text-right">{Number(line.unit_price).toFixed(2)}</td>
+                        <td className="p-2 text-right">
+                          {Number(line.discount_percent || 0) > 0
+                            ? `${Number(line.discount_percent).toFixed(2)}%`
+                            : `₹${calculateSourceDiscountAmount({
+                              unitPrice: Number(line.unit_price || 0),
+                              quantity: Number(quantities[line.source_line_id] || 0),
+                              discountAmount: Number(line.discount_amount || 0),
+                              discountQuantityBasis: Number(line.discount_quantity_basis || 0),
+                              previouslyBilledQuantity: Number(line.previously_billed_order_quantity || 0),
+                            }).toFixed(2)}`}
+                        </td>
                         <td className="p-2 text-right">{Number(line.remaining_quantity)}</td>
                         <td className="p-2 text-right">
                           <input

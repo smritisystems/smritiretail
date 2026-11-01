@@ -22,6 +22,8 @@ export interface BillingPreviewRequest {
     source_channel: string;
     sales_channel: string;
   };
+  source_document_type?: string;
+  source_document_id?: string;
   items: Array<{
     code: string;
     product_id?: string;
@@ -33,6 +35,8 @@ export interface BillingPreviewRequest {
     hsn_code?: string;
     mrp?: number;
     is_tax_inclusive?: boolean;
+    source_line_type?: "SALES_ORDER" | "PACKING_SLIP";
+    source_line_id?: string;
   }>;
   customer_id?: string;
   customer_name?: string;
@@ -63,8 +67,14 @@ export interface BillingPreviewResult {
   lines: Array<{
     line_no: number;
     unit_price: number;
+    disc_pct?: number;
     discount_amount: number;
+    discount_source?: string;
     taxable_value: number;
+    gst_rate?: number;
+    cgst_amount?: number;
+    sgst_amount?: number;
+    igst_amount?: number;
     tax_amount: number;
     total_amount: number;
   }>;
@@ -124,6 +134,8 @@ export function buildBillingPreviewRequest(params: {
   shippingAddress?: string | null;
   poReference?: string | null;
   customerPoId?: string | null;
+  sourceDocumentType?: string | null;
+  sourceDocumentId?: string | null;
   transporterRows?: TransporterRow[];
   addonRows?: AddonDeductionRow[];
   adjustments?: BillingAdjustmentRequestItem[];
@@ -184,17 +196,23 @@ export function buildBillingPreviewRequest(params: {
       source_channel: salesChannel,
       sales_channel: salesChannel,
     },
+    ...(params.sourceDocumentType ? { source_document_type: params.sourceDocumentType } : {}),
+    ...(params.sourceDocumentId ? { source_document_id: params.sourceDocumentId } : {}),
     items: items.map((item, index) => ({
       code: item.stockNo || item.barcode || item.productId || "",
       ...(item.productId ? { product_id: item.productId } : {}),
       quantity: item.qty,
       unit_price: item.rate,
-      disc_pct: 0,
-      disc_amt: postingLines[index]?.discountAmount ?? 0,
+      disc_pct: item.sourceLineType ? Number(item.discPercent || 0) : 0,
+      disc_amt: item.sourceLineType && Number(item.discPercent || 0) > 0
+        ? 0
+        : postingLines[index]?.discountAmount ?? 0,
       ...(item.gstPercentage === undefined ? {} : { gst_rate: item.gstPercentage }),
       ...(item.hsnCode ? { hsn_code: item.hsnCode } : {}),
       ...(item.mrp === undefined ? {} : { mrp: item.mrp }),
       is_tax_inclusive: item.isTaxInclusive ?? customerTaxInclusive,
+      ...(item.sourceLineType ? { source_line_type: item.sourceLineType } : {}),
+      ...(item.sourceLineId ? { source_line_id: item.sourceLineId } : {}),
     })),
     ...(params.customer?.id ? { customer_id: params.customer.id } : {}),
     ...(params.customer?.name ? { customer_name: params.customer.name } : {}),

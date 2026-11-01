@@ -22,6 +22,7 @@ import uuid
 import urllib.parse
 from datetime import datetime, timezone
 from decimal import Decimal
+from html import escape as html_escape
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
 from sqlalchemy import or_
@@ -138,6 +139,33 @@ def number_to_indian_words(num: float) -> str:
 
     result += " Only"
     return re.sub(r'\s{2,}', ' ', result).strip()
+
+
+def invoice_line_discount_details(item, rule_snapshots: Optional[dict], line_no: int) -> dict[str, Any]:
+    resolution = (rule_snapshots or {}).get("discount_resolution") or {}
+    lines = resolution.get("lines") if isinstance(resolution, dict) else None
+    snapshot = next(
+        (
+            row for row in lines or []
+            if isinstance(row, dict) and str(row.get("line_no")) == str(line_no)
+        ),
+        {},
+    )
+    rate = Decimal(str(snapshot.get("rate_percent", getattr(item, "disc_pct", None) or 0)))
+    gross = Decimal(str(getattr(item, "price", 0) or 0)) * Decimal(str(getattr(item, "quantity", 0) or 0))
+    amount = Decimal(str(snapshot.get("discount_amount", (gross * rate / Decimal("100.00")).quantize(Decimal("0.01")))))
+    source = str(snapshot.get("source") or "")
+    if not source and amount > 0:
+        source = (
+            "Sales Order"
+            if getattr(item, "source_line_type", None) in {"SALES_ORDER", "PACKING_SLIP"}
+            else "Configured discount"
+        )
+    return {
+        "rate_percent": rate,
+        "discount_amount": amount,
+        "source": source or "None",
+    }
 
 
 def generate_barcode_base64(val: str) -> str:
@@ -697,23 +725,28 @@ class InvoicePdfService:
 
         # Process Items
         items_data = []
-        total_quantity = 0
+        total_quantity = Decimal("0")
+        total_quantity_display = "0"
         sum_taxable = Decimal("0.00")
         sum_cgst = Decimal("0.00")
         sum_sgst = Decimal("0.00")
         sum_igst = Decimal("0.00")
         hsn_summary: Dict[str, Dict[str, Decimal]] = {}
+        rule_snapshots = getattr(invoice, "rule_snapshots", None)
+        discount_total = Decimal(str(getattr(invoice, "discount_amount", None) or 0))
 
         # Sort items by line_no if available
         sorted_items = sorted(invoice.items, key=lambda x: getattr(x, "line_no", 0) or 0)
         
         for idx, item in enumerate(sorted_items, start=1):
             ln = getattr(item, "line_no", None) or idx
-            qty = int(item.quantity)
+            qty = Decimal(str(item.quantity or 0))
             total_quantity += qty
+            quantity_display = format(qty.normalize(), "f") if qty else "0"
             
             mrp_val = Decimal(str(getattr(item, "mrp", None) or 0))
-            disc_val = Decimal(str(getattr(item, "disc_pct", None) or 0))
+            line_discount = invoice_line_discount_details(item, rule_snapshots, ln)
+            disc_val = line_discount["rate_percent"]
             taxable_val = Decimal(str(getattr(item, "taxable_value", None) or (Decimal(str(item.price)) * Decimal(qty))))
             
             # If MRP/disc missing in live items, calculate
@@ -721,10 +754,16 @@ class InvoicePdfService:
                 rate = Decimal(str(item.price))
                 mrp = rate / Decimal("0.5624") if rate > 0 else Decimal("0.00")
                 mrp_val = round(mrp)
-                disc_val = Decimal("43.76")
+                if (
+                    disc_val == 0
+                    and line_discount["source"] == "None"
+                    and getattr(item, "source_line_type", None) not in {"SALES_ORDER", "PACKING_SLIP"}
+                ):
+                    disc_val = Decimal("43.76")
                 
             gst_rate = Decimal(str(item.gst_rate or Decimal("5.00")))
             
+            total_quantity_display = format(total_quantity.normalize(), "f") if total_quantity else "0"
             if is_interstate:
                 igst_val = Decimal(str(getattr(item, "igst_amount", None) or (taxable_val * (gst_rate / Decimal("100.00"))).quantize(Decimal("0.01"))))
                 cgst_val = Decimal("0.00")
@@ -764,8 +803,11 @@ class InvoicePdfService:
                 "name": clean_desc,
                 "hsn_code": item.hsn_code or "64041990",
                 "quantity": qty,
+                "quantity_display": quantity_display,
                 "mrp": mrp_val,
                 "disc_pct": disc_val,
+                "discount_amount": line_discount["discount_amount"],
+                "discount_source": line_discount["source"],
                 "taxable_value": taxable_val,
                 "gst_rate": gst_rate,
                 "igst_amount": igst_val,
@@ -871,7 +913,7 @@ class InvoicePdfService:
                 <th>HSN/SAC</th>
                 <th>QTY</th>
                 <th>MRP</th>
-                <th>DISC %</th>
+                <th>DISC % / AMOUNT</th>
                 <th>TAXABLE VALUE</th>
                 <th>TAX %</th>
                 <th>IGST</th>
@@ -912,8 +954,11 @@ class InvoicePdfService:
                 desc = it["name"]
                 hsn = it["hsn_code"]
                 qty = it["quantity"]
+                quantity_display = it["quantity_display"]
                 mrp = it["mrp"]
                 disc = it["disc_pct"]
+                discount_amount = it["discount_amount"]
+                discount_source = html_escape(str(it["discount_source"]))
                 tx = it["taxable_value"]
                 amt = it["total_amount"]
                 rate = it.get("gst_rate", Decimal("5.00"))
@@ -940,11 +985,11 @@ class InvoicePdfService:
                 rows_html += f"""
                 <tr class="item-row">
                   <td style="text-align: center;">{ln}</td>
-                  <td style="text-align: left; padding-left: 4px; font-weight: 500;">{desc}</td>
+                  <td style="text-align: left; padding-left: 4px; font-weight: 500;">{desc}{f'<div style="font-size: 6px; color: #64748b; font-weight: 400;">Discount source: {discount_source}</div>' if discount_amount > 0 else ''}</td>
                   <td style="text-align: center;">{hsn}</td>
-                  <td style="text-align: right; font-weight: 700; padding-right: 3px;">{qty}</td>
+                  <td style="text-align: right; font-weight: 700; padding-right: 3px;">{quantity_display}</td>
                   <td style="text-align: right; padding-right: 3px;">₹{mrp:,.2f}</td>
-                  <td style="text-align: right; color: #1e40af; padding-right: 3px;">{disc:.2f}%</td>
+                  <td style="text-align: right; color: #1e40af; padding-right: 3px;">{disc:.2f}%<br/>₹{discount_amount:,.2f}</td>
                   <td style="text-align: right; font-weight: 600; padding-right: 3px;">₹{tx:,.2f}</td>
                   {tax_cells}
                   <td style="text-align: right; font-weight: 700; padding-right: 4px;">₹{amt:,.2f}</td>
@@ -955,7 +1000,7 @@ class InvoicePdfService:
                 subtotal_row = f"""
                 <tr class="subtotal-row">
                   <td colspan="3" style="text-align: right; padding-right: 6px; font-weight: 700; text-transform: uppercase;">TOTAL PAIRS:</td>
-                  <td style="text-align: right; font-weight: 700; color: #1e3a8a; padding-right: 3px;">{total_quantity}</td>
+                  <td style="text-align: right; font-weight: 700; color: #1e3a8a; padding-right: 3px;">{total_quantity_display}</td>
                   <td colspan="2" style="text-align: right; padding-right: 6px; color: #4b5563; text-transform: uppercase; font-size: 7px;">SUBTOTAL:</td>
                   <td style="text-align: right; font-weight: 700; padding-right: 3px;">₹{taxable_total:,.2f}</td>
                   <td style="text-align: center; color: #9ca3af;">-</td>
@@ -967,7 +1012,7 @@ class InvoicePdfService:
                 subtotal_row = f"""
                 <tr class="subtotal-row">
                   <td colspan="3" style="text-align: right; padding-right: 6px; font-weight: 700; text-transform: uppercase;">TOTAL PAIRS:</td>
-                  <td style="text-align: right; font-weight: 700; color: #1e3a8a; padding-right: 3px;">{total_quantity}</td>
+                  <td style="text-align: right; font-weight: 700; color: #1e3a8a; padding-right: 3px;">{total_quantity_display}</td>
                   <td colspan="2" style="text-align: right; padding-right: 6px; color: #4b5563; text-transform: uppercase; font-size: 7px;">SUBTOTAL:</td>
                   <td style="text-align: right; font-weight: 700; padding-right: 3px;">₹{taxable_total:,.2f}</td>
                   <td style="text-align: center; color: #9ca3af;">-</td>
@@ -1143,7 +1188,11 @@ class InvoicePdfService:
                     <table class="totals-table">
                       <tr>
                         <td class="totals-label">Total Quantity:</td>
-                        <td class="totals-val">{total_quantity} Pairs</td>
+                        <td class="totals-val">{total_quantity_display}</td>
+                      </tr>
+                      <tr>
+                        <td class="totals-label">Discounts:</td>
+                        <td class="totals-val">-₹{discount_total:,.2f}</td>
                       </tr>
                       <tr>
                         <td class="totals-label">Taxable Value:</td>

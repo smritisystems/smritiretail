@@ -27,6 +27,7 @@ import {
   BillingPreviewResult,
   prepareBillingPostingLines,
 } from "./billingPreview.ts";
+import { calculateSourceDiscountAmount } from "../../utils/sourceBillingDiscount.ts";
 import { 
   searchBackendCustomers, 
   searchBackendProducts, 
@@ -622,6 +623,15 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       const quantity = selected.quantity;
       const rate = Number(line.unit_price || 0);
       const value = rate * quantity;
+      const discountPercent = Number(line.discount_percent || 0);
+      const discountAmount = calculateSourceDiscountAmount({
+        unitPrice: rate,
+        quantity,
+        discountPercent,
+        discountAmount: Number(line.discount_amount || 0),
+        discountQuantityBasis: Number(line.discount_quantity_basis || 0),
+        previouslyBilledQuantity: Number(line.previously_billed_order_quantity || 0),
+      });
       return [{
         id: `source-${source.sourceType}-${selected.sourceLineId}`,
         sNo: index + 1,
@@ -633,9 +643,9 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         value,
         discCode: "",
         discQty: 0,
-        discPercent: 0,
-        discAmt: 0,
-        total: value,
+        discPercent: discountPercent,
+        discAmt: discountAmount,
+        total: value - discountAmount,
         salesStaff: headerState.salesStaff,
         productId: line.product_id,
         hsnCode: line.hsn_code || undefined,
@@ -650,6 +660,18 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     }
     setSourceBillingSelection(source);
     setItems(sourceLines);
+    setBillLevelPromo({
+      code: "NONE",
+      description: "No bill discount applied",
+      discountPct: 0,
+      discountAmt: 0,
+      calculatedOn: 0,
+      priceOffs: 0,
+      maxAllowed: undefined,
+      applyBillLevelFirst: false,
+      reason: "Source document pricing",
+      remarks: "",
+    });
     setHeaderState(prev => ({
       ...prev,
       billingSource: source.sourceType === "PACKING_SLIP" ? "PACKING_SLIP_CONSOLIDATED" : "SALES_ORDER",
@@ -2163,6 +2185,10 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       shippingAddress: headerState.shippingAddress,
       poReference: headerState.poReference,
       customerPoId: headerState.customerPoId,
+      sourceDocumentType: sourceBillingSelection?.sourceType === "PACKING_SLIP"
+        ? "PACKING_SLIP_CONSOLIDATED"
+        : sourceBillingSelection?.sourceType,
+      sourceDocumentId: sourceBillingSelection?.documentId,
     });
   }, [
     items,
@@ -2183,6 +2209,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     headerState.shippingAddress,
     headerState.poReference,
     headerState.customerPoId,
+    sourceBillingSelection,
   ]);
   const previewFingerprint = useMemo(() => JSON.stringify(previewRequest), [previewRequest]);
 
@@ -2253,6 +2280,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
 
   // Real-Time Bill-Level Promotion Auto-Select Engine (Cart Threshold / Highest Discount Wins)
   useEffect(() => {
+    if (sourceBillingSelection) return;
     if (isManualBillPromoOverride) return;
 
     const subtotal = summaryTotals.salesValue;
@@ -2321,7 +2349,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         });
       }
     }
-  }, [summaryTotals.salesValue, items.length, headerState.customer?.customerGroupId, headerState.customer?.name, headerState.customer?.id, isManualBillPromoOverride]);
+  }, [summaryTotals.salesValue, items.length, headerState.customer?.customerGroupId, headerState.customer?.name, headerState.customer?.id, isManualBillPromoOverride, sourceBillingSelection]);
 
   const applyProductAutoPopulate = (p: AutoPopulateProductResult | Product) => {
     const rateVal = String((p as any).sellingPrice || (p as any).mrp || (p as any).price || 0);
@@ -5717,12 +5745,64 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                     </span>
                   </div>
                 )}
+                {sourceBillingSelection && previewIsCurrent && billingPreview?.result?.lines && (
+                  <details className="mt-1 rounded border border-slate-200 bg-white px-2 py-1.5 text-[10px] dark:border-slate-700 dark:bg-slate-900">
+                    <summary className="cursor-pointer font-semibold text-slate-700 dark:text-slate-200">
+                      Discount, taxable value &amp; GST details
+                    </summary>
+                    <div className="mt-2 max-h-40 overflow-auto">
+                      <table className="w-full min-w-[520px] text-left">
+                        <thead className="text-[9px] uppercase text-slate-500">
+                          <tr>
+                            <th className="py-1">Item</th>
+                            <th className="py-1">Discount source</th>
+                            <th className="py-1 text-right">Rate / amount</th>
+                            <th className="py-1 text-right">Taxable</th>
+                            <th className="py-1 text-right">GST</th>
+                            <th className="py-1 text-right">Payable</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {billingPreview.result.lines.map((line, index) => {
+                            const item = items[index];
+                            if (!item) return null;
+                            const discountSource = (line.discount_source || "NONE").replace(/_/g, " ");
+                            return (
+                              <tr key={`${item.id}-discount-audit`} className="border-t border-slate-100 dark:border-slate-800">
+                                <td className="py-1 pr-2">{item.stockNo}</td>
+                                <td className="py-1 pr-2">{discountSource}</td>
+                                <td className="py-1 text-right">
+                                  {Number(line.disc_pct || 0).toFixed(2)}% / ₹{Number(line.discount_amount || 0).toFixed(2)}
+                                </td>
+                                <td className="py-1 text-right">₹{Number(line.taxable_value || 0).toFixed(2)}</td>
+                                <td className="py-1 text-right">
+                                  {Number(line.gst_rate || 0).toFixed(2)}% / ₹{Number(line.tax_amount || 0).toFixed(2)}
+                                </td>
+                                <td className="py-1 text-right">₹{Number(line.total_amount || 0).toFixed(2)}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </details>
+                )}
 
                 {/* Bill Discount (Promo / F6) */}
                 <div 
-                  onClick={() => setShowF6PromoModal(true)}
-                  className="flex items-center justify-between py-1 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/60 -mx-1 px-1 rounded transition"
-                  title="Manage Bill Discounts & Promotions (F6)"
+                  onClick={() => {
+                    if (sourceBillingSelection) {
+                      onNotification?.("Source Pricing Locked", "Source-backed invoices retain the source discount and cannot receive an invoice-level override.", "error");
+                      return;
+                    }
+                    setShowF6PromoModal(true);
+                  }}
+                  className={`flex items-center justify-between py-1 -mx-1 px-1 rounded transition ${
+                    sourceBillingSelection
+                      ? "cursor-not-allowed opacity-60"
+                      : "cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                  }`}
+                  title={sourceBillingSelection ? "Invoice-level discounts are locked for source-backed invoices" : "Manage Bill Discounts & Promotions (F6)"}
                 >
                   <span className="text-slate-600 dark:text-slate-400 font-medium flex items-center gap-1">
                     <span>Bill Discount</span>

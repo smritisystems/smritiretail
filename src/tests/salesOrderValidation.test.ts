@@ -6,6 +6,7 @@ describe("Sales order validation", () => {
     const result = validateSalesOrderItems([
       {
         id: "line-1",
+        productId: "product-1",
         stockNo: "ABC123",
         description: "",
         rate: 100,
@@ -16,13 +17,14 @@ describe("Sales order validation", () => {
     ]);
 
     expect(result).toContain("Item 1");
-    expect(result).toContain("not found in the database");
+    expect(result).toContain("not found in Item Master");
   });
 
   it("accepts a complete database-backed item row", () => {
     const result = validateSalesOrderItems([
       {
         id: "line-1",
+        productId: "product-1",
         stockNo: "ABC123",
         description: "Premium Cotton Shirt",
         rate: 100,
@@ -33,5 +35,21 @@ describe("Sales order validation", () => {
     ]);
 
     expect(result).toBeNull();
+  });
+
+  it("blocks an item code without a resolved Item Master identity", () => {
+    const result = validateSalesOrderItems([
+      {
+        id: "line-1",
+        stockNo: "UNKNOWN",
+        description: "Typed description",
+        rate: 100,
+        quantity: 2,
+        value: 200,
+        total: 200,
+      },
+    ]);
+
+    expect(result).toContain("not verified in Item Master");
   });
 });

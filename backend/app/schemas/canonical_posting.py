@@ -259,6 +259,7 @@ class BillingCalculatedLine(BaseModel):
     unit_price: Decimal
     disc_pct: Decimal = Decimal("0.00")
     discount_amount: Decimal = Decimal("0.00")
+    discount_source: str = "NONE"
     taxable_value: Decimal
     gst_rate: Decimal
     cgst_amount: Decimal

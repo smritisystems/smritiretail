@@ -47,6 +47,68 @@ from .customer_discount_policy import (
 logger = logging.getLogger("smriti.headless_billing")
 
 
+def resolve_line_discount(
+    *,
+    gross_amount: Decimal,
+    discount_percent: Decimal,
+    discount_amount: Decimal,
+    customer_discount_percent: Decimal,
+    promotion_discount_amount: Decimal = Decimal("0.00"),
+    promotion_allows_stacking: bool = False,
+    source_order_discount: bool = False,
+    source_document_has_discount: bool = False,
+) -> tuple[Decimal, str]:
+    if source_order_discount:
+        source_discount = (
+            round_currency(gross_amount * discount_percent / Decimal("100.00"))
+            if discount_percent > 0
+            else round_currency(discount_amount)
+        )
+        if source_discount > 0:
+            if promotion_discount_amount > 0 and promotion_allows_stacking:
+                return (
+                    min(gross_amount, source_discount + promotion_discount_amount),
+                    "SALES_ORDER_AND_PROMOTION",
+                )
+            return min(gross_amount, source_discount), "SALES_ORDER"
+
+    customer_discount = (
+        Decimal("0.00")
+        if source_document_has_discount
+        else round_currency(gross_amount * customer_discount_percent / Decimal("100.00"))
+    )
+    if promotion_discount_amount > 0:
+        if promotion_allows_stacking and customer_discount > 0:
+            discount = promotion_discount_amount + customer_discount
+            source = "PROMOTION_AND_CUSTOMER_POLICY"
+        elif customer_discount > promotion_discount_amount:
+            discount = customer_discount
+            source = "CUSTOMER_POLICY"
+        else:
+            discount = promotion_discount_amount
+            source = "PROMOTION"
+    else:
+        item_discount = Decimal("0.00")
+        if discount_percent > 0:
+            item_discount += round_currency(gross_amount * discount_percent / Decimal("100.00"))
+        if discount_amount > 0:
+            item_discount += round_currency(discount_amount)
+        if customer_discount > item_discount:
+            discount = customer_discount
+            source = "CUSTOMER_POLICY"
+        elif item_discount > customer_discount:
+            discount = item_discount
+            source = "ITEM"
+        elif item_discount > 0:
+            discount = item_discount
+            source = "ITEM_MATCHES_CUSTOMER_POLICY"
+        else:
+            discount = Decimal("0.00")
+            source = "NONE"
+
+    return min(gross_amount, round_currency(discount)), source
+
+
 class HeadlessBillingCore:
     """
     Authoritative Headless Billing Calculation Engine.
@@ -351,6 +413,15 @@ class HeadlessBillingCore:
             Decimal(str(item.quantity)) * Decimal(str(item.unit_price))
             for item in req.items
         )
+        source_document_has_discount = source_billing_authorized and any(
+            getattr(item, "source_line_type", None) in {"SALES_ORDER", "PACKING_SLIP"}
+            and bool(getattr(item, "source_line_id", None))
+            and (
+                Decimal(str(item.disc_pct or 0)) > 0
+                or Decimal(str(item.disc_amt or 0)) > 0
+            )
+            for item in req.items
+        )
 
         # 5. Process Line Items Sequentially
         for idx, item in enumerate(req.items):
@@ -637,34 +708,37 @@ class HeadlessBillingCore:
             # Gross base & Line discount (Contractual Policy + Promo Stacking)
             gross_base = qty * rate
             disc_amount = Decimal("0.00")
+            discount_source = "NONE"
             contractual_pct = customer_discount_policy.contractual_discount_percent if customer_discount_policy else Decimal("0.00")
+            is_source_order_discount = (
+                source_billing_authorized
+                and getattr(item, "source_line_type", None) in {"SALES_ORDER", "PACKING_SLIP"}
+                and bool(getattr(item, "source_line_id", None))
+            )
 
             if promotion_result:
                 promo_total = Decimal(str(promotion_result.total_promotional_discount))
                 promo_line_disc = round_currency(promo_total * gross_base / cart_gross_total) if cart_gross_total > 0 else Decimal("0.00")
                 allow_stacking = getattr(promotion_result, "allow_customer_discount_stacking", False) or getattr(promotion_result, "allow_stacking", False)
-                if allow_stacking and contractual_pct > 0:
-                    contractual_line_disc = round_currency(gross_base * contractual_pct / Decimal("100.00"))
-                    disc_amount = promo_line_disc + contractual_line_disc
-                elif contractual_pct > 0:
-                    contractual_line_disc = round_currency(gross_base * contractual_pct / Decimal("100.00"))
-                    disc_amount = max(promo_line_disc, contractual_line_disc)
-                else:
-                    disc_amount = promo_line_disc
+                disc_amount, discount_source = resolve_line_discount(
+                    gross_amount=gross_base,
+                    discount_percent=Decimal(str(item.disc_pct or 0)),
+                    discount_amount=Decimal(str(item.disc_amt or 0)),
+                    customer_discount_percent=contractual_pct,
+                    promotion_discount_amount=promo_line_disc,
+                    promotion_allows_stacking=allow_stacking,
+                    source_order_discount=is_source_order_discount,
+                    source_document_has_discount=source_document_has_discount,
+                )
             else:
-                client_disc = Decimal("0.00")
-                if item.disc_pct and item.disc_pct > 0:
-                    client_disc += round_currency(gross_base * Decimal(str(item.disc_pct)) / Decimal("100.00"))
-                if item.disc_amt and item.disc_amt > 0:
-                    client_disc += Decimal(str(item.disc_amt))
-
-                if contractual_pct > 0:
-                    contractual_line_disc = round_currency(gross_base * contractual_pct / Decimal("100.00"))
-                    disc_amount = max(client_disc, contractual_line_disc)
-                else:
-                    disc_amount = client_disc
-
-            disc_amount = min(disc_amount, gross_base)
+                disc_amount, discount_source = resolve_line_discount(
+                    gross_amount=gross_base,
+                    discount_percent=Decimal(str(item.disc_pct or 0)),
+                    discount_amount=Decimal(str(item.disc_amt or 0)),
+                    customer_discount_percent=contractual_pct,
+                    source_order_discount=is_source_order_discount,
+                    source_document_has_discount=source_document_has_discount,
+                )
 
             # Section 8 CGST Composite Adjustment apportionment across product lines by gross base
             if cart_gross_total > 0:
@@ -707,6 +781,7 @@ class HeadlessBillingCore:
                 unit_price=rate,
                 disc_pct=(disc_amount / gross_base * Decimal("100.00")) if gross_base > 0 else Decimal("0.00"),
                 discount_amount=disc_amount,
+                discount_source=discount_source,
                 taxable_value=tax_dict["taxable_value"],
                 gst_rate=gst_rate,
                 cgst_amount=tax_dict["cgst_amount"],

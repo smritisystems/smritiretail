@@ -1,6 +1,6 @@
 import os
 import uuid
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from typing import Any, Optional
 
 from fastapi import HTTPException
@@ -32,6 +32,22 @@ from .sales import SalesService
 
 def source_billing_commit_enabled() -> bool:
     return os.getenv("SMRITI_SOURCE_BILLING_ENABLED", "").strip().lower() in {"1", "true", "yes"}
+
+
+def _allocate_fixed_line_discount(
+    total_discount: Decimal,
+    ordered_quantity: Decimal,
+    previously_billed_quantity: Decimal,
+    quantity: Decimal,
+) -> Decimal:
+    if total_discount <= 0 or ordered_quantity <= 0 or quantity <= 0:
+        return Decimal("0.00")
+    cent = Decimal("0.01")
+    billed_before = min(ordered_quantity, max(Decimal("0"), previously_billed_quantity))
+    billed_after = min(ordered_quantity, billed_before + quantity)
+    allocated_before = (total_discount * billed_before / ordered_quantity).quantize(cent, rounding=ROUND_HALF_UP)
+    allocated_after = (total_discount * billed_after / ordered_quantity).quantize(cent, rounding=ROUND_HALF_UP)
+    return max(Decimal("0.00"), allocated_after - allocated_before)
 
 
 class SourceBillingService:
@@ -171,6 +187,10 @@ class SourceBillingService:
             previously_billed_quantity=package_billed if package_quantity is not None else previously_billed,
             remaining_quantity=remaining,
             unit_price=Decimal(str(item.price or 0)),
+            discount_percent=Decimal(str(item.discount_percent or 0)),
+            discount_amount=Decimal(str(item.discount_amount or 0)),
+            discount_quantity_basis=ordered,
+            previously_billed_order_quantity=previously_billed,
             gst_rate=item.gst_rate,
             hsn_code=item.hsn_code,
             eligible=remaining > 0,
@@ -354,7 +374,22 @@ class SourceBillingService:
                 "items": [],
             })
             invoice_lines: list[dict[str, Any]] = []
+            billed_quantity_by_order_line: dict[int, Decimal] = {}
             for source_line_id, order_item, slip_item, quantity in source_rows:
+                ordered_quantity = Decimal(str(order_item.quantity or 0))
+                allocated_quantity = billed_quantity_by_order_line.get(order_item.id)
+                if allocated_quantity is None:
+                    allocated_quantity = max(
+                        await self._allocated_order_quantity(order_item.id),
+                        Decimal(str(order_item.billed_quantity or 0)),
+                    )
+                discount_percent = Decimal(str(order_item.discount_percent or 0))
+                discount_amount = Decimal("0.00") if discount_percent > 0 else _allocate_fixed_line_discount(
+                    Decimal(str(order_item.discount_amount or 0)),
+                    ordered_quantity,
+                    allocated_quantity,
+                    quantity,
+                )
                 invoice_lines.append({
                     "product_id": order_item.product_id,
                     "item_id": order_item.item_id,
@@ -363,13 +398,15 @@ class SourceBillingService:
                     "name": order_item.name,
                     "quantity": quantity,
                     "price": order_item.price,
+                    "mrp": order_item.mrp,
                     "hsn_code": order_item.hsn_code,
                     "gst_rate": order_item.gst_rate,
-                    "disc_pct": Decimal("0"),
-                    "disc_amt": Decimal("0"),
+                    "disc_pct": discount_percent,
+                    "disc_amt": discount_amount,
                     "source_line_type": "PACKING_SLIP" if slip_item else "SALES_ORDER",
                     "source_line_id": source_line_id,
                 })
+                billed_quantity_by_order_line[order_item.id] = allocated_quantity + quantity
             invoice_header["items"] = invoice_lines
             invoice_input = SalesInvoiceCreate.model_validate(invoice_header)
 

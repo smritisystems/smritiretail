@@ -324,6 +324,18 @@ async def preview(
         authorized_price_override=authorized_price_override,
         authorized_discount_override=authorized_discount_override,
         authorized_adjustment_override=authorized_adjustment_override,
+        source_billing_authorized=(
+            str(req.source_document_type or "").upper() in {
+                "SALES_ORDER",
+                "PACKING_SLIP",
+                "PACKING_SLIP_CONSOLIDATED",
+            }
+            and all(
+                item.source_line_type in {"SALES_ORDER", "PACKING_SLIP"}
+                and bool(item.source_line_id)
+                for item in req.items
+            )
+        ),
     )
 
 

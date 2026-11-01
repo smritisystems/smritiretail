@@ -91,6 +91,10 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
   isStandaloneTab = false,
 }) => {
   const [auxView, setAuxView] = useState<BillingAuxiliaryView>(() => normalizeBillingAuxiliaryView(initialView));
+  const [salesOrderWorkspaceOpen, setSalesOrderWorkspaceOpen] = useState(false);
+  const handleSalesOrderWorkspaceChange = useCallback((active: boolean) => {
+    setSalesOrderWorkspaceOpen(active);
+  }, []);
   const [showHotkeysModal, setShowHotkeysModal] = useState<boolean>(false);
   const [currentTime, setCurrentTime] = useState<string>(() => new Date().toLocaleTimeString());
 
@@ -179,7 +183,7 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
   return (
     <div className="h-full flex flex-col overflow-hidden font-sans transition-colors duration-300 bg-[#f8f9fa] dark:bg-[#191c1e] text-[#191c1e] dark:text-[#eff1f3]">
       {/* ── Top Unified Billing Navigation Header (Only shown when viewing auxiliary modules) ── */}
-      {auxView !== "WORKSPACE" && (
+      {auxView !== "WORKSPACE" && !salesOrderWorkspaceOpen && (
       <header className="border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-[#131b2e] flex flex-wrap justify-between items-center px-4 py-2 shrink-0 z-20 shadow-2xs gap-2 transition-colors duration-300">
         {/* One billing workspace with supporting sales documents and operations */}
         <div className="flex items-center gap-2 flex-wrap">
@@ -346,6 +350,7 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
               products={products}
               currentUser={currentUser}
               onNotification={showToast}
+              onSalesOrderWorkspaceChange={handleSalesOrderWorkspaceChange}
             />
           </div>
         ) : auxView === "EOD_Z_REPORT" ? (

@@ -64,4 +64,13 @@ describe("Sales order create payload", () => {
     expect(createSalesOrderNumber("SO", 1)).toMatch(/^SO-[A-Z0-9]+-[A-Z0-9]{6}$/);
     expect(createSalesOrderNumber("SO", 1)).not.toBe("SO-Auto");
   });
+
+  it("does not substitute a typed stock code for an Item Master product ID", () => {
+    const formWithoutProductId = {
+      ...formData,
+      items: [{ ...formData.items[0], productId: undefined }],
+    };
+
+    expect(buildSalesOrderPayload(formWithoutProductId, "SO-ORDER-2").items[0].product_id).toBeUndefined();
+  });
 });

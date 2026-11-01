@@ -134,11 +134,12 @@ interface SalesOrderFormProps {
   onCancel?: () => void;
   compact?: boolean;
   readOnly?: boolean;
+  workspaceFill?: boolean;
 }
 
 const toSharedSalesLineItem = (item: SalesOrderItem): SalesLineItem => ({
   id: item.id || `line-${Math.random().toString(36).slice(2, 9)}`,
-  productId: item.productId || item.stockNo,
+  productId: item.productId,
   stockNo: item.stockNo,
   barcode: item.barcode || item.stockNo,
   itemDescription: item.description || item.stockNo || "Item",
@@ -151,6 +152,20 @@ const toSharedSalesLineItem = (item: SalesOrderItem): SalesLineItem => ({
   taxAmount: Number(item.taxAmount || 0),
   total: Number(item.total || 0),
 });
+
+type SalesOrderItemMasterResolution = {
+  product_id?: string | number;
+  item_id?: string | number;
+  variant_id?: string | number;
+  sku?: string;
+  barcode?: string;
+  name?: string;
+  selling_price?: number | string;
+  mrp?: number | string;
+  tax_rate?: number | string;
+  hsn_code?: string;
+  uom?: string;
+};
 
 const getSalesOrderSummary = (items: SalesOrderItem[], formData: Partial<SalesOrderFormData>) => {
   const transaction: SalesTransaction = {
@@ -343,7 +358,7 @@ const StockLookupModal: React.FC<{
       const rows = Array.isArray(data) ? data : (data?.items || data?.data || []);
       setItems(rows.map((item: any) => ({
         ...item,
-        productId: item.product_id || item.productId || item.id,
+        productId: item.product_id || item.productId,
         itemId: item.item_id || item.itemId,
         variantId: item.variant_id || item.variantId,
         barcode: item.barcode || item.ean || item.item_barcode || "",
@@ -601,7 +616,8 @@ const PremiumSalesOrderHeader: React.FC<{
   onImportClick?: () => void;
   onRecallClick?: () => void;
   readOnly?: boolean;
-}> = ({ formData, onFieldChange, errors = {}, onImportClick, onRecallClick, readOnly = false }) => {
+  dense?: boolean;
+}> = ({ formData, onFieldChange, errors = {}, onImportClick, onRecallClick, readOnly = false, dense = false }) => {
   const [showCustomerModal, setShowCustomerModal] = useState(false);
 
   const handleCustomerSelect = (customer: Customer) => {
@@ -615,17 +631,17 @@ const PremiumSalesOrderHeader: React.FC<{
       <motion.div
         initial={{ opacity: 0, y: -30 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 rounded-2xl shadow-lg overflow-hidden"
+        className={`bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 ${dense ? "rounded-lg shadow-sm" : "rounded-2xl shadow-lg"} overflow-hidden`}
       >
         {/* Top Action Bar */}
-        <div className="px-6 py-4 bg-white/10 backdrop-blur-sm border-b border-white/20 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-white/20 rounded-lg backdrop-blur-sm">
-              <FileText className="w-5 h-5 text-white" />
+        <div className={`${dense ? "px-3 py-1.5" : "px-6 py-4"} bg-white/10 backdrop-blur-sm border-b border-white/20 flex items-center justify-between`}>
+          <div className={`flex items-center ${dense ? "gap-2" : "gap-3"}`}>
+            <div className={`${dense ? "p-1.5" : "p-2.5"} bg-white/20 rounded-lg backdrop-blur-sm`}>
+              <FileText className={`${dense ? "w-4 h-4" : "w-5 h-5"} text-white`} />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-white/90 uppercase tracking-wide">Create Sales Order</h2>
-              <p className="text-xs text-white/70 mt-0.5">Header Information & Customer Details</p>
+              <h2 className={`${dense ? "text-xs" : "text-sm"} font-bold text-white/90 uppercase tracking-wide`}>Create Sales Order</h2>
+              <p className={`${dense ? "text-[10px]" : "text-xs"} text-white/70 ${dense ? "" : "mt-0.5"}`}>Header Information & Customer Details</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -659,7 +675,7 @@ const PremiumSalesOrderHeader: React.FC<{
         </div>
 
         {/* Main Content - Ultra-Compact 2-Line Layout */}
-        <div className="p-2 bg-gradient-to-b from-slate-50 to-white space-y-1.5">
+        <div className={`${dense ? "p-1.5 space-y-1" : "p-2 space-y-1.5"} bg-gradient-to-b from-slate-50 to-white`}>
           {/* LINE 1: Document Identification Fields */}
           <div className="flex gap-1.5 items-end">
             {/* Prefix */}
@@ -865,10 +881,11 @@ const PremiumSalesOrderHeader: React.FC<{
 const PremiumSalesOrderDetail: React.FC<{
   items: SalesOrderItem[];
   onItemsChange: (items: SalesOrderItem[]) => void;
-}> = ({ items, onItemsChange }) => {
+  onResolveItem: (identifier: string) => Promise<SalesOrderItem | null>;
+  dense?: boolean;
+}> = ({ items, onItemsChange, onResolveItem, dense = false }) => {
   const [selectedItemIndex, setSelectedItemIndex] = useState<number | null>(null);
   const [showStockModal, setShowStockModal] = useState(false);
-  const [stockModalCallback, setStockModalCallback] = useState<((item: StockItem) => void) | null>(null);
 
   const handleAddItem = () => {
     const newItem: SalesOrderItem = {
@@ -922,10 +939,65 @@ const PremiumSalesOrderDetail: React.FC<{
     onItemsChange(items.filter((_, i) => i !== index));
   };
 
-  const handleStockSelect = (stock: StockItem) => {
-    if (selectedItemIndex !== null && stockModalCallback) {
-      stockModalCallback(stock);
-    }
+  const applyMasterItem = (index: number, masterItem: SalesOrderItem) => {
+    const currentItem = items[index];
+    if (!currentItem) return;
+
+    const quantity = Number(currentItem.quantity || 0);
+    const sharedLine = calculateLineTotal({
+      id: currentItem.id,
+      productId: masterItem.productId,
+      stockNo: masterItem.stockNo,
+      barcode: masterItem.barcode,
+      itemDescription: masterItem.description,
+      qty: quantity,
+      rate: masterItem.rate,
+      value: quantity * masterItem.rate,
+      discPercent: Number(currentItem.discPercent || 0),
+      discAmt: Number(currentItem.discAmount || 0),
+      taxPercent: Number(masterItem.taxPercent ?? currentItem.taxPercent ?? 18),
+      taxAmount: 0,
+      total: 0,
+    });
+    const updated = [...items];
+    updated[index] = {
+      ...currentItem,
+      productId: masterItem.productId,
+      itemId: masterItem.itemId,
+      variantId: masterItem.variantId,
+      stockNo: masterItem.stockNo,
+      barcode: masterItem.barcode,
+      description: masterItem.description,
+      rate: masterItem.rate,
+      hsn: masterItem.hsn,
+      uom: masterItem.uom,
+      gstRate: masterItem.gstRate,
+      taxPercent: masterItem.taxPercent,
+      value: sharedLine.value,
+      discAmount: sharedLine.discAmt,
+      taxAmount: sharedLine.taxAmount,
+      total: sharedLine.total,
+    };
+    onItemsChange(updated);
+  };
+
+  const openStockLookup = (index: number) => {
+    setSelectedItemIndex(index);
+    setShowStockModal(true);
+  };
+
+  const handleStockSelect = async (stock: StockItem) => {
+    if (selectedItemIndex === null) return;
+    const resolved = await onResolveItem(stock.code || stock.barcode || "");
+    if (resolved) applyMasterItem(selectedItemIndex, resolved);
+  };
+
+  const handleStockNoBlur = async (index: number, identifier: string) => {
+    const code = identifier.trim();
+    if (!code) return;
+    const resolved = await onResolveItem(code);
+    if (!resolved || items[index]?.stockNo.trim() !== code) return;
+    applyMasterItem(index, resolved);
   };
 
   return (
@@ -934,18 +1006,18 @@ const PremiumSalesOrderDetail: React.FC<{
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.15 }}
-        className="bg-white rounded-2xl shadow-lg overflow-hidden border border-slate-200 mt-3"
+        className={`bg-white ${dense ? "rounded-lg shadow-sm mt-1" : "rounded-2xl shadow-lg mt-3"} overflow-hidden border border-slate-200`}
       >
         {/* Header */}
-        <div className="px-4 py-3 bg-gradient-to-r from-emerald-50 to-teal-50 border-b border-slate-200">
+        <div className={`${dense ? "px-2.5 py-1.5" : "px-4 py-3"} bg-gradient-to-r from-emerald-50 to-teal-50 border-b border-slate-200`}>
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-emerald-100 rounded-lg">
-                <Plus className="w-4 h-4 text-emerald-600" />
+            <div className={`flex items-center ${dense ? "gap-2" : "gap-3"}`}>
+              <div className={`${dense ? "p-1" : "p-2"} bg-emerald-100 rounded-lg`}>
+                <Plus className={`${dense ? "w-3.5 h-3.5" : "w-4 h-4"} text-emerald-600`} />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-900">Item Details</h3>
-                <p className="text-xs text-slate-500 mt-0.5">{items.length} item(s) added</p>
+                <h3 className={`${dense ? "text-xs" : "text-sm"} font-bold text-slate-900`}>Item Details</h3>
+                <p className={`${dense ? "text-[10px]" : "text-xs"} text-slate-500 ${dense ? "" : "mt-0.5"}`}>{items.length} item(s) added</p>
               </div>
             </div>
             <motion.button
@@ -953,7 +1025,7 @@ const PremiumSalesOrderDetail: React.FC<{
               whileTap={{ scale: 0.95 }}
               onClick={handleAddItem}
               type="button"
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-medium transition"
+              className={`flex items-center gap-1.5 ${dense ? "px-2.5 py-1" : "px-3 py-1.5"} bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-medium transition`}
             >
               <Plus className="w-4 h-4" />
               Add Item
@@ -963,30 +1035,32 @@ const PremiumSalesOrderDetail: React.FC<{
 
         {/* Table */}
         {items.length === 0 ? (
-          <div className="py-12 px-6 text-center">
-            <FileText className="w-16 h-16 text-slate-300 mx-auto mb-3" />
-            <p className="text-slate-500 font-medium">No items added yet</p>
-            <p className="text-sm text-slate-400 mt-1">Click "Add Item" to start building your sales order</p>
+          <div className={`${dense ? "py-4 px-3" : "py-12 px-6"} text-center`}>
+            <FileText className={`${dense ? "w-8 h-8 mb-1" : "w-16 h-16 mb-3"} text-slate-300 mx-auto`} />
+            <p className={`${dense ? "text-xs" : ""} text-slate-500 font-medium`}>No items added yet</p>
+            <p className={`${dense ? "text-xs" : "text-sm"} text-slate-400 ${dense ? "mt-0" : "mt-1"}`}>Click "Add Item" to start building your sales order</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className={dense
+              ? "w-full border-collapse text-sm [&_td]:border-r [&_td]:border-slate-100 [&_td:last-child]:border-r-0"
+              : "w-full text-sm"}>
               <thead className="bg-slate-100 border-b border-slate-300 sticky top-0">
                 <tr className="text-[10px] font-bold text-slate-700 uppercase">
-                  <th className="px-2.5 py-2 text-left w-20">Stock No.</th>
-                  <th className="px-2.5 py-2 text-left flex-1">Description</th>
-                  <th className="px-2.5 py-2 text-right w-16">Rate</th>
-                  <th className="px-2.5 py-2 text-right w-14">Qty</th>
-                  <th className="px-2.5 py-2 text-right w-16">Value</th>
-                  <th className="px-2.5 py-2 text-right w-16">Disc Code</th>
-                  <th className="px-2.5 py-2 text-right w-14">Disc Qty</th>
-                  <th className="px-2.5 py-2 text-right w-14">Disc %</th>
-                  <th className="px-2.5 py-2 text-right w-16">Disc Amt</th>
-                  <th className="px-2.5 py-2 text-right w-14">Tax %</th>
-                  <th className="px-2.5 py-2 text-right w-16">Tax Amt</th>
-                  <th className="px-2.5 py-2 text-right w-16">Total</th>
-                  <th className="px-2.5 py-2 text-center w-20">Sales Staff</th>
-                  <th className="px-2.5 py-2 text-center w-12">Action</th>
+                  <th className={`${dense ? "px-1.5 py-1" : "px-2.5 py-2"} text-left w-20`}>Stock No.</th>
+                  <th className={`${dense ? "px-1.5 py-1" : "px-2.5 py-2"} text-left flex-1`}>Description</th>
+                  <th className={`${dense ? "px-1.5 py-1" : "px-2.5 py-2"} text-right w-16`}>Rate</th>
+                  <th className={`${dense ? "px-1.5 py-1" : "px-2.5 py-2"} text-right w-14`}>Qty</th>
+                  <th className={`${dense ? "px-1.5 py-1" : "px-2.5 py-2"} text-right w-16`}>Value</th>
+                  <th className={`${dense ? "px-1.5 py-1" : "px-2.5 py-2"} text-right w-16`}>Disc Code</th>
+                  <th className={`${dense ? "px-1.5 py-1" : "px-2.5 py-2"} text-right w-14`}>Disc Qty</th>
+                  <th className={`${dense ? "px-1.5 py-1" : "px-2.5 py-2"} text-right w-14`}>Disc %</th>
+                  <th className={`${dense ? "px-1.5 py-1" : "px-2.5 py-2"} text-right w-16`}>Disc Amt</th>
+                  <th className={`${dense ? "px-1.5 py-1" : "px-2.5 py-2"} text-right w-14`}>Tax %</th>
+                  <th className={`${dense ? "px-1.5 py-1" : "px-2.5 py-2"} text-right w-16`}>Tax Amt</th>
+                  <th className={`${dense ? "px-1.5 py-1" : "px-2.5 py-2"} text-right w-16`}>Total</th>
+                  <th className={`${dense ? "px-1.5 py-1" : "px-2.5 py-2"} text-center w-20`}>Sales Staff</th>
+                  <th className={`${dense ? "px-1.5 py-1" : "px-2.5 py-2"} text-center w-12`}>Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
@@ -999,133 +1073,149 @@ const PremiumSalesOrderDetail: React.FC<{
                       selectedItemIndex === index ? "bg-blue-50 border-l-4 border-l-blue-500" : ""
                     }`}
                   >
-                    <td className="px-2.5 py-2">
-                      <input
-                        type="text"
-                        value={item.stockNo}
-                        onChange={(e) => {
-                          const updated = [...items];
-                          updated[index] = {
-                            ...updated[index],
-                            stockNo: e.target.value,
-                            productId: undefined,
-                            itemId: undefined,
-                            variantId: undefined,
-                          };
-                          onItemsChange(updated);
-                        }}
-                        onFocus={() => {
-                          setSelectedItemIndex(index);
-                          setStockModalCallback(() => (stock: StockItem) => {
+                    <td className={`${dense ? "px-1.5 py-1" : "px-2.5 py-2"}`}>
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="text"
+                          value={item.stockNo}
+                          onChange={(e) => {
                             const updated = [...items];
                             updated[index] = {
                               ...updated[index],
-                              stockNo: stock.code,
-                              barcode: stock.barcode || stock.code,
-                              description: stock.description,
-                              rate: stock.rate,
-                              productId: stock.productId || stock.id,
-                              itemId: stock.itemId,
-                              variantId: stock.variantId,
+                              stockNo: e.target.value,
+                              barcode: "",
+                              description: "",
+                              productId: undefined,
+                              itemId: undefined,
+                              variantId: undefined,
+                              hsn: undefined,
+                              uom: undefined,
+                              gstRate: 18,
+                              taxPercent: 18,
+                              rate: 0,
+                              value: 0,
+                              taxAmount: 0,
+                              total: 0,
                             };
                             onItemsChange(updated);
-                          });
-                          setShowStockModal(true);
-                        }}
-                        placeholder="F2 or click"
-                        data-field-key="stock_no"
-                        data-f2-entity="variant"
-                        data-row-index={String(index)}
-                        aria-label={`Stock No — row ${index + 1}, F2 to browse variants`}
-                        className="w-full px-2 py-1.5 border border-slate-200 rounded text-xs font-mono bg-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                      />
+                          }}
+                          onBlur={(e) => {
+                            if (!showStockModal) void handleStockNoBlur(index, e.currentTarget.value);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "F2") {
+                              e.preventDefault();
+                              openStockLookup(index);
+                            } else if (e.key === "Enter") {
+                              e.preventDefault();
+                              e.currentTarget.blur();
+                            }
+                          }}
+                          placeholder="Scan / enter code"
+                          data-field-key="stock_no"
+                          data-f2-entity="variant"
+                          data-row-index={String(index)}
+                          aria-label={`Stock No — row ${index + 1}, F2 to browse variants`}
+                          className={`min-w-0 flex-1 ${dense ? "px-1.5 py-1" : "px-2 py-1.5"} border border-slate-200 rounded text-xs font-mono bg-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent`}
+                        />
+                        <button
+                          type="button"
+                          onMouseDown={(event) => event.preventDefault()}
+                          onClick={() => openStockLookup(index)}
+                          aria-label={`Browse Item Master for row ${index + 1}`}
+                          title="Browse Item Master (F2)"
+                          className="rounded border border-slate-200 px-1 py-1 text-slate-500 hover:bg-slate-100"
+                        >
+                          <Search className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     </td>
-                    <td className="px-2.5 py-2">
+                    <td className={`${dense ? "px-1.5 py-1" : "px-2.5 py-2"}`}>
                       <div className="text-xs font-medium text-slate-900">{item.description || "—"}</div>
                       {item.hsn && <div className="text-[10px] text-slate-500 mt-0.5">HSN: {item.hsn}</div>}
                     </td>
-                    <td className="px-2.5 py-2">
+                    <td className={`${dense ? "px-1.5 py-1" : "px-2.5 py-2"}`}>
                       <input
                         type="number"
                         value={item.rate}
                         onChange={(e) => handleItemChange(index, "rate", parseFloat(e.target.value) || 0)}
-                        className="w-full px-2 py-1.5 border border-slate-200 rounded text-xs text-right bg-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                        className={`w-full ${dense ? "px-1.5 py-1" : "px-2 py-1.5"} border border-slate-200 rounded text-xs text-right bg-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent`}
                         step="0.01"
                       />
                     </td>
-                    <td className="px-2.5 py-2">
+                    <td className={`${dense ? "px-1.5 py-1" : "px-2.5 py-2"}`}>
                       <input
                         type="number"
                         value={item.quantity}
                         onChange={(e) => handleItemChange(index, "quantity", parseFloat(e.target.value) || 0)}
-                        className="w-full px-2 py-1.5 border border-slate-200 rounded text-xs text-right bg-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                        className={`w-full ${dense ? "px-1.5 py-1" : "px-2 py-1.5"} border border-slate-200 rounded text-xs text-right bg-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent`}
                       />
                     </td>
-                    <td className="px-2.5 py-2 text-right font-mono text-xs font-semibold text-slate-900">
+                    <td className={`${dense ? "px-1.5 py-1" : "px-2.5 py-2"} text-right font-mono text-xs font-semibold text-slate-900`}>
                       {formatCurrency(item.value || 0)}
                     </td>
-                    <td className="px-2.5 py-2">
+                    <td className={`${dense ? "px-1.5 py-1" : "px-2.5 py-2"}`}>
                       <input
                         type="text"
                         value={item.discCode || ""}
                         onChange={(e) => handleItemChange(index, "discCode", e.target.value)}
                         data-field-key="disc_code"
                         placeholder="—"
-                        className="w-full px-2 py-1.5 border border-slate-200 rounded text-xs bg-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                        className={`w-full ${dense ? "px-1.5 py-1" : "px-2 py-1.5"} border border-slate-200 rounded text-xs bg-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent`}
                       />
                     </td>
-                    <td className="px-2.5 py-2">
+                    <td className={`${dense ? "px-1.5 py-1" : "px-2.5 py-2"}`}>
                       <input
                         type="number"
                         value={item.discQty || 0}
                         onChange={(e) => handleItemChange(index, "discQty", parseFloat(e.target.value) || 0)}
                         data-field-key="disc_qty"
-                        className="w-full px-2 py-1.5 border border-slate-200 rounded text-xs text-right bg-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                        className={`w-full ${dense ? "px-1.5 py-1" : "px-2 py-1.5"} border border-slate-200 rounded text-xs text-right bg-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent`}
                         step="0.01"
                       />
                     </td>
-                    <td className="px-2.5 py-2">
+                    <td className={`${dense ? "px-1.5 py-1" : "px-2.5 py-2"}`}>
                       <input
                         type="number"
                         value={item.discPercent || 0}
                         onChange={(e) => handleItemChange(index, "discPercent", parseFloat(e.target.value) || 0)}
                         data-field-key="disc_percent"
-                        className="w-full px-2 py-1.5 border border-slate-200 rounded text-xs text-right bg-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                        className={`w-full ${dense ? "px-1.5 py-1" : "px-2 py-1.5"} border border-slate-200 rounded text-xs text-right bg-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent`}
                         step="0.01"
                         max="100"
                       />
                     </td>
-                    <td className="px-2.5 py-2 text-right font-mono text-xs font-semibold text-slate-900">
+                    <td className={`${dense ? "px-1.5 py-1" : "px-2.5 py-2"} text-right font-mono text-xs font-semibold text-slate-900`}>
                       {formatCurrency(item.discAmount || 0)}
                     </td>
-                    <td className="px-2.5 py-2">
+                    <td className={`${dense ? "px-1.5 py-1" : "px-2.5 py-2"}`}>
                       <input
                         type="number"
                         value={item.taxPercent || 0}
                         onChange={(e) => handleItemChange(index, "taxPercent", parseFloat(e.target.value) || 0)}
                         data-field-key="tax_percent"
-                        className="w-full px-2 py-1.5 border border-slate-200 rounded text-xs text-right bg-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                        className={`w-full ${dense ? "px-1.5 py-1" : "px-2 py-1.5"} border border-slate-200 rounded text-xs text-right bg-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent`}
                         step="0.01"
                         max="100"
                       />
                     </td>
-                    <td className="px-2.5 py-2 text-right font-mono text-xs font-semibold text-slate-900">
+                    <td className={`${dense ? "px-1.5 py-1" : "px-2.5 py-2"} text-right font-mono text-xs font-semibold text-slate-900`}>
                       {formatCurrency(item.taxAmount || 0)}
                     </td>
-                    <td className="px-2.5 py-2 text-right font-mono text-xs font-bold text-emerald-700 bg-emerald-50 rounded">
+                    <td className={`${dense ? "px-1.5 py-1" : "px-2.5 py-2"} text-right font-mono text-xs font-bold text-emerald-700 bg-emerald-50 rounded`}>
                       {formatCurrency(item.total || 0)}
                     </td>
-                    <td className="px-2.5 py-2">
+                    <td className={`${dense ? "px-1.5 py-1" : "px-2.5 py-2"}`}>
                       <input
                         type="text"
                         value={item.salesStaff || ""}
                         onChange={(e) => handleItemChange(index, "salesStaff", e.target.value)}
                         data-field-key="sales_staff"
                         placeholder="—"
-                        className="w-full px-2 py-1.5 border border-slate-200 rounded text-xs bg-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                        className={`w-full ${dense ? "px-1.5 py-1" : "px-2 py-1.5"} border border-slate-200 rounded text-xs bg-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent`}
                       />
                     </td>
-                    <td className="px-2.5 py-2 text-center">
+                    <td className={`${dense ? "px-1.5 py-1" : "px-2.5 py-2"} text-center`}>
                       <motion.button
                         whileHover={{ scale: 1.2 }}
                         whileTap={{ scale: 0.9 }}
@@ -1158,6 +1248,7 @@ const PremiumSalesOrderDetail: React.FC<{
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const PremiumSalesOrderFooter: React.FC<{
+  dense?: boolean;
   summary: {
     totalItems: number;
     totalQuantity: number;
@@ -1166,7 +1257,7 @@ const PremiumSalesOrderFooter: React.FC<{
     totalTax: number;
     netAmount: number;
   };
-}> = ({ summary }) => {
+}> = ({ summary, dense = false }) => {
   const { totalItems, totalQuantity, totalSalesValue, totalDiscount, totalTax, netAmount } = summary;
 
   return (
@@ -1174,44 +1265,44 @@ const PremiumSalesOrderFooter: React.FC<{
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.2 }}
-      className="bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 border-t border-slate-700 shadow-[0_-12px_30px_rgba(15,23,42,0.14)]"
+      className={`bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 border-t border-slate-700 ${dense ? "" : "shadow-[0_-12px_30px_rgba(15,23,42,0.14)]"}`}
     >
-      <div className="p-4">
-        <div className="flex items-center justify-between mb-3">
+      <div className={dense ? "px-2 py-1.5" : "p-4"}>
+        <div className={`flex items-center justify-between ${dense ? "mb-1" : "mb-3"}`}>
           <h3 className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-300">Order Summary</h3>
           <span className="rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.2em] text-emerald-300">
             Live
           </span>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2.5">
-          <div className="rounded-xl border border-white/10 bg-white/5 p-3 backdrop-blur-sm">
+        <div className={`grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 ${dense ? "gap-1" : "gap-2.5"}`}>
+          <div className={`${dense ? "rounded-md p-1.5" : "rounded-xl p-3"} border border-white/10 bg-white/5 backdrop-blur-sm`}>
             <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">Items</div>
-            <div className="mt-2 text-xl font-bold text-white">{totalItems}</div>
+            <div className={`${dense ? "mt-0.5 text-sm" : "mt-2 text-xl"} font-bold text-white`}>{totalItems}</div>
           </div>
 
-          <div className="rounded-xl border border-white/10 bg-white/5 p-3 backdrop-blur-sm">
+          <div className={`${dense ? "rounded-md p-1.5" : "rounded-xl p-3"} border border-white/10 bg-white/5 backdrop-blur-sm`}>
             <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">Qty</div>
-            <div className="mt-2 text-xl font-bold text-white">{formatQuantity(totalQuantity)}</div>
+            <div className={`${dense ? "mt-0.5 text-sm" : "mt-2 text-xl"} font-bold text-white`}>{formatQuantity(totalQuantity)}</div>
           </div>
 
-          <div className="rounded-xl border border-white/10 bg-white/5 p-3 backdrop-blur-sm">
+          <div className={`${dense ? "rounded-md p-1.5" : "rounded-xl p-3"} border border-white/10 bg-white/5 backdrop-blur-sm`}>
             <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">Value</div>
-            <div className="mt-2 text-lg font-bold text-blue-300">{formatCurrency(totalSalesValue)}</div>
+            <div className={`${dense ? "mt-0.5 text-sm" : "mt-2 text-lg"} font-bold text-blue-300`}>{formatCurrency(totalSalesValue)}</div>
           </div>
 
-          <div className="rounded-xl border border-rose-400/20 bg-rose-500/10 p-3 backdrop-blur-sm">
+          <div className={`${dense ? "rounded-md p-1.5" : "rounded-xl p-3"} border border-rose-400/20 bg-rose-500/10 backdrop-blur-sm`}>
             <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-rose-200">Discount</div>
-            <div className="mt-2 text-lg font-bold text-rose-200">-{formatCurrency(totalDiscount)}</div>
+            <div className={`${dense ? "mt-0.5 text-sm" : "mt-2 text-lg"} font-bold text-rose-200`}>-{formatCurrency(totalDiscount)}</div>
           </div>
 
-          <div className="rounded-xl border border-amber-400/20 bg-amber-500/10 p-3 backdrop-blur-sm">
+          <div className={`${dense ? "rounded-md p-1.5" : "rounded-xl p-3"} border border-amber-400/20 bg-amber-500/10 backdrop-blur-sm`}>
             <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-200">Tax</div>
-            <div className="mt-2 text-lg font-bold text-amber-200">{formatCurrency(totalTax)}</div>
+            <div className={`${dense ? "mt-0.5 text-sm" : "mt-2 text-lg"} font-bold text-amber-200`}>{formatCurrency(totalTax)}</div>
           </div>
 
-          <div className="rounded-xl border border-emerald-400/30 bg-gradient-to-br from-emerald-500 to-emerald-700 p-3 shadow-lg shadow-emerald-900/20 sm:col-span-1">
+          <div className={`${dense ? "rounded-md p-1.5 shadow-none" : "rounded-xl p-3 shadow-lg shadow-emerald-900/20"} border border-emerald-400/30 bg-gradient-to-br from-emerald-500 to-emerald-700 sm:col-span-1`}>
             <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-emerald-100">Net</div>
-            <div className="mt-2 text-lg font-bold text-white">{formatCurrency(netAmount)}</div>
+            <div className={`${dense ? "mt-0.5 text-sm" : "mt-2 text-lg"} font-bold text-white`}>{formatCurrency(netAmount)}</div>
           </div>
         </div>
       </div>
@@ -1229,6 +1320,7 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
   onCancel,
   compact = false,
   readOnly = false,
+  workspaceFill = false,
 }) => {
   const [formData, setFormData] = useState<Partial<SalesOrderFormData>>({
     docPrefix: "SO",
@@ -1249,9 +1341,12 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showImportModal, setShowImportModal] = useState(false);
   const [showRecallModal, setShowRecallModal] = useState(false);
+  const [itemMasterNotice, setItemMasterNotice] = useState<{ title: string; message: string } | null>(null);
+  const [isAttachmentsExpanded, setIsAttachmentsExpanded] = useState(!workspaceFill);
   const isAuditReadOnly = readOnly;
   const [quickEntry, setQuickEntry] = useState({
     stockNo: "",
+    barcode: "",
     productId: "",
     itemId: "",
     variantId: "",
@@ -1289,6 +1384,66 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
     });
   }, []);
 
+  const resolveItemMasterCode = useCallback(async (identifier: string): Promise<SalesOrderItem | null> => {
+    const code = identifier.trim();
+    if (!code) return null;
+
+    setItemMasterNotice(null);
+    try {
+      const response = await apiFetchV1<{
+        results?: Array<SalesOrderItemMasterResolution & {
+          success?: boolean;
+          error_detail?: { explanation?: string };
+          message?: string;
+        }>;
+      }>("/products/batch-resolve", {
+        method: "POST",
+        body: JSON.stringify({
+          items: [{ line_no: 1, identifier: code, identifier_type: null }],
+          allow_inactive: false,
+        }),
+      });
+      const result = response.results?.[0];
+      const productId = String(result?.product_id || "").trim();
+
+      if (!result?.success || !productId) {
+        setItemMasterNotice({
+          title: "Item not found in Item Master",
+          message: `"${code}" is not a valid stock code or barcode in Item Master. Select an existing item or correct the code.`,
+        });
+        return null;
+      }
+
+      return {
+        id: `item-${Date.now()}`,
+        productId,
+        itemId: result.item_id ? String(result.item_id) : undefined,
+        variantId: result.variant_id ? String(result.variant_id) : undefined,
+        stockNo: result.sku || code,
+        barcode: result.barcode || code,
+        description: result.name || "",
+        rate: Number(result.selling_price ?? result.mrp ?? 0),
+        quantity: 1,
+        value: 0,
+        hsn: result.hsn_code,
+        uom: result.uom,
+        discPercent: 0,
+        discAmount: 0,
+        taxPercent: Number(result.tax_rate ?? 18),
+        taxAmount: 0,
+        total: 0,
+        gstRate: Number(result.tax_rate ?? 18),
+      };
+    } catch (lookupError) {
+      console.error("Item Master verification failed:", lookupError);
+      setItemMasterNotice({
+        title: "Item Master lookup failed",
+        message: `Could not verify "${code}" against Item Master. Check the connection and try again.`,
+      });
+      return null;
+    }
+  }, []);
+
   // ─── F2 Universal Lookup Architecture v2 — Screen Registration (Phase B Batch 2) ──
   // Two variant lookup inputs in this screen:
   //   sofp-lineitem-stockno   → active line-item in PremiumSalesOrderDetail
@@ -1306,10 +1461,6 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
         return;
       }
       const stockVal = (result.record?.stock_no as string) || result.returnValue || "";
-      const nameVal  = result.displayValue || (result.record?.name as string) || "";
-      const rateVal  = (result.record?.selling_price as number)
-                    || (result.record?.mrp as number)
-                    || (result.record?.price as number) || 0;
       // ── Route: quick-entry vs line-item ─────────────────────────────────────────────────
       // The originating element is document.activeElement at the time the adapter fires.
       // F2Dispatcher restores focus to the origin element before calling the adapter.
@@ -1322,16 +1473,21 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
       const originId = origin?.id ?? "";
 
       if (originId === "sofp-quickentry-stockno") {
-        // ── Quick-entry bar path ────────────────────────────────────────────────
-        setQuickEntry((prev) => ({
-          ...prev,
-          stockNo: stockVal,
-          description: nameVal,
-          rate: String(rateVal),
-          productId: String(result.record?.product_id || result.record?.productId || ""),
-          itemId: String(result.record?.item_id || result.record?.itemId || ""),
-          variantId: String(result.record?.variant_id || result.record?.variantId || ""),
-        }));
+        void resolveItemMasterCode(stockVal).then((product) => {
+          if (!product) return;
+          setQuickEntry((prev) => ({
+            ...prev,
+            stockNo: product.stockNo,
+            barcode: product.barcode || "",
+            description: product.description,
+            rate: String(product.rate),
+            taxPercent: String(product.taxPercent ?? 18),
+            gstRate: String(product.gstRate ?? 18),
+            productId: product.productId || "",
+            itemId: product.itemId || "",
+            variantId: product.variantId || "",
+          }));
+        });
       } else {
         // ── Line-item grid path ──────────────────────────────────────────────
         // Read the exact row index from the originating element's data-row-index attribute.
@@ -1351,26 +1507,48 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
           return;
         }
 
-        setFormData((prev) => {
-          const updated = [...(prev.items ?? [])];
-          if (rowIdx >= updated.length) {
-            // Guard: index out of bounds — row was deleted between focus and lookup completion.
-            if (process.env.NODE_ENV !== "production") {
-              console.warn(
-                `[SalesOrderFormPremium][F2] FieldAdapter: rowIdx ${rowIdx} is out of bounds (items.length=${updated.length}). Skipping.`
-              );
-            }
-            return prev;
-          }
-          const target = { ...updated[rowIdx] } as SalesOrderItem;
-          target.stockNo      = stockVal;
-          target.description  = nameVal;
-          target.rate         = rateVal;
-          target.productId = String(result.record?.product_id || result.record?.productId || "") || undefined;
-          target.itemId = String(result.record?.item_id || result.record?.itemId || "") || undefined;
-          target.variantId = String(result.record?.variant_id || result.record?.variantId || "") || undefined;
-          updated[rowIdx] = target;
-          return { ...prev, items: updated };
+        void resolveItemMasterCode(stockVal).then((product) => {
+          if (!product) return;
+          setFormData((prev) => {
+            const updated = [...(prev.items ?? [])];
+            if (rowIdx >= updated.length) return prev;
+            const currentItem = updated[rowIdx];
+            const line = calculateLineTotal({
+              id: currentItem.id,
+              productId: product.productId,
+              stockNo: product.stockNo,
+              barcode: product.barcode,
+              itemDescription: product.description,
+              qty: Number(currentItem.quantity || 0),
+              rate: product.rate,
+              value: Number(currentItem.quantity || 0) * product.rate,
+              discPercent: Number(currentItem.discPercent || 0),
+              discAmt: Number(currentItem.discAmount || 0),
+              taxPercent: Number(product.taxPercent ?? currentItem.taxPercent ?? 18),
+              taxAmount: 0,
+              total: 0,
+            });
+            updated[rowIdx] = {
+              ...currentItem,
+              productId: product.productId,
+              itemId: product.itemId,
+              variantId: product.variantId,
+              stockNo: product.stockNo,
+              barcode: product.barcode,
+              description: product.description,
+              rate: product.rate,
+              hsn: product.hsn,
+              uom: product.uom,
+              gstRate: product.gstRate,
+              taxPercent: product.taxPercent,
+              value: line.value,
+              discAmount: line.discAmt,
+              taxAmount: line.taxAmount,
+              total: line.total,
+            };
+            const summary = getSalesOrderSummary(updated, { ...prev, items: updated });
+            return { ...prev, items: updated, ...summary };
+          });
         });
       }
     }
@@ -1378,6 +1556,16 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
 
   const handleGlobalImportCommit = useCallback(
     (rows: ParsedGridRow[], mode: GridImportMode) => {
+      const unresolvedRows = rows.filter((row) => !row.resolvedProduct?.productId);
+      if (unresolvedRows.length > 0) {
+        const codes = unresolvedRows.slice(0, 5).map((row) => row.identifier || `row ${row.rowNumber}`);
+        setItemMasterNotice({
+          title: "Import blocked: item not in Item Master",
+          message: `Resolve these stock codes or barcodes in Item Master before importing: ${codes.join(", ")}.`,
+        });
+        return;
+      }
+
       const newItems: SalesOrderItem[] = rows.map((r, idx) => {
         const prod = r.resolvedProduct;
         const qty = r.quantity || 1;
@@ -1387,7 +1575,7 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
 
         const sharedLine = calculateLineTotal({
           id: `line-import-${Date.now()}-${idx}`,
-          productId: prod?.productId || r.identifier,
+          productId: prod?.productId,
           stockNo: prod?.sku || r.identifier,
           barcode: prod?.barcode || r.identifier,
           itemDescription: prod?.name || r.identifier || "Item",
@@ -1481,113 +1669,77 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
   const handleQuickEntryLookup = useCallback(async (term: string) => {
     const cleanTerm = term.trim();
     if (!cleanTerm) {
-      setQuickEntry((prev) => ({ ...prev, description: "", productId: "", itemId: "", variantId: "" }));
+      setQuickEntry((prev) => ({ ...prev, barcode: "", description: "", rate: "", productId: "", itemId: "", variantId: "" }));
       return;
     }
 
-    try {
-      let product: any = null;
-      try {
-        const resolved = await apiFetchV1<any>(`/universal/items/resolve?query=${encodeURIComponent(cleanTerm)}`);
-        if (resolved && (resolved.item_id || resolved.variant_id)) {
-          product = {
-            product_id: resolved.product_id || resolved.productId,
-            item_id: resolved.item_id || resolved.itemId,
-            variant_id: resolved.variant_id || resolved.variantId,
-            code: resolved.item_code,
-            barcode: resolved.barcode,
-            stock_no: resolved.item_code,
-            name: resolved.item_name,
-            description: resolved.item_name,
-            rate: resolved.selling_price,
-            selling_price: resolved.selling_price,
-            price: resolved.selling_price,
-            gst_percentage: resolved.tax_rate,
-            gst_rate: resolved.tax_rate,
-          };
-        }
-      } catch {
-        // Fall back to /universal/items or legacy /products
-      }
-
-      if (!product) {
-        try {
-          const data = await apiFetchV1(`/universal/items?query=${encodeURIComponent(cleanTerm)}&limit=5`);
-          const productList = Array.isArray(data) ? data : data?.data || data?.items || [];
-          const found = productList.find(
-            (p: any) =>
-              String(p.item_code || p.code || "").toLowerCase() === cleanTerm.toLowerCase() ||
-              String(p.barcode || "").toLowerCase() === cleanTerm.toLowerCase() ||
-              String(p.item_name || p.name || "").toLowerCase().includes(cleanTerm.toLowerCase())
-          ) || productList[0];
-          if (product) {
-            product = {
-              ...product,
-              product_id: product.product_id || product.productId || product.id,
-              item_id: product.item_id || product.itemId,
-              variant_id: product.variant_id || product.variantId,
-            };
-          }
-          if (found) {
-            product = {
-              product_id: found.product_id || found.productId || found.id,
-              item_id: found.item_id || found.itemId,
-              variant_id: found.variant_id || found.variantId,
-              code: found.item_code || found.code,
-              barcode: found.barcodes?.[0]?.barcode || found.barcode,
-              name: found.item_name || found.name,
-              description: found.item_name || found.name,
-              rate: found.selling_price,
-              selling_price: found.selling_price,
-              price: found.selling_price,
-              gst_percentage: found.tax_rate,
-              gst_rate: found.tax_rate,
-            };
-          }
-        } catch {
-          const data = await apiFetchV1(`/products?search=${encodeURIComponent(cleanTerm)}`);
-          const productList = Array.isArray(data) ? data : data?.data || [];
-          product = productList.find(
-            (p: any) =>
-              String(p.code || "").toLowerCase() === cleanTerm.toLowerCase() ||
-              String(p.barcode || "").toLowerCase() === cleanTerm.toLowerCase() ||
-              String(p.stock_no || "").toLowerCase() === cleanTerm.toLowerCase() ||
-              String(p.name || "").toLowerCase().includes(cleanTerm.toLowerCase())
-          ) || productList[0];
-        }
-      }
-
-      if (product) {
-        setQuickEntry((prev) => ({
-          ...prev,
-          description: product.description || product.name || prev.description,
-          rate: String(product.rate ?? product.selling_price ?? product.price ?? ""),
-          gstRate: String(product.gst_percentage ?? product.gst_rate ?? 18),
-          taxPercent: String(product.gst_percentage ?? product.gst_rate ?? 18),
-          productId: String(product.product_id || ""),
-          itemId: String(product.item_id || ""),
-          variantId: String(product.variant_id || ""),
-        }));
-      }
-    } catch (error) {
-      console.warn("Failed to resolve quick-entry product:", error);
+    const product = await resolveItemMasterCode(cleanTerm);
+    if (!product) {
+      setQuickEntry((prev) => ({
+        ...prev,
+        description: "",
+        rate: "",
+        productId: "",
+        itemId: "",
+        variantId: "",
+      }));
+      return;
     }
-  }, []);
 
-  const handleQuickAddItem = useCallback(() => {
+    setQuickEntry((prev) => ({
+      ...prev,
+      stockNo: product.stockNo,
+      barcode: product.barcode || "",
+      description: product.description,
+      rate: String(product.rate),
+      gstRate: String(product.gstRate ?? 18),
+      taxPercent: String(product.taxPercent ?? 18),
+      productId: product.productId || "",
+      itemId: product.itemId || "",
+      variantId: product.variantId || "",
+    }));
+  }, [resolveItemMasterCode]);
+
+  const handleQuickAddItem = useCallback(async () => {
     if (isAuditReadOnly) return;
 
-    const stockNo = quickEntry.stockNo.trim();
-    const qty = Number(quickEntry.qty || 1);
-    const rate = Number(quickEntry.rate || 0);
-    const discPercent = Number(quickEntry.discPercent || 0);
-    const discAmount = Number(quickEntry.discAmount || 0);
-    const taxPercent = Number(quickEntry.taxPercent || 18);
-    
-    if (!stockNo && !quickEntry.description.trim()) {
+    let entry = quickEntry;
+    const stockNo = entry.stockNo.trim();
+
+    if (!stockNo && !entry.description.trim()) {
+      return;
+    }
+    if (!entry.productId) {
+      const resolved = await resolveItemMasterCode(stockNo);
+      if (!resolved) return;
+      entry = {
+        ...entry,
+        stockNo: resolved.stockNo,
+        barcode: resolved.barcode || "",
+        productId: resolved.productId || "",
+        itemId: resolved.itemId || "",
+        variantId: resolved.variantId || "",
+        description: resolved.description,
+        rate: String(resolved.rate),
+        taxPercent: String(resolved.taxPercent ?? 18),
+        gstRate: String(resolved.gstRate ?? 18),
+      };
+      setQuickEntry(entry);
+    }
+
+    if (!entry.productId) {
+      setItemMasterNotice({
+        title: "Item not verified in Item Master",
+        message: `"${stockNo || quickEntry.description}" has not been verified. Scan a valid barcode or choose an item from Item Master before adding it.`,
+      });
       return;
     }
 
+    const qty = Number(entry.qty || 1);
+    const rate = Number(entry.rate || 0);
+    const discPercent = Number(entry.discPercent || 0);
+    const discAmount = Number(entry.discAmount || 0);
+    const taxPercent = Number(entry.taxPercent || 18);
     const calcValue = rate * (Number.isFinite(qty) && qty > 0 ? qty : 1);
     const calcDiscAmount = discAmount || (calcValue * discPercent) / 100;
     const calcTaxAmount = ((calcValue - calcDiscAmount) * taxPercent) / 100;
@@ -1595,28 +1747,30 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
 
     const newItem: SalesOrderItem = {
       id: `item-${Date.now()}`,
-      productId: quickEntry.productId || undefined,
-      itemId: quickEntry.itemId || undefined,
-      variantId: quickEntry.variantId || undefined,
-      stockNo: stockNo || `SKU-${Math.random().toString().slice(-4)}`,
-      description: quickEntry.description.trim() || "Retail Item",
+      productId: entry.productId || undefined,
+      itemId: entry.itemId || undefined,
+      variantId: entry.variantId || undefined,
+      stockNo: entry.stockNo.trim(),
+      barcode: entry.barcode || entry.stockNo.trim(),
+      description: entry.description.trim(),
       rate,
       quantity: Number.isFinite(qty) && qty > 0 ? qty : 1,
       value: calcValue,
-      discCode: quickEntry.discCode || undefined,
-      discQty: quickEntry.discQty ? Number(quickEntry.discQty) : undefined,
+      discCode: entry.discCode || undefined,
+      discQty: entry.discQty ? Number(entry.discQty) : undefined,
       discPercent,
       discAmount: calcDiscAmount,
       taxPercent,
       taxAmount: calcTaxAmount,
       total: calcTotal,
-      salesStaff: quickEntry.salesStaff || undefined,
-      gstRate: Number(quickEntry.gstRate || 18),
+      salesStaff: entry.salesStaff || undefined,
+      gstRate: Number(entry.gstRate || 18),
     };
 
     handleItemsChange([...(formData.items || []), newItem]);
     setQuickEntry({
       stockNo: "",
+      barcode: "",
       productId: "",
       itemId: "",
       variantId: "",
@@ -1632,7 +1786,7 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
       gstRate: "18",
       salesStaff: "",
     });
-  }, [quickEntry, formData.items, handleItemsChange]);
+  }, [isAuditReadOnly, quickEntry, formData.items, handleItemsChange, resolveItemMasterCode]);
 
   const validateForm = () => {
     const txn: SalesTransaction = {
@@ -1669,6 +1823,15 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
     const itemValidationError = validateSalesOrderItems(formData.items || []);
     if (itemValidationError) {
       newErrors.items = itemValidationError;
+      if (
+        itemValidationError.includes("not verified in Item Master")
+        || itemValidationError.includes("not found in Item Master")
+      ) {
+        setItemMasterNotice({
+          title: "Item not verified in Item Master",
+          message: itemValidationError,
+        });
+      }
     }
 
     if (validationErrors.some((message) => message.toLowerCase().includes("item") && message.toLowerCase().includes("required"))) {
@@ -1701,8 +1864,12 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
   };
 
   return (
-    <div className={`${compact ? "max-w-none mx-0 p-0 bg-slate-900 min-h-screen" : "max-w-[1700px] mx-auto p-4 xl:p-6 bg-[radial-gradient(circle_at_top,_#f8fbff,_#eef3f9_38%,_#e7edf5_100%)] min-h-screen"}`}>
-      {!compact && (
+    <div className={`${workspaceFill
+      ? "mx-0 flex h-full min-h-0 w-full max-w-none flex-col p-0 bg-slate-100"
+      : compact
+        ? "max-w-none mx-0 p-0 bg-slate-900 min-h-screen"
+        : "max-w-[1700px] mx-auto p-4 xl:p-6 bg-[radial-gradient(circle_at_top,_#f8fbff,_#eef3f9_38%,_#e7edf5_100%)] min-h-screen"}`}>
+      {!compact && !workspaceFill && (
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -1758,7 +1925,7 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
         )}
       </AnimatePresence>
 
-      <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_30px_80px_rgba(15,23,42,0.12)]">
+      <div className={`${workspaceFill ? "flex min-h-0 flex-1 flex-col rounded-md shadow-sm" : "rounded-[28px] shadow-[0_30px_80px_rgba(15,23,42,0.12)]"} overflow-hidden border border-slate-200 bg-white`}>
         <div className="sticky top-0 z-20 bg-white border-b border-slate-200 flex-shrink-0">
           <PremiumSalesOrderHeader
             formData={formData}
@@ -1767,12 +1934,13 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
             onImportClick={() => setShowImportModal(true)}
             onRecallClick={() => setShowRecallModal(true)}
             readOnly={isAuditReadOnly}
+            dense={workspaceFill}
           />
         </div>
 
-        <div className="flex flex-col xl:flex-row min-h-[760px]">
-          <div className="flex-1 min-w-0 bg-white">
-            <div className="border-b border-slate-200 bg-slate-50/80 px-4 py-3">
+        <div className={`${workspaceFill ? "flex min-h-0 flex-1 flex-col xl:flex-row" : "flex flex-col xl:flex-row min-h-[760px]"}`}>
+          <div className={`${workspaceFill ? "flex min-h-0 min-w-0 flex-1 flex-col" : "flex-1 min-w-0"} bg-white`}>
+            <div className={`${workspaceFill ? "px-2 py-1.5" : "px-4 py-3"} border-b border-slate-200 bg-slate-50/80`}>
               <div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
                 <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">
                   <span className="inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
@@ -1786,25 +1954,34 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto min-h-0 bg-white">
+            <div
+              className={`${workspaceFill ? "flex min-h-0 flex-1 flex-col overflow-y-auto" : "flex-1 overflow-y-auto min-h-0"} bg-white`}
+              style={workspaceFill ? {
+                backgroundImage: "linear-gradient(to right, rgba(148, 163, 184, 0.1) 1px, transparent 1px), linear-gradient(to bottom, rgba(148, 163, 184, 0.1) 1px, transparent 1px)",
+                backgroundSize: "96px 28px",
+              } : undefined}
+            >
               <PremiumSalesOrderDetail
                 items={formData.items || []}
                 onItemsChange={handleItemsChange}
+                onResolveItem={resolveItemMasterCode}
+                dense={workspaceFill}
               />
 
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
-                className="border-t border-slate-200 bg-gradient-to-r from-slate-50 via-emerald-50 to-white px-4 py-3"
+                className={`${workspaceFill ? "px-2 py-1.5" : "px-4 py-3"} border-t border-slate-200 bg-gradient-to-r from-slate-50 via-emerald-50 to-white`}
               >
-                <div className="mb-2 flex items-center justify-between gap-2">
+                <div className={`${workspaceFill ? "mb-1" : "mb-2"} flex items-center justify-between gap-2`}>
                   <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-600">Quick Add</span>
-                  <span className="text-[10px] text-slate-500">F2 lookup + enter to add</span>
+                  <span className="text-[10px] text-slate-500">Scan a barcode or use F2 · Enter to add</span>
                 </div>
-                <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-7">
+                <div className={`grid grid-cols-1 ${workspaceFill ? "gap-1" : "gap-2"} md:grid-cols-2 xl:grid-cols-7`}>
                   <input
                     id="sofp-quickentry-stockno"
+                    aria-label="Scan barcode or enter stock number"
                     type="text"
                     value={quickEntry.stockNo}
                     data-field-key="stock_no"
@@ -1812,9 +1989,12 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
                     onChange={(e) => setQuickEntry((prev) => ({
                       ...prev,
                       stockNo: e.target.value,
+                      barcode: "",
                       productId: "",
                       itemId: "",
                       variantId: "",
+                      description: "",
+                      rate: "",
                     }))}
                     onBlur={() => !isAuditReadOnly && void handleQuickEntryLookup(quickEntry.stockNo)}
                     onKeyDown={(e) => {
@@ -1825,17 +2005,17 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
                         }
                       }
                     }}
-                    placeholder="Stock No"
+                    placeholder="Scan barcode / Stock No"
                     readOnly={isAuditReadOnly}
                     disabled={isAuditReadOnly}
-                    className={`w-full px-2.5 py-2 border border-slate-300 rounded-xl text-xs font-mono bg-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent ${isAuditReadOnly ? "bg-slate-100 text-slate-500 cursor-not-allowed" : ""}`}
+                    className={`w-full ${workspaceFill ? "px-2 py-1" : "px-2.5 py-2"} border border-slate-300 rounded-md text-xs font-mono bg-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent ${isAuditReadOnly ? "bg-slate-100 text-slate-500 cursor-not-allowed" : ""}`}
                   />
                   <input
                     type="text"
                     value={quickEntry.description}
                     readOnly
                     placeholder="Description"
-                    className="w-full px-2.5 py-2 border border-slate-300 rounded-xl text-xs bg-slate-100 text-slate-700"
+                    className={`w-full ${workspaceFill ? "px-2 py-1" : "px-2.5 py-2"} border border-slate-300 rounded-md text-xs bg-slate-100 text-slate-700`}
                   />
                   <input
                     type="number"
@@ -1844,7 +2024,7 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
                     onChange={(e) => setQuickEntry((prev) => ({ ...prev, rate: e.target.value }))}
                     placeholder="Rate"
                     step="0.01"
-                    className="w-full px-2.5 py-2 border border-slate-300 rounded-xl text-xs text-right bg-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    className={`w-full ${workspaceFill ? "px-2 py-1" : "px-2.5 py-2"} border border-slate-300 rounded-md text-xs text-right bg-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent`}
                   />
                   <input
                     type="number"
@@ -1853,7 +2033,7 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
                     onChange={(e) => setQuickEntry((prev) => ({ ...prev, qty: e.target.value }))}
                     placeholder="Qty"
                     min="1"
-                    className="w-full px-2.5 py-2 border border-slate-300 rounded-xl text-xs text-right bg-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    className={`w-full ${workspaceFill ? "px-2 py-1" : "px-2.5 py-2"} border border-slate-300 rounded-md text-xs text-right bg-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent`}
                   />
                   <input
                     type="number"
@@ -1863,7 +2043,7 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
                     placeholder="Disc %"
                     step="0.01"
                     max="100"
-                    className="w-full px-2.5 py-2 border border-slate-300 rounded-xl text-xs text-right bg-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    className={`w-full ${workspaceFill ? "px-2 py-1" : "px-2.5 py-2"} border border-slate-300 rounded-md text-xs text-right bg-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent`}
                   />
                   <input
                     type="number"
@@ -1873,17 +2053,18 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
                     placeholder="Tax %"
                     step="0.01"
                     max="100"
-                    className="w-full px-2.5 py-2 border border-slate-300 rounded-xl text-xs text-right bg-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    className={`w-full ${workspaceFill ? "px-2 py-1" : "px-2.5 py-2"} border border-slate-300 rounded-md text-xs text-right bg-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent`}
                   />
                   {!isAuditReadOnly && (
                     <motion.button
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
+                      onMouseDown={(event) => event.preventDefault()}
                       onClick={() => handleQuickAddItem()}
                       type="button"
-                      className="w-full px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition"
+                      className={`w-full ${workspaceFill ? "px-3 py-1" : "px-4 py-2"} bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-xs font-bold transition`}
                     >
-                      Add item
+                      Scan &amp; Add
                     </motion.button>
                   )}
                 </div>
@@ -1891,10 +2072,10 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
             </div>
           </div>
 
-          <aside className="w-full xl:w-[340px] border-t xl:border-t-0 xl:border-l border-slate-200 bg-slate-50/80">
-            <div className="sticky top-[120px] p-4 space-y-4">
-              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                <div className="mb-4 flex items-center justify-between">
+          <aside className={`${workspaceFill ? "w-full shrink-0 overflow-y-auto xl:w-[290px]" : "w-full xl:w-[340px]"} border-t xl:border-t-0 xl:border-l border-slate-200 bg-slate-50/80`}>
+            <div className={`${workspaceFill ? "p-2 space-y-2" : "sticky top-[120px] p-4 space-y-4"}`}>
+              <div className={`${workspaceFill ? "rounded-md p-2.5" : "rounded-2xl p-4"} border border-slate-200 bg-white shadow-sm`}>
+                <div className={`${workspaceFill ? "mb-2" : "mb-4"} flex items-center justify-between`}>
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Customer</p>
                     <h3 className="mt-1 text-sm font-bold text-slate-900">{formData.customerName || "Select customer"}</h3>
@@ -1904,24 +2085,24 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
                   </span>
                 </div>
 
-                <div className="space-y-2 text-xs text-slate-600">
-                  <div className="flex items-center justify-between rounded-xl bg-slate-50 px-2.5 py-2">
+                <div className={`${workspaceFill ? "space-y-1" : "space-y-2"} text-xs text-slate-600`}>
+                  <div className={`flex items-center justify-between ${workspaceFill ? "rounded px-2 py-1" : "rounded-xl px-2.5 py-2"} bg-slate-50`}>
                     <span className="font-medium text-slate-500">Customer Code</span>
                     <span className="font-bold text-slate-900">{formData.customerCode || "—"}</span>
                   </div>
-                  <div className="flex items-center justify-between rounded-xl bg-slate-50 px-2.5 py-2">
+                  <div className={`flex items-center justify-between ${workspaceFill ? "rounded px-2 py-1" : "rounded-xl px-2.5 py-2"} bg-slate-50`}>
                     <span className="font-medium text-slate-500">Delivery</span>
                     <span className="font-bold text-slate-900">{formData.deliveryTerms || "Door Delivery"}</span>
                   </div>
-                  <div className="flex items-center justify-between rounded-xl bg-slate-50 px-2.5 py-2">
+                  <div className={`flex items-center justify-between ${workspaceFill ? "rounded px-2 py-1" : "rounded-xl px-2.5 py-2"} bg-slate-50`}>
                     <span className="font-medium text-slate-500">Payment</span>
                     <span className="font-bold text-slate-900">{formData.paymentTerms || "Net 30"}</span>
                   </div>
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                <div className="mb-3 flex items-center justify-between">
+              <div className={`${workspaceFill ? "rounded-md p-2.5" : "rounded-2xl p-4"} border border-slate-200 bg-white shadow-sm`}>
+                <div className={`${workspaceFill ? "mb-2" : "mb-3"} flex items-center justify-between`}>
                   <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Action</p>
                   <button
                     type="button"
@@ -1939,7 +2120,7 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
                       type="button"
                       onClick={handleSubmit}
                       disabled={isSubmitting}
-                      className="w-full rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 px-3 py-2.5 text-xs font-bold text-white shadow hover:shadow-emerald-900/20 disabled:opacity-60"
+                      className={`w-full ${workspaceFill ? "rounded-md px-3 py-1.5" : "rounded-xl px-3 py-2.5"} bg-gradient-to-r from-emerald-600 to-emerald-500 text-xs font-bold text-white shadow hover:shadow-emerald-900/20 disabled:opacity-60`}
                     >
                       {isSubmitting ? "Saving..." : "Save Sales Order"}
                     </button>
@@ -1948,7 +2129,7 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
                     <button
                       type="button"
                       onClick={() => setShowRecallModal(true)}
-                      className="w-full rounded-xl border border-slate-200 bg-slate-100 px-3 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-200"
+                      className={`w-full ${workspaceFill ? "rounded-md px-3 py-1.5" : "rounded-xl px-3 py-2.5"} border border-slate-200 bg-slate-100 text-xs font-bold text-slate-700 hover:bg-slate-200`}
                     >
                       Recall draft
                     </button>
@@ -1956,7 +2137,7 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
                   <button
                     type="button"
                     onClick={onCancel}
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-100"
+                    className={`w-full ${workspaceFill ? "rounded-md px-3 py-1.5" : "rounded-xl px-3 py-2.5"} border border-slate-200 bg-white text-xs font-bold text-slate-700 hover:bg-slate-100`}
                   >
                     {isAuditReadOnly ? "Close" : "Cancel"}
                   </button>
@@ -1967,22 +2148,78 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
         </div>
 
         <div className="border-t border-slate-200">
-          <PremiumSalesOrderFooter summary={getSalesOrderSummary(formData.items || [], formData)} />
+          <PremiumSalesOrderFooter summary={getSalesOrderSummary(formData.items || [], formData)} dense={workspaceFill} />
         </div>
 
-        <div className="px-4 py-4 bg-white border-t border-slate-200">
-          <TransactionAttachmentPanel
-            documentType="sales_order"
-            documentId={formData.docNumber || "new"}
-            onAttachmentAdded={(att: TransactionAttachment) => {
-              if (formData.docNumber) {
-                console.log("Attachment added:", att.fileName);
-              }
-            }}
-            readOnly={isAuditReadOnly}
-          />
-        </div>
+        <section className={`${workspaceFill ? "border-t border-slate-200 bg-white" : "px-4 py-4 border-t border-slate-200 bg-white"}`}>
+          {workspaceFill && (
+            <button
+              type="button"
+              onClick={() => setIsAttachmentsExpanded((expanded) => !expanded)}
+              aria-expanded={isAttachmentsExpanded}
+              className="flex w-full items-center justify-between px-3 py-1.5 text-left text-xs font-semibold text-slate-600 hover:bg-slate-50"
+            >
+              Attachments
+              <span>{isAttachmentsExpanded ? "Hide" : "Show"}</span>
+            </button>
+          )}
+          {isAttachmentsExpanded && (
+            <div className={workspaceFill ? "p-2" : ""}>
+              <TransactionAttachmentPanel
+                documentType="sales_order"
+                documentId={formData.docNumber || "new"}
+                onAttachmentAdded={(att: TransactionAttachment) => {
+                  if (formData.docNumber) {
+                    console.log("Attachment added:", att.fileName);
+                  }
+                }}
+                readOnly={isAuditReadOnly}
+              />
+            </div>
+          )}
+        </section>
       </div>
+
+      <AnimatePresence>
+        {itemMasterNotice && (
+          <motion.div
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="item-master-notice-title"
+            aria-describedby="item-master-notice-message"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-950/45 p-4"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: 8 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 8 }}
+              className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-4 shadow-2xl"
+            >
+              <div className="flex items-start gap-3">
+                <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+                <div className="min-w-0 flex-1">
+                  <h2 id="item-master-notice-title" className="text-sm font-bold text-slate-900">
+                    {itemMasterNotice.title}
+                  </h2>
+                  <p id="item-master-notice-message" className="mt-1 text-xs leading-5 text-slate-600">
+                    {itemMasterNotice.message}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setItemMasterNotice(null)}
+                    className="mt-3 rounded-md bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-700"
+                  >
+                    OK
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <GlobalGridImportModal
         isOpen={showImportModal}

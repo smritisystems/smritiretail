@@ -233,9 +233,10 @@ interface SalesStudioTabProps {
   products: Product[];
   onNotification: (title: string, message: string, type?: "success" | "error" | "info" | "warning") => void;
   currentUser?: { role: string; name: string; companyId?: string; branchId?: string } | null;
+  onSalesOrderWorkspaceChange?: (active: boolean) => void;
 }
 
-export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNotification, currentUser }) => {
+export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNotification, currentUser, onSalesOrderWorkspaceChange }) => {
   const { openMenu } = useACAS();
   const isReadOnly = currentUser?.role === "Report User" || currentUser?.role === "REPORT_USER";
   const hasTenantContext = Boolean(currentUser?.companyId && currentUser?.branchId);
@@ -276,6 +277,10 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
   // Editor states (for creating/editing Quotations)
   const [isCreatingQuotation, setIsCreatingQuotation] = useState<boolean>(false);
   const [isCreatingSalesOrder, setIsCreatingSalesOrder] = useState<boolean>(false);
+  useEffect(() => {
+    onSalesOrderWorkspaceChange?.(isCreatingSalesOrder);
+    return () => onSalesOrderWorkspaceChange?.(false);
+  }, [isCreatingSalesOrder, onSalesOrderWorkspaceChange]);
   const [editorCustomerName, setEditorCustomerName] = useState<string>("");
   const [editorItems, setEditorItems] = useState<any[]>([]); // items in current draft
   const [editorStatus, setEditorStatus] = useState<"Draft" | "Submitted">("Draft");
@@ -1140,6 +1145,23 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
     );
   }
 
+  if (isCreatingSalesOrder) {
+    return (
+      <div className="flex h-full min-h-0 flex-col overflow-hidden bg-slate-50 text-slate-900">
+        <main className="flex min-h-0 flex-1 flex-col">
+          <SalesOrderFormPremium
+            onSubmit={handleCreateSalesOrder}
+            workspaceFill
+            onCancel={() => {
+              setIsCreatingSalesOrder(false);
+              setSubView("orders");
+            }}
+          />
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-full bg-theme-surface-1 text-theme-primary font-sans">
       {/* Header */}
@@ -1431,13 +1453,7 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
           )}
           {subView === "orders" && (
             <button
-              onClick={() => {
-                const url = `${window.location.origin}${window.location.pathname}?standalone_sales_order=1`;
-                const popup = window.open(url, "_blank", "popup=yes,toolbar=no,location=no,status=no,menubar=no,scrollbars=yes,resizable=yes,width=1440,height=980,left=80,top=40");
-                if (popup) {
-                  popup.focus();
-                }
-              }}
+              onClick={() => setIsCreatingSalesOrder(true)}
               disabled={isReadOnly}
               className={`px-4 py-2 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center space-x-2 shadow-lg hover:shadow-emerald-900/30 transition-all ${isReadOnly ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
             >

@@ -2,7 +2,7 @@ import type { SalesOrderFormData } from "../components/sales/SalesOrderFormPremi
 
 export function buildSalesOrderPayload(formData: SalesOrderFormData, orderNo: string) {
   const items = formData.items.map((item) => ({
-    product_id: item.productId || item.stockNo,
+    product_id: item.productId,
     item_id: item.itemId,
     variant_id: item.variantId,
     code: item.stockNo,

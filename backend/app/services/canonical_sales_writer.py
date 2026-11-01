@@ -970,7 +970,7 @@ class CanonicalSalesPostingWriter:
             session=session,
             req=req,
             db_customer=db_customer,
-            customer_discount_policy=None if source_billing_authorized else customer_discount_policy,
+            customer_discount_policy=customer_discount_policy,
             is_interstate=is_interstate,
             promotion_result=promotion_result,
             authorized_price_override=authorized_price_override,
@@ -1291,6 +1291,23 @@ class CanonicalSalesPostingWriter:
                     "authorized_adjustment_override": authorized_adjustment_override,
                 },
                 "adjustments": calc_result.adjustments,
+                "discount_resolution": {
+                    "total_discount": str(total_discount),
+                    "lines": [
+                        {
+                            "line_no": line.line_no,
+                            "code": line.code,
+                            "source": line.discount_source,
+                            "rate_percent": str(line.disc_pct),
+                            "discount_amount": str(line.discount_amount),
+                            "taxable_value": str(line.taxable_value),
+                            "gst_rate": str(line.gst_rate),
+                            "gst_amount": str(line.tax_amount),
+                            "total_amount": str(line.total_amount),
+                        }
+                        for line in calculated_lines
+                    ],
+                },
                 "total_addons": float(calc_result.total_addons),
                 "total_deductions": float(calc_result.total_deductions),
                 "calculated_at": datetime.now(timezone.utc).isoformat(),

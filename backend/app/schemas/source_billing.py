@@ -39,6 +39,10 @@ class SourceBillingPrepareLine(BaseModel):
     reserved_quantity: Decimal = Decimal("0")
     remaining_quantity: Decimal
     unit_price: Decimal
+    discount_percent: Decimal = Decimal("0.00")
+    discount_amount: Decimal = Decimal("0.00")
+    discount_quantity_basis: Decimal = Decimal("0.0000")
+    previously_billed_order_quantity: Decimal = Decimal("0.0000")
     gst_rate: Optional[Decimal] = None
     hsn_code: Optional[str] = None
     eligible: bool

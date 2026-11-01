@@ -1,5 +1,6 @@
 export type SalesOrderLineValidationItem = {
   id?: string;
+  productId?: string;
   stockNo?: string;
   description?: string;
   rate?: number;
@@ -15,6 +16,7 @@ export function validateSalesOrderItems(items: SalesOrderLineValidationItem[] | 
 
   for (let index = 0; index < items.length; index += 1) {
     const item = items[index];
+    const productId = String(item?.productId ?? "").trim();
     const stockNo = String(item?.stockNo ?? "").trim();
     const description = String(item?.description ?? "").trim();
     const quantity = Number(item?.quantity ?? 0);
@@ -26,8 +28,12 @@ export function validateSalesOrderItems(items: SalesOrderLineValidationItem[] | 
       return `Item ${index + 1}: stock number is required. Please enter a valid item code.`;
     }
 
+    if (!productId) {
+      return `Item ${index + 1}: "${stockNo}" is not verified in Item Master. Select a valid item before saving.`;
+    }
+
     if (!description) {
-      return `Item ${index + 1}: "${stockNo}" was not found in the database. Please select a valid item before saving.`;
+      return `Item ${index + 1}: "${stockNo}" was not found in Item Master. Please select a valid item before saving.`;
     }
 
     if (!Number.isFinite(quantity) || quantity <= 0) {

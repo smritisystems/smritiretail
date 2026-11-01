@@ -72,4 +72,33 @@ describe("canonical billing preview request", () => {
       po_reference_no: "PO-1",
     });
   });
+
+  it("preserves source document identity and percentage discount in the authoritative preview", () => {
+    const items = [item({
+      discPercent: 12.5,
+      discAmt: 12.5,
+      sourceLineType: "SALES_ORDER",
+      sourceLineId: "so-line-1",
+    })];
+    const request = buildBillingPreviewRequest({
+      items,
+      postingLines: prepareBillingPostingLines(items, 0),
+      companyId: "COMP-001",
+      branchId: "MAIN",
+      salesChannel: "B2B_WHOLESALE",
+      sourceDocumentType: "SALES_ORDER",
+      sourceDocumentId: "so-1",
+    });
+
+    expect(request).toMatchObject({
+      source_document_type: "SALES_ORDER",
+      source_document_id: "so-1",
+      items: [{
+        disc_pct: 12.5,
+        disc_amt: 0,
+        source_line_type: "SALES_ORDER",
+        source_line_id: "so-line-1",
+      }],
+    });
+  });
 });
