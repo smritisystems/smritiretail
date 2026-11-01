@@ -292,7 +292,6 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   onOpenHotkeys,
 }) => {
   const settlementIdempotencyKeyRef = useRef<{ key: string; fingerprint: string } | null>(null);
-  const invoiceCustomerScope = { series: "TT2026-2027", from: 18, to: 137 };
   const billingGridPreferenceKey = `smriti.billing.item-grid.v1:${encodeURIComponent(currentUser?.companyId || "default")}:${encodeURIComponent(currentUser?.name || "operator")}`;
   const [systemParametersVersion, setSystemParametersVersion] = useState(0);
 
@@ -1531,7 +1530,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
           onNotification?.("Customer Not Selected", "The customer lookup did not return a customer ID. Use the Billing customer search.", "error");
           return;
         }
-        void searchBackendCustomers(lookupId, invoiceCustomerScope, { billingOnly: true })
+        void searchBackendCustomers(lookupId, undefined, { billingOnly: true })
           .then(results => {
             const allowedCustomer = results.find(customer => customer.id === lookupId);
             if (!allowedCustomer) {
@@ -1986,7 +1985,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
 
     customerDebounceRef.current = setTimeout(async () => {
       try {
-        const results = await searchBackendCustomers(val, invoiceCustomerScope, { billingOnly: true });
+        const results = await searchBackendCustomers(val, undefined, { billingOnly: true });
         const options: TypeaheadOption[] = results.map(r => ({
           id: r.id,
           title: r.name,

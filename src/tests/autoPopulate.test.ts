@@ -133,7 +133,11 @@ describe("Universal Backend Auto-Populate & Typeahead Service", () => {
 
     const [child] = await searchBackendCustomers("STORE-1", undefined, { billingOnly: true });
 
-    expect(fetchMock.mock.calls[0][0]).toContain("billing_only=true");
+    const requestUrl = new URL(String(fetchMock.mock.calls[0][0]), "http://localhost");
+    expect(requestUrl.searchParams.get("billing_only")).toBe("true");
+    expect(requestUrl.searchParams.has("invoice_series")).toBe(false);
+    expect(requestUrl.searchParams.has("invoice_from")).toBe(false);
+    expect(requestUrl.searchParams.has("invoice_to")).toBe(false);
     expect(child.isDependant).toBe(true);
     expect(child.parentCustomerId).toBe("parent-1");
     expect(child.parentCustomerName).toBe("Reliance Retail Limited");
