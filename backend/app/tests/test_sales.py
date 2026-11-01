@@ -476,6 +476,8 @@ async def test_create_sales_order_rejects_missing_or_invalid_item(db_session):
 
 async def test_list_sales_orders(db_session):
     """Listing orders returns existing records for the tenant."""
+    from sqlalchemy import inspect
+
     suffix = uuid.uuid4().hex[:8]
     company, branch = await _make_tenant(db_session, suffix)
     user = await _make_cashier(db_session, suffix, company.id, branch.id)
@@ -509,6 +511,24 @@ async def test_list_sales_orders(db_session):
     body = resp.json()
     assert isinstance(body, list)
     assert any(o["order_no"] == f"ORD-LIST-{suffix}" for o in body)
+    connection = await db_session.connection()
+    allocation_columns = await connection.run_sync(
+        lambda sync_connection: {
+            column["name"]
+            for column in inspect(sync_connection).get_columns("sales_order_invoice_allocations")
+        }
+    )
+    assert {
+        "uuid",
+        "company_id",
+        "branch_id",
+        "modified_at",
+        "is_active",
+        "is_deleted",
+        "deleted_at",
+        "deleted_by",
+        "version",
+    }.issubset(allocation_columns)
 
 
 async def test_get_sales_order_by_id(db_session):
@@ -1299,4 +1319,3 @@ async def test_sales_invoice_rejects_rate_exceeding_mrp(db_session):
     assert r.status_code == 400, r.text
     assert "Selling price" in r.text
     assert "cannot exceed statutory MRP" in r.text
-
