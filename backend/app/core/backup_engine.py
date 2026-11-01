@@ -23,7 +23,7 @@ import hashlib
 import uuid
 import asyncio
 import subprocess
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Dict, List, Optional, Any, Tuple
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -78,6 +78,14 @@ def format_backup_time(dt: datetime) -> str:
         return f"Yesterday, {dt.strftime('%I:%M %p').lstrip('0')}"
     else:
         return dt.strftime("%d %b %Y, %I:%M %p").lstrip("0")
+
+
+def _normalize_backup_value(value: Any) -> Any:
+    if isinstance(value, (datetime, date)):
+        return value.isoformat()
+    if hasattr(value, "__float__"):
+        return float(value)
+    return value
 
 
 # Secret Sanitization Patterns
@@ -593,15 +601,10 @@ class MasterBackupEngine:
                                 rows = [dict(r._mapping) for r in res.fetchall()]
                                 clean_rows = []
                                 for r in rows:
-                                    clean_row = {}
-                                    for k, v in r.items():
-                                        if isinstance(v, datetime):
-                                            clean_row[k] = v.isoformat()
-                                        elif hasattr(v, "__float__"):
-                                            clean_row[k] = float(v)
-                                        else:
-                                            clean_row[k] = v
-                                    clean_rows.append(clean_row)
+                                    clean_rows.append({
+                                        k: _normalize_backup_value(v)
+                                        for k, v in r.items()
+                                    })
                                 bundle_data["entities"][tbl] = clean_rows
                                 entities_count[tbl] = len(clean_rows)
                                 self.append_log(job_id, "database_backup", f"Exported {len(clean_rows)} rows from table '{tbl}'.", level="INFO")

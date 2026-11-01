@@ -18,10 +18,12 @@ import os
 import json
 import pytest
 import asyncio
-from datetime import datetime, timezone, timedelta
+from datetime import date, datetime, timezone, timedelta
+from decimal import Decimal
 
 from app.core.backup_engine import (
     MasterBackupEngine,
+    _normalize_backup_value,
     redact_secrets,
     BACKUP_JOBS_DIR,
     BACKUP_LOGS_DIR,
@@ -42,6 +44,14 @@ def test_secret_redaction():
     sanitized_log = redact_secrets(raw_log)
     assert "SuperSecretPassword!" not in sanitized_log
     assert "***REDACTED***" in sanitized_log
+
+
+def test_backup_values_normalize_dates_and_numeric_types():
+    assert _normalize_backup_value(date(2026, 6, 26)) == "2026-06-26"
+    assert _normalize_backup_value(datetime(2026, 6, 26, 12, 30)) == "2026-06-26T12:30:00"
+    assert _normalize_backup_value(Decimal("23.50")) == 23.5
+    assert _normalize_backup_value(23) == 23
+    assert _normalize_backup_value("sku") == "sku"
 
 
 def test_preflight_check():
