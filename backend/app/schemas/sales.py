@@ -278,6 +278,17 @@ class SalesOrderItemBase(BaseModel):
     name: str = Field(..., max_length=255)
     quantity: Decimal = Decimal("1.0000")
     price: Decimal = Field(..., ge=0)
+    discount_percent: Decimal = Field(
+        Decimal("0.00"),
+        ge=Decimal("0.00"),
+        le=Decimal("100.00"),
+        validation_alias=AliasChoices("discount_percent", "discountPercent"),
+    )
+    discount_amount: Decimal = Field(
+        Decimal("0.00"),
+        ge=Decimal("0.00"),
+        validation_alias=AliasChoices("discount_amount", "discountAmount"),
+    )
     hsn_code: Optional[str] = Field(None, max_length=15, validation_alias=AliasChoices("hsn_code", "hsnCode"))
     gst_rate: Decimal = Field(Decimal("18.00"), validation_alias=AliasChoices("gst_rate", "gstRate"))
     tax_amount: Decimal = Field(Decimal("0.00"), validation_alias=AliasChoices("tax_amount", "taxAmount"))

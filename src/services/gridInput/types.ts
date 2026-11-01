@@ -16,6 +16,7 @@ import { SmritiFieldDefinition, ColumnMappingResult, MappingContext } from "../.
 
 export type GridProfileId =
   | "BILLING"
+  | "SALES_ORDER"
   | "PURCHASE"
   | "STOCK_MOVEMENT"
   | "BARCODE_PRINTING"
@@ -84,6 +85,7 @@ export interface ParsedGridRow {
   sellingPrice?: number;
   costPrice?: number;
   discount?: number;
+  discountAmount?: number;
   taxRate?: number;
   uom?: string;
   batch?: string;

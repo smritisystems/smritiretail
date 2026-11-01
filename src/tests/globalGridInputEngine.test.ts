@@ -119,6 +119,28 @@ describe("SMRITI Global Grid Input Engine & Standard", () => {
   });
 
   describe("3. Grid Row Building & Normalization", () => {
+    it("should parse sales order CSV barcode, quantity, price, and discounts", () => {
+      const matrix = [
+        ["Barcode", "Qty", "Rate", "Discount %", "Discount Amount", "GST %"],
+        ["8901234", "2", "100", "10", "", "18"],
+        ["8901235", "1", "100", "", "15", "18"],
+      ];
+      const { columnMappings, dataRows } = GridInputEngine.mapColumns(matrix, GRID_PROFILES.SALES_ORDER);
+      expect(columnMappings.find((mapping) => mapping.sourceHeader === "Rate")?.mappedFieldKey).toBe("price");
+      const rows = GridInputEngine.buildGridRows(dataRows, columnMappings, GRID_PROFILES.SALES_ORDER);
+
+      expect(rows).toHaveLength(2);
+      expect(rows[0]).toMatchObject({
+        identifier: "8901234",
+        identifierType: "BARCODE",
+        quantity: 2,
+        rate: 100,
+        discount: 10,
+        taxRate: 18,
+      });
+      expect(rows[1]).toMatchObject({ identifier: "8901235", discountAmount: 15 });
+    });
+
     it("should sanitize quantities, currencies, and extract primary identifier", () => {
       const matrix = [
         ["Barcode", "Item Name", "Quantity", "MRP", "Rate"],
@@ -319,6 +341,15 @@ describe("SMRITI Global Grid Input Engine & Standard", () => {
       expect(billing.allowedFields.find((f) => f.key === "barcode")?.required).toBe(true);
       expect(billing.supportedImportModes).toContain("APPEND");
       expect(billing.supportedImportModes).toContain("MERGE");
+    });
+
+    it("SALES_ORDER profile should resolve barcodes and reject unresolved rows atomically", () => {
+      const salesOrder = GRID_PROFILES.SALES_ORDER;
+      expect(salesOrder.profileId).toBe("SALES_ORDER");
+      expect(salesOrder.mappingContext).toBe("SALES_ORDER");
+      expect(salesOrder.requireProductResolution).toBe(true);
+      expect(salesOrder.atomicTransactionSafety).toBe(true);
+      expect(salesOrder.allowedFields.find((field) => field.key === "barcode")?.required).toBe(true);
     });
 
     it("PURCHASE profile should enforce atomic transaction safety", () => {

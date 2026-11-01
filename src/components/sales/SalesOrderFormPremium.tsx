@@ -60,6 +60,9 @@ import type { ParsedGridRow, GridImportMode } from "../../services/gridInput/typ
 
 export interface SalesOrderItem {
   id: string;
+  productId?: string;
+  itemId?: string;
+  variantId?: string;
   stockNo: string;
   barcode?: string;
   description: string;
@@ -91,6 +94,9 @@ export interface Customer {
 
 export interface StockItem {
   id: string;
+  productId?: string;
+  itemId?: string;
+  variantId?: string;
   code: string;
   barcode?: string;
   description: string;
@@ -132,7 +138,7 @@ interface SalesOrderFormProps {
 
 const toSharedSalesLineItem = (item: SalesOrderItem): SalesLineItem => ({
   id: item.id || `line-${Math.random().toString(36).slice(2, 9)}`,
-  productId: item.id,
+  productId: item.productId || item.stockNo,
   stockNo: item.stockNo,
   barcode: item.barcode || item.stockNo,
   itemDescription: item.description || item.stockNo || "Item",
@@ -337,6 +343,9 @@ const StockLookupModal: React.FC<{
       const rows = Array.isArray(data) ? data : (data?.items || data?.data || []);
       setItems(rows.map((item: any) => ({
         ...item,
+        productId: item.product_id || item.productId || item.id,
+        itemId: item.item_id || item.itemId,
+        variantId: item.variant_id || item.variantId,
         barcode: item.barcode || item.ean || item.item_barcode || "",
         code: item.code || item.stock_no || item.sku || item.barcode || "",
         description: item.description || item.name || "",
@@ -706,12 +715,12 @@ const PremiumSalesOrderHeader: React.FC<{
 
             {/* Ref No */}
             <div className="flex flex-col gap-0.5 flex-1 min-w-[120px]">
-              <label className="text-[8px] font-bold text-slate-600 uppercase">Ref No</label>
+              <label className="text-[8px] font-bold text-slate-600 uppercase">Customer PO No.</label>
               <input
                 type="text"
                 value={formData.referenceNo || ""}
                 onChange={(e) => onFieldChange("referenceNo", e.target.value)}
-                placeholder="PO"
+                placeholder="Customer-issued PO number"
                 readOnly={readOnly}
                 disabled={readOnly}
                 className={`w-full px-1.5 py-1 border border-slate-300 rounded text-xs bg-white focus:ring-2 focus:ring-blue-400 focus:border-transparent ${readOnly ? "bg-slate-100 text-slate-500 cursor-not-allowed" : ""}`}
@@ -743,7 +752,11 @@ const PremiumSalesOrderHeader: React.FC<{
                 <input
                   type="text"
                   value={formData.customerCode || ""}
-                  onChange={(e) => onFieldChange("customerCode", e.target.value)}
+                  onChange={(e) => {
+                    onFieldChange("customerCode", e.target.value);
+                    onFieldChange("customerId", "");
+                    onFieldChange("customerName", "");
+                  }}
                   placeholder="F2"
                   readOnly={readOnly}
                   disabled={readOnly}
@@ -990,14 +1003,32 @@ const PremiumSalesOrderDetail: React.FC<{
                       <input
                         type="text"
                         value={item.stockNo}
-                        onChange={(e) => handleItemChange(index, "stockNo", e.target.value)}
+                        onChange={(e) => {
+                          const updated = [...items];
+                          updated[index] = {
+                            ...updated[index],
+                            stockNo: e.target.value,
+                            productId: undefined,
+                            itemId: undefined,
+                            variantId: undefined,
+                          };
+                          onItemsChange(updated);
+                        }}
                         onFocus={() => {
                           setSelectedItemIndex(index);
                           setStockModalCallback(() => (stock: StockItem) => {
-                            handleItemChange(index, "stockNo", stock.code);
-                            handleItemChange(index, "barcode", stock.barcode || stock.code);
-                            handleItemChange(index, "description", stock.description);
-                            handleItemChange(index, "rate", stock.rate);
+                            const updated = [...items];
+                            updated[index] = {
+                              ...updated[index],
+                              stockNo: stock.code,
+                              barcode: stock.barcode || stock.code,
+                              description: stock.description,
+                              rate: stock.rate,
+                              productId: stock.productId || stock.id,
+                              itemId: stock.itemId,
+                              variantId: stock.variantId,
+                            };
+                            onItemsChange(updated);
                           });
                           setShowStockModal(true);
                         }}
@@ -1221,6 +1252,9 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
   const isAuditReadOnly = readOnly;
   const [quickEntry, setQuickEntry] = useState({
     stockNo: "",
+    productId: "",
+    itemId: "",
+    variantId: "",
     description: "",
     rate: "",
     qty: "1",
@@ -1289,7 +1323,15 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
 
       if (originId === "sofp-quickentry-stockno") {
         // ── Quick-entry bar path ────────────────────────────────────────────────
-        setQuickEntry((prev) => ({ ...prev, stockNo: stockVal, description: nameVal, rate: String(rateVal) }));
+        setQuickEntry((prev) => ({
+          ...prev,
+          stockNo: stockVal,
+          description: nameVal,
+          rate: String(rateVal),
+          productId: String(result.record?.product_id || result.record?.productId || ""),
+          itemId: String(result.record?.item_id || result.record?.itemId || ""),
+          variantId: String(result.record?.variant_id || result.record?.variantId || ""),
+        }));
       } else {
         // ── Line-item grid path ──────────────────────────────────────────────
         // Read the exact row index from the originating element's data-row-index attribute.
@@ -1324,6 +1366,9 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
           target.stockNo      = stockVal;
           target.description  = nameVal;
           target.rate         = rateVal;
+          target.productId = String(result.record?.product_id || result.record?.productId || "") || undefined;
+          target.itemId = String(result.record?.item_id || result.record?.itemId || "") || undefined;
+          target.variantId = String(result.record?.variant_id || result.record?.variantId || "") || undefined;
           updated[rowIdx] = target;
           return { ...prev, items: updated };
         });
@@ -1342,7 +1387,7 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
 
         const sharedLine = calculateLineTotal({
           id: `line-import-${Date.now()}-${idx}`,
-          productId: prod?.productId || `prod-${idx}`,
+          productId: prod?.productId || r.identifier,
           stockNo: prod?.sku || r.identifier,
           barcode: prod?.barcode || r.identifier,
           itemDescription: prod?.name || r.identifier || "Item",
@@ -1350,7 +1395,7 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
           rate: rate,
           value: qty * rate,
           discPercent: discPercent,
-          discAmt: 0,
+          discAmt: Number(r.discountAmount ?? 0),
           taxPercent: taxPercent,
           taxAmount: 0,
           total: 0,
@@ -1358,6 +1403,9 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
 
         return {
           id: `item-${Date.now()}-${idx}`,
+          productId: prod?.productId,
+          itemId: prod?.itemId,
+          variantId: prod?.variantId,
           stockNo: prod?.sku || r.identifier,
           barcode: prod?.barcode || r.identifier,
           description: prod?.name || r.identifier || "Imported Item",
@@ -1394,7 +1442,7 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
               rate: existing.rate,
               value: existing.quantity * existing.rate,
               discPercent: existing.discPercent,
-              discAmt: 0,
+              discAmt: Number(existing.discAmount || 0),
               taxPercent: existing.taxPercent,
               taxAmount: 0,
               total: 0,
@@ -1433,7 +1481,7 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
   const handleQuickEntryLookup = useCallback(async (term: string) => {
     const cleanTerm = term.trim();
     if (!cleanTerm) {
-      setQuickEntry((prev) => ({ ...prev, description: "" }));
+      setQuickEntry((prev) => ({ ...prev, description: "", productId: "", itemId: "", variantId: "" }));
       return;
     }
 
@@ -1443,6 +1491,9 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
         const resolved = await apiFetchV1<any>(`/universal/items/resolve?query=${encodeURIComponent(cleanTerm)}`);
         if (resolved && (resolved.item_id || resolved.variant_id)) {
           product = {
+            product_id: resolved.product_id || resolved.productId,
+            item_id: resolved.item_id || resolved.itemId,
+            variant_id: resolved.variant_id || resolved.variantId,
             code: resolved.item_code,
             barcode: resolved.barcode,
             stock_no: resolved.item_code,
@@ -1469,8 +1520,19 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
               String(p.barcode || "").toLowerCase() === cleanTerm.toLowerCase() ||
               String(p.item_name || p.name || "").toLowerCase().includes(cleanTerm.toLowerCase())
           ) || productList[0];
+          if (product) {
+            product = {
+              ...product,
+              product_id: product.product_id || product.productId || product.id,
+              item_id: product.item_id || product.itemId,
+              variant_id: product.variant_id || product.variantId,
+            };
+          }
           if (found) {
             product = {
+              product_id: found.product_id || found.productId || found.id,
+              item_id: found.item_id || found.itemId,
+              variant_id: found.variant_id || found.variantId,
               code: found.item_code || found.code,
               barcode: found.barcodes?.[0]?.barcode || found.barcode,
               name: found.item_name || found.name,
@@ -1502,6 +1564,9 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
           rate: String(product.rate ?? product.selling_price ?? product.price ?? ""),
           gstRate: String(product.gst_percentage ?? product.gst_rate ?? 18),
           taxPercent: String(product.gst_percentage ?? product.gst_rate ?? 18),
+          productId: String(product.product_id || ""),
+          itemId: String(product.item_id || ""),
+          variantId: String(product.variant_id || ""),
         }));
       }
     } catch (error) {
@@ -1530,6 +1595,9 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
 
     const newItem: SalesOrderItem = {
       id: `item-${Date.now()}`,
+      productId: quickEntry.productId || undefined,
+      itemId: quickEntry.itemId || undefined,
+      variantId: quickEntry.variantId || undefined,
       stockNo: stockNo || `SKU-${Math.random().toString().slice(-4)}`,
       description: quickEntry.description.trim() || "Retail Item",
       rate,
@@ -1549,6 +1617,9 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
     handleItemsChange([...(formData.items || []), newItem]);
     setQuickEntry({
       stockNo: "",
+      productId: "",
+      itemId: "",
+      variantId: "",
       description: "",
       rate: "",
       qty: "1",
@@ -1590,6 +1661,9 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
 
     if (validationErrors.some((message) => message.toLowerCase().includes("customer"))) {
       newErrors.customerCode = "Customer is required";
+    }
+    if (!String(formData.customerId || "").trim()) {
+      newErrors.customerCode = "Select a customer from the customer lookup.";
     }
 
     const itemValidationError = validateSalesOrderItems(formData.items || []);
@@ -1735,7 +1809,13 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
                     value={quickEntry.stockNo}
                     data-field-key="stock_no"
                     data-f2-entity="variant"
-                    onChange={(e) => setQuickEntry((prev) => ({ ...prev, stockNo: e.target.value }))}
+                    onChange={(e) => setQuickEntry((prev) => ({
+                      ...prev,
+                      stockNo: e.target.value,
+                      productId: "",
+                      itemId: "",
+                      variantId: "",
+                    }))}
                     onBlur={() => !isAuditReadOnly && void handleQuickEntryLookup(quickEntry.stockNo)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
@@ -1907,7 +1987,7 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
       <GlobalGridImportModal
         isOpen={showImportModal}
         onClose={() => setShowImportModal(false)}
-        profile={GRID_PROFILES.BILLING}
+        profile={GRID_PROFILES.SALES_ORDER}
         title="Sales Order Line Import & Resolution"
         existingRowCount={(formData.items || []).length}
         onCommit={handleGlobalImportCommit}

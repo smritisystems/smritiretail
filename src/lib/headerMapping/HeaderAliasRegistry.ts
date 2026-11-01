@@ -451,7 +451,8 @@ export const AMBIGUOUS_HEADER_RULES: AmbiguousRule[] = [
       ITEM_MASTER: "price",
       PURCHASE_ORDER: "costPrice",
       GRN: "costPrice",
-      SALES_INVOICE: "price"
+      SALES_INVOICE: "price",
+      SALES_ORDER: "price"
     }
   },
   {
@@ -461,7 +462,8 @@ export const AMBIGUOUS_HEADER_RULES: AmbiguousRule[] = [
       ITEM_MASTER: "price",
       PURCHASE_ORDER: "costPrice",
       GRN: "costPrice",
-      SALES_INVOICE: "price"
+      SALES_INVOICE: "price",
+      SALES_ORDER: "price"
     }
   },
   {
@@ -1285,5 +1287,4 @@ export const SMRITI_STOCK_AUDIT_FIELDS: SmritiFieldDefinition[] = [
     description: "Stock auditor notes and reconciliation details"
   }
 ];
-
 

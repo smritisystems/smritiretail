@@ -621,6 +621,7 @@ class SalesService:
 
     async def create_sales_order(self, so_in: SalesOrderCreate, idempotency_key: Optional[str] = None) -> SalesOrder:
         from .transaction_integrity_engine import TransactionIntegrityEngine
+        from .sales_order_calculations import calculate_sales_order_line_amounts
 
         async with TransactionIntegrityEngine.guard(
             session=self.db,
@@ -707,8 +708,16 @@ class SalesService:
                     raise HTTPException(status_code=400, detail=f"Item {index}: price cannot be negative.")
 
                 gst_rate = item.gst_rate if item.gst_rate != Decimal("18.00") or not product.gst_percentage else Decimal(str(product.gst_percentage))
-                item_tax = (item.quantity * item.price * (gst_rate / Decimal("100.00"))).quantize(Decimal("0.01"))
-                item_total = (item.quantity * item.price + item_tax).quantize(Decimal("0.01"))
+                try:
+                    discount_amount, taxable_value, item_tax, item_total = calculate_sales_order_line_amounts(
+                        item.quantity,
+                        item.price,
+                        item.discount_percent,
+                        item.discount_amount,
+                        gst_rate,
+                    )
+                except ValueError as error:
+                    raise HTTPException(status_code=400, detail=f"Item {index}: {error}") from error
                 tax_total += item_tax
                 grand_total += item_total
 
@@ -722,6 +731,8 @@ class SalesService:
                     name=product.name,
                     quantity=item.quantity,
                     price=item.price,
+                    discount_percent=item.discount_percent,
+                    discount_amount=discount_amount,
                     hsn_code=item.hsn_code or product.hsn_code,
                     gst_rate=gst_rate,
                     tax_amount=item_tax,
@@ -735,7 +746,7 @@ class SalesService:
                     uom=item.uom or "EA",
                     mrp=item.mrp or product.mrp,
                     base_cost=item.base_cost,
-                    taxable_value=item.taxable_value or (item.quantity * item.price).quantize(Decimal("0.01")),
+                    taxable_value=item.taxable_value or taxable_value,
                     igst_amount=item.igst_amount,
                     cgst_amount=item.cgst_amount,
                     sgst_amount=item.sgst_amount,

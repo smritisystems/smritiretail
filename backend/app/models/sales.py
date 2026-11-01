@@ -291,6 +291,8 @@ class SalesOrderItem(Base):
     name         = Column(String(255), nullable=False)
     quantity     = Column(Numeric(12, 4), nullable=False, default=1.0000)
     price        = Column(Numeric(15, 2), nullable=False)
+    discount_percent = Column(Numeric(5, 2), nullable=False, server_default=text("0"), default=0.00)
+    discount_amount = Column(Numeric(15, 2), nullable=False, server_default=text("0"), default=0.00)
     hsn_code     = Column(String(15))
     gst_rate     = Column(Numeric(5, 2), default=18.00)
     tax_amount   = Column(Numeric(15, 2), default=0.00)

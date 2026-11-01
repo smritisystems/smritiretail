@@ -239,6 +239,7 @@ export class GridInputEngine {
       const sellingPrice = parseNum(mappedValues["price"] || mappedValues["sellingPrice"]);
       const costPrice = parseNum(mappedValues["costPrice"] || mappedValues["rate"]);
       const discount = parseNum(mappedValues["discount"]);
+      const discountAmount = parseNum(mappedValues["discountAmount"]);
       const taxRate = parseNum(mappedValues["taxRate"] || mappedValues["gstPercentage"]);
 
       const row: ParsedGridRow = {
@@ -253,6 +254,7 @@ export class GridInputEngine {
         sellingPrice,
         costPrice,
         discount,
+        discountAmount,
         taxRate,
         uom: mappedValues["uom"] || "NOS",
         batch: mappedValues["batch"],
@@ -426,8 +428,13 @@ export class GridInputEngine {
         };
       });
     } catch (err: any) {
-      console.warn("Batch resolution error, falling back to individual resolution:", err);
-      return rows;
+      console.error("Batch product resolution failed:", err);
+      return rows.map((row) => row.identifier ? {
+        ...row,
+        resolutionStatus: "VALIDATION_ERROR",
+        errorCode: "PRODUCT_RESOLUTION_FAILED",
+        errorMessage: `Could not verify item '${row.identifier}'. Check the connection and retry the import.`,
+      } : row);
     }
   }
 

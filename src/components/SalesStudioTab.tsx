@@ -39,6 +39,7 @@ import { GridInputEngine } from "../services/gridInput/gridInputEngine";
 import { isValidMobile } from "../utils/validators.ts";
 import { SalesOrderMatrixEntry } from "./sales/SalesOrderMatrixEntry";
 import { SalesOrderFormPremium, SalesOrderFormData } from "./sales/SalesOrderFormPremium";
+import { buildSalesOrderPayload, createSalesOrderNumber } from "../utils/salesOrderPayload";
 import { useACAS } from "../context-actions/ContextProvider.tsx";
 import { SmritiConfirmDialog, SmritiReasonDialog } from "./common/SmritiConfirmDialog.tsx";
 import { SmritiEmptyState } from "./common/SmritiEmptyState.tsx";
@@ -749,7 +750,12 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
       const data = await apiFetchV1(`/sales/orders/${queryString ? `?${queryString}` : ""}`);
       setSalesOrders(normalizeSalesOrders(data));
     } catch (e) {
-      onNotification("Sync Error", "Failed to load sales orders ledger.", "error");
+      console.error("Failed to load sales orders ledger:", e);
+      onNotification(
+        "Sync Error",
+        e instanceof Error ? `Failed to load sales orders ledger: ${e.message}` : "Failed to load sales orders ledger.",
+        "error"
+      );
     }
   };
 
@@ -932,8 +938,8 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
       return;
     }
 
-    if (!formData.customerCode && !formData.customerName) {
-      onNotification("Validation Error", "Please select a customer before saving the sales order.", "error");
+    if (!formData.customerId) {
+      onNotification("Validation Error", "Select a customer from the customer lookup before saving the sales order.", "error");
       return;
     }
 
@@ -945,23 +951,10 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
     try {
       await apiFetchV1("/sales/orders", {
         method: "POST",
-        body: JSON.stringify({
-          id: `so-${Date.now().toString(36)}`,
-          order_no: `${formData.docPrefix || "SO"}-${formData.docNumber || Date.now().toString().slice(-6)}`,
-          date: formData.docDate || new Date().toISOString().slice(0, 10),
-          customer_id: formData.customerId || formData.customerCode || "",
-          customer_name: formData.customerName || "Walk-in Customer",
-          items: (formData.items || []).map((item) => ({
-            product_id: item.id || item.stockNo || "",
-            code: item.stockNo || "",
-            name: item.description || item.stockNo || "Item",
-            price: Number(item.rate || 0),
-            quantity: Number(item.quantity || 0),
-            hsn_code: item.hsn || undefined,
-            gst_rate: Number(item.gstRate ?? item.taxPercent ?? 0),
-            total_amount: Number(item.total || item.value || 0),
-          })),
-        })
+        body: JSON.stringify(buildSalesOrderPayload(
+          formData,
+          createSalesOrderNumber(formData.docPrefix || "SO")
+        ))
       });
 
       onNotification("Success", "Sales order generated successfully and written to ledger.", "success");
