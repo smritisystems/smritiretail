@@ -83,37 +83,86 @@ async def reconcile_tt2026_sales_stock(
         if line.branch_id not in (None, expected_branch):
             raise HTTPException(status_code=409, detail=f"Invoice line {line.id} has a conflicting branch.")
     product_ids = sorted({line.product_id for line in lines if line.product_id})
+    item_ids = sorted({line.item_id for line in lines if line.item_id})
+    item_codes = sorted({line.code for line in lines if line.code})
+    product_scope = [Product.company_id == tenant_ctx.company_id, Product.is_deleted.is_(False)]
+    product_lookup = []
+    if product_ids:
+        product_lookup.append(Product.id.in_(product_ids))
+    if item_ids:
+        product_lookup.append(Product.item_id.in_(item_ids))
+    if item_codes:
+        product_lookup.extend([Product.sku.in_(item_codes), Product.code.in_(item_codes)])
     products = (
         await session.execute(
-            select(Product).where(
-                Product.company_id == tenant_ctx.company_id,
-                Product.id.in_(product_ids),
-                Product.is_deleted.is_(False),
-            )
+            select(Product).where(*product_scope, or_(*product_lookup))
         )
-    ).scalars().all() if product_ids else []
+    ).scalars().all() if product_lookup else []
     product_by_id = {product.id: product for product in products}
     missing_product_ids = set(product_ids) - set(product_by_id)
     if missing_product_ids:
         raise HTTPException(status_code=404, detail=f"Invoice products not found: {sorted(missing_product_ids)}")
+
+    resolved_product_by_line: dict[int, Product] = {}
+    product_candidates_by_id = {product.id: product for product in products}
+    for line in lines:
+        if line.product_id:
+            product = product_candidates_by_id.get(line.product_id)
+            if not product:
+                raise HTTPException(status_code=404, detail=f"Invoice product not found for line {line.id}.")
+            if line.item_id and product.item_id and line.item_id != product.item_id:
+                raise HTTPException(status_code=409, detail=f"Invoice line {line.id} item does not match its product.")
+            if line.variant_id and product.item_variant_id and line.variant_id != product.item_variant_id:
+                raise HTTPException(status_code=409, detail=f"Invoice line {line.id} variant does not match its product.")
+            resolved_product_by_line[line.id] = product
+            continue
+
+        candidates = products
+        if line.item_id:
+            candidates = [product for product in candidates if product.item_id == line.item_id]
+        if line.variant_id:
+            variant_candidates = [
+                product for product in candidates
+                if product.item_variant_id == line.variant_id
+                or (
+                    product.variant_id is not None
+                    and str(product.variant_id) == line.variant_id
+                )
+            ]
+            candidates = variant_candidates
+        if not candidates and line.code:
+            candidates = [
+                product for product in products
+                if line.code in (product.sku, product.code)
+                and (not line.item_id or product.item_id == line.item_id)
+            ]
+        if len(candidates) != 1:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"Cannot safely resolve a unique stock product for invoice line {line.id} "
+                    f"(item {line.item_id}, variant {line.variant_id}, code {line.code})."
+                ),
+            )
+        resolved_product_by_line[line.id] = candidates[0]
 
     expected: dict[tuple[str, str], Decimal] = defaultdict(lambda: _ZERO)
     movement_groups: dict[tuple[str, str, str | None], Decimal] = defaultdict(lambda: _ZERO)
     movement_group_counts: dict[tuple[str, str], int] = defaultdict(int)
     movement_groups_by_invoice: dict[str, list[tuple[str, str, str | None]]] = defaultdict(list)
     for line in lines:
-        if not line.product_id:
-            continue
         quantity = Decimal(str(line.quantity or 0))
         if quantity < _ZERO:
             raise HTTPException(status_code=409, detail=f"Negative invoice-line quantity on line {line.id}.")
-        if quantity > _ZERO and (product_by_id[line.product_id].tracking_mode or "").casefold() != "no-stock":
-            expected[(line.invoice_id, line.product_id)] += quantity
-            group_key = (line.invoice_id, line.product_id, line.batch_no)
+        product = resolved_product_by_line[line.id]
+        if quantity > _ZERO and (product.tracking_mode or "").casefold() != "no-stock":
+            expected[(line.invoice_id, product.id)] += quantity
+            group_key = (line.invoice_id, product.id, line.batch_no)
             if group_key not in movement_groups:
-                movement_group_counts[(line.invoice_id, line.product_id)] += 1
+                movement_group_counts[(line.invoice_id, product.id)] += 1
                 movement_groups_by_invoice[line.invoice_id].append(group_key)
             movement_groups[group_key] += quantity
+            product_by_id[product.id] = product
 
     posted_stmt = (
         select(

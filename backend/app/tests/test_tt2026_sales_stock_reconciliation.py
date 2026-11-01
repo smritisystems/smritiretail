@@ -8,6 +8,7 @@ from fastapi import HTTPException
 
 from app.api.deps import TenantContext
 from app.models.inventory import Product, StockMovement
+from app.models.item_master import Item, ItemVariant
 from app.models.sales import SalesInvoice, SalesInvoiceItem
 from app.models.tenant import Branch, Company
 from app.services.stock_ledger import StockLedger
@@ -30,10 +31,31 @@ async def _seed_invoice(db_session, suffix: str):
         is_active=True,
         is_deleted=False,
     )
+    item = Item(
+        id=f"ITEM-TTREC-{suffix}",
+        company_id=company.id,
+        branch_id=branch.id,
+        item_code=f"STYLE-{suffix}",
+        item_name="Reconciliation test item",
+        uom="PRS",
+        is_active=True,
+        is_deleted=False,
+    )
+    variant = ItemVariant(
+        id=f"VAR-TTREC-{suffix}",
+        company_id=company.id,
+        item_id=item.id,
+        variant_sku=f"SKU-TTREC-{suffix}",
+        variant_name="Reconciliation test variant",
+        is_active=True,
+        is_deleted=False,
+    )
     product = Product(
         id=f"PROD-TTREC-{suffix}",
         company_id=company.id,
         branch_id=branch.id,
+        item_id=item.id,
+        item_variant_id=variant.id,
         code=f"CODE-{suffix}",
         sku=f"SKU-TTREC-{suffix}",
         name="Reconciliation test product",
@@ -63,7 +85,9 @@ async def _seed_invoice(db_session, suffix: str):
         company_id=company.id,
         branch_id=branch.id,
         invoice_id=invoice.id,
-        product_id=product.id,
+        product_id=None,
+        item_id=item.id,
+        variant_id=variant.id,
         code=product.code,
         name=product.name,
         quantity=Decimal("6.0000"),
@@ -72,6 +96,10 @@ async def _seed_invoice(db_session, suffix: str):
         is_deleted=False,
     )
     db_session.add_all([company, branch])
+    await db_session.commit()
+    db_session.add(item)
+    await db_session.commit()
+    db_session.add(variant)
     await db_session.commit()
     db_session.add(product)
     await db_session.commit()
