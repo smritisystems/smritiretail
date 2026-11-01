@@ -7,7 +7,8 @@ from fastapi import HTTPException
 from app.core.gst_engine import calculate_line_item_tax
 from app.services.invoice_pdf_service import invoice_line_discount_details
 from app.services.headless_billing import resolve_line_discount
-from app.services.source_billing import _allocate_fixed_line_discount
+from app.services.source_billing import _allocate_fixed_line_discount, _build_source_invoice_line
+from app.schemas.source_billing import SourceBillingPrepareLine
 
 
 def test_sales_order_discount_wins_over_customer_default():
@@ -124,6 +125,41 @@ def test_fixed_source_discount_prorates_exactly_across_partial_quantities():
         Decimal("3.34"),
         Decimal("3.33"),
     )
+
+
+def test_source_invoice_line_preserves_exclusive_sales_order_tax_pricing():
+    line = SourceBillingPrepareLine(
+        source_line_id="order-line-1",
+        product_id="product-1",
+        code="SKU-1",
+        name="Item",
+        ordered_quantity=Decimal("1"),
+        previously_billed_quantity=Decimal("0"),
+        remaining_quantity=Decimal("1"),
+        unit_price=Decimal("2499.00"),
+        gst_rate=Decimal("5.00"),
+        eligible=True,
+    )
+
+    invoice_line = _build_source_invoice_line(
+        line,
+        "order-line-1",
+        Decimal("1"),
+        "SALES_ORDER",
+    )
+    tax = calculate_line_item_tax(
+        unit_price=invoice_line["price"],
+        quantity=invoice_line["quantity"],
+        discount_amount=invoice_line["disc_amt"],
+        gst_rate=invoice_line["gst_rate"],
+        is_tax_inclusive=invoice_line["is_tax_inclusive"],
+        is_interstate=False,
+    )
+
+    assert invoice_line["is_tax_inclusive"] is False
+    assert tax["taxable_value"] == Decimal("2499.00")
+    assert tax["tax_amount"] == Decimal("124.95")
+    assert tax["total_amount"] == Decimal("2623.95")
 
 
 def test_invoice_discount_details_keep_resolved_source_and_amount():

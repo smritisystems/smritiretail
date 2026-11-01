@@ -52,6 +52,37 @@ def _allocate_fixed_line_discount(
     return max(Decimal("0.00"), allocated_after - allocated_before)
 
 
+def _build_source_invoice_line(
+    source_line: SourceBillingPrepareLine,
+    source_line_id: str,
+    quantity: Decimal,
+    source_type: str,
+) -> dict[str, Any]:
+    discount_percent = Decimal(str(source_line.discount_percent or 0))
+    discount_amount = Decimal("0.00") if discount_percent > 0 else _allocate_fixed_line_discount(
+        Decimal(str(source_line.discount_amount or 0)),
+        Decimal(str(source_line.discount_quantity_basis or 0)),
+        Decimal(str(source_line.previously_billed_order_quantity or 0)),
+        quantity,
+    )
+    return {
+        "product_id": source_line.product_id,
+        "item_id": source_line.item_id,
+        "variant_id": source_line.variant_id,
+        "code": source_line.code,
+        "name": source_line.name,
+        "quantity": quantity,
+        "price": source_line.unit_price,
+        "hsn_code": source_line.hsn_code,
+        "gst_rate": source_line.gst_rate,
+        "disc_pct": discount_percent,
+        "disc_amt": discount_amount,
+        "is_tax_inclusive": False,
+        "source_line_type": source_type,
+        "source_line_id": source_line_id,
+    }
+
+
 class SourceBillingService:
     """Prepare and atomically commit source-backed invoices."""
 
@@ -330,28 +361,12 @@ class SourceBillingService:
                     status_code=409,
                     detail=f"Requested quantity exceeds remaining billable quantity for source line {source_line_id}.",
                 )
-            discount_percent = Decimal(str(source_line.discount_percent or 0))
-            discount_amount = Decimal("0.00") if discount_percent > 0 else _allocate_fixed_line_discount(
-                Decimal(str(source_line.discount_amount or 0)),
-                Decimal(str(source_line.discount_quantity_basis or 0)),
-                Decimal(str(source_line.previously_billed_order_quantity or 0)),
+            invoice_lines.append(_build_source_invoice_line(
+                source_line,
+                source_line_id,
                 quantity,
-            )
-            invoice_lines.append({
-                "product_id": source_line.product_id,
-                "item_id": source_line.item_id,
-                "variant_id": source_line.variant_id,
-                "code": source_line.code,
-                "name": source_line.name,
-                "quantity": quantity,
-                "price": source_line.unit_price,
-                "hsn_code": source_line.hsn_code,
-                "gst_rate": source_line.gst_rate,
-                "disc_pct": discount_percent,
-                "disc_amt": discount_amount,
-                "source_line_type": request.source_type,
-                "source_line_id": source_line_id,
-            })
+                request.source_type,
+            ))
 
         invoice_header = request.invoice.model_dump(exclude_unset=True)
         invoice_header.update({

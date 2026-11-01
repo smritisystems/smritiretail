@@ -649,6 +649,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         productId: line.product_id,
         hsnCode: line.hsn_code || undefined,
         gstPercentage: Number(line.gst_rate || 0),
+        isTaxInclusive: false,
         sourceLineId: selected.sourceLineId,
         sourceLineType: source.sourceType,
       }];
