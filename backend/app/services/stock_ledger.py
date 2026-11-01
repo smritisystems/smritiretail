@@ -60,9 +60,11 @@ class MovementRequest:
     branch_id: Optional[str] = None
     warehouse_id: Optional[str] = None
     batch_no: Optional[str] = None
+    bin_no: Optional[str] = None
     line_ref: Optional[str] = None
     remarks: Optional[str] = None
     user: Optional[str] = None
+    approval: Optional[str] = None
     source_module: Optional[str] = None
     internal_cost: Optional[InternalCost] = None
     allow_negative_stock: bool = False
@@ -159,21 +161,24 @@ class StockLedger:
         warehouse_id: Optional[str],
         quantity: Decimal,
         movement_type: str,
+        bin_no: Optional[str] = None,
     ) -> str:
         """
         Computes SHA-256 payload hash of (product_id, batch_no, warehouse_id, quantity, movement_type).
         """
         b_val = (batch_no or "").strip()
         w_val = (warehouse_id or "").strip()
+        bin_val = (bin_no or "").strip()
         # Quantize quantity to 2 decimals for normalized representation
         q_val = str(Decimal(str(quantity)).quantize(Decimal("0.01")))
         parts = [
             str(product_id).strip().lower(),
             b_val.lower(),
             w_val.lower(),
-            q_val,
-            movement_type.strip().lower(),
         ]
+        if bin_val:
+            parts.append(bin_val.lower())
+        parts.extend([q_val, movement_type.strip().lower()])
         raw_payload = "|".join(parts)
         return hashlib.sha256(raw_payload.encode("utf-8")).hexdigest()
 
@@ -243,6 +248,7 @@ class StockLedger:
                 warehouse_id=req.warehouse_id,
                 quantity=qty,
                 movement_type=mtype,
+                bin_no=req.bin_no,
             )
             computed_meta.append({
                 "req": req,
@@ -406,8 +412,42 @@ class StockLedger:
             prod_running_balances[pid] = curr_prod_bal
 
         for b_key, b_obj in locked_batches.items():
-            if b_obj:
-                batch_running_balances[b_key] = Decimal(str(b_obj.quantity or 0))
+            batch_running_balances[b_key] = (
+                Decimal(str(b_obj.quantity or 0))
+                - Decimal(str(b_obj.damaged_quantity or 0))
+                - Decimal(str(b_obj.reserved_quantity or 0))
+                if b_obj
+                else Decimal("0")
+            )
+
+        bin_running_balances: Dict[Tuple[str, str, str], Decimal] = {}
+        for idx in items_to_apply_indices:
+            req = computed_meta[idx]["req"]
+            if not req.bin_no:
+                continue
+            bin_key = (req.product_id, req.warehouse_id or "", req.bin_no)
+            if bin_key in bin_running_balances:
+                continue
+            from .stock_ledger_query import get_signed_movement_quantity_expr
+
+            product = locked_products[req.product_id]
+            bin_identity_filters = [StockMovement.product_id == req.product_id]
+            if product.item_id:
+                bin_identity_filters.append(StockMovement.item_id == product.item_id)
+            for identity in (product.item_variant_id, product.variant_id):
+                if identity:
+                    bin_identity_filters.append(StockMovement.variant_id == str(identity))
+            bin_stmt = select(func.coalesce(func.sum(get_signed_movement_quantity_expr()), 0)).where(
+                StockMovement.company_id == company_id,
+                or_(*bin_identity_filters),
+                StockMovement.bin == req.bin_no,
+                StockMovement.is_deleted.is_(False),
+            )
+            if req.warehouse_id:
+                bin_stmt = bin_stmt.where(StockMovement.warehouse_id == req.warehouse_id)
+            if req.branch_id:
+                bin_stmt = bin_stmt.where(StockMovement.branch_id == req.branch_id)
+            bin_running_balances[bin_key] = Decimal(str((await session.execute(bin_stmt)).scalar() or 0))
 
         # Save initial balances before Phase 4 delta accumulation
         progressive_prod_balances = dict(prod_running_balances)
@@ -420,6 +460,7 @@ class StockLedger:
             mtype = meta["movement_type"]
             pid = req.product_id
             b_key = (pid, req.batch_no or "", req.warehouse_id or "")
+            bin_key = (pid, req.warehouse_id or "", req.bin_no or "")
 
             # Net delta effect
             if mtype in INFLOW_MOVEMENT_TYPES:
@@ -438,6 +479,14 @@ class StockLedger:
                             f"Current on-hand: {prod_running_balances[pid]}, deduction: {delta}."
                         ),
                     )
+                if req.batch_no and b_key not in batch_running_balances and delta < 0:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=(
+                            f"INSUFFICIENT_BATCH_STOCK: Batch {req.batch_no} for product {pid} has no available stock. "
+                            f"Available: 0, requested: {delta}."
+                        ),
+                    )
                 if req.batch_no and b_key in batch_running_balances:
                     if (batch_running_balances[b_key] + delta) < Decimal("0.00"):
                         raise HTTPException(
@@ -447,11 +496,21 @@ class StockLedger:
                                 f"Available: {batch_running_balances[b_key]}, requested: {delta}."
                             ),
                         )
+                if req.bin_no and delta < 0 and (bin_running_balances[bin_key] + delta) < Decimal("0.00"):
+                    raise HTTPException(
+                        status_code=400,
+                        detail=(
+                            f"INSUFFICIENT_BIN_STOCK: Bin {req.bin_no} for product {pid} has insufficient quantity. "
+                            f"Available: {bin_running_balances[bin_key]}, requested: {delta}."
+                        ),
+                    )
 
             # Update running tracking
             prod_running_balances[pid] += delta
             if req.batch_no and b_key in batch_running_balances:
                 batch_running_balances[b_key] += delta
+            if req.bin_no:
+                bin_running_balances[bin_key] += delta
 
         # ------------------------------------------------------------------
         # Phase 5: Post Movements inside Savepoint & Update Batches
@@ -500,6 +559,7 @@ class StockLedger:
                 reference_doc_id=req.reference_doc_id,
                 warehouse_id=req.warehouse_id,
                 batch=req.batch_no,
+                bin=req.bin_no,
                 unit_cost=resolved_cost,
                 cost_source=val_source,
                 idempotency_key=idem_key,
@@ -507,6 +567,7 @@ class StockLedger:
                 remarks=req.remarks or f"Single-Door {mtype} posting for {req.reference_doc_type} {req.reference_doc_id}",
                 source_module=req.source_module or "STOCK_LEDGER",
                 user=req.user or "SYSTEM",
+                approval=req.approval,
             )
 
             # Savepoint-guarded insertion (Section B.2)
@@ -644,7 +705,6 @@ class StockLedger:
             remarks=f"Admin opening balance: {reason.strip()}",
             user=user_id or "ADMIN",
             source_module="ADMIN_INVENTORY",
-            allow_negative_stock=True,
         )
         return await cls.post(session, req)
 
@@ -662,15 +722,55 @@ class StockLedger:
         """
         from .stock_ledger_query import get_signed_movement_quantity_expr
 
+        product_identity = (
+            await session.execute(
+                select(Product.item_id, Product.item_variant_id, Product.variant_id).where(
+                    Product.id == product_id,
+                    Product.company_id == company_id,
+                    Product.is_deleted.is_(False),
+                )
+            )
+        ).first()
+        movement_identity_filters = [StockMovement.product_id == product_id]
+        if product_identity:
+            item_id, item_variant_id, variant_id = product_identity
+            if item_id:
+                movement_identity_filters.append(StockMovement.item_id == item_id)
+            for identity in (item_variant_id, variant_id):
+                if identity:
+                    movement_identity_filters.append(StockMovement.variant_id == str(identity))
+
         # 1. Product Ledger Balance
         signed_expr = get_signed_movement_quantity_expr()
         p_stmt = select(
             func.coalesce(func.sum(signed_expr), 0)
         ).where(
             StockMovement.company_id == company_id,
-            StockMovement.product_id == product_id,
+            or_(*movement_identity_filters),
             StockMovement.is_deleted.is_(False),
         )
+        unknown_type = func.upper(func.coalesce(StockMovement.movement_type, ""))
+        unknown_count = int(
+            (
+                await session.execute(
+                    select(func.count(StockMovement.id)).where(
+                        StockMovement.company_id == company_id,
+                        or_(*movement_identity_filters),
+                        StockMovement.is_deleted.is_(False),
+                        unknown_type.notin_(tuple(ALL_MOVEMENT_TYPES)),
+                    )
+                )
+            ).scalar()
+            or 0
+        )
+        if unknown_count:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"UNCLASSIFIED_MOVEMENT_TYPE: Cannot validate available stock for product {product_id}; "
+                    f"{unknown_count} unclassified movement(s) require audit."
+                ),
+            )
         p_bal = Decimal(str((await session.execute(p_stmt)).scalar() or 0))
 
         # 2. Batch Balance (if batch_no given)

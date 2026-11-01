@@ -32,6 +32,8 @@ from app.services.sales_stock_authority import SalesStockAuthority
 from app.services.stock_synchronizer import StockSynchronizer
 from app.services.stock_reconciliation_engine import StockReconciliationEngine
 from app.services.inventory_wms import InventoryWmsService
+from app.services.stock_ledger import MovementRequest, StockLedger
+from app.api.v1.inventory import list_stock_ledger, router as inventory_router
 
 
 async def _make_tenant(db_session, suffix: str):
@@ -142,6 +144,21 @@ async def test_02_completed_sale_decreases_stock_once(db_session):
     comp, br, wh = await _make_tenant(db_session, s)
     prod = await _make_product(db_session, s, comp.id, br.id, stock=100)
     tenant_ctx = TenantContext(company_id=comp.id, branch_id=br.id)
+
+    await StockLedger.post(
+        db_session,
+        MovementRequest(
+            company_id=comp.id,
+            branch_id=br.id,
+            product_id=prod.id,
+            movement_type="OPENING_STOCK",
+            quantity=Decimal("100.00"),
+            reference_doc_type="OPENING_BALANCE",
+            reference_doc_id=f"OPEN-{s}",
+            warehouse_id=wh.id,
+        ),
+    )
+    await db_session.commit()
 
     movs = await SalesStockAuthority.record_outward_sale(
         session=db_session,
@@ -268,6 +285,9 @@ async def test_05_sales_and_purchase_returns_correct_directions(db_session):
     s = uuid.uuid4().hex[:8]
     comp, br, wh = await _make_tenant(db_session, s)
     prod = await _make_product(db_session, s, comp.id, br.id, stock=50)
+    await StockLedger.post_admin_opening_stock(
+        db_session, comp.id, prod.id, Decimal("50.00"), "Audit test opening stock", wh.id
+    )
 
     # 1. Sales Return (customer returns goods -> increases inventory)
     sm_sr = StockMovement(
@@ -324,6 +344,9 @@ async def test_06_cancelled_transactions_and_reversals_restore_balance(db_sessio
     s = uuid.uuid4().hex[:8]
     comp, br, wh = await _make_tenant(db_session, s)
     prod = await _make_product(db_session, s, comp.id, br.id, stock=100)
+    await StockLedger.post_admin_opening_stock(
+        db_session, comp.id, prod.id, Decimal("100.00"), "Audit test opening stock", wh.id
+    )
     tenant_ctx = TenantContext(company_id=comp.id, branch_id=br.id)
 
     # 1. Post Sale of 20
@@ -396,11 +419,20 @@ async def test_07_warehouse_transfers_balance_across_locations(db_session):
         warehouse_id=wh1.id,
         product_id=prod.id,
         batch_no=batch_no,
-        quantity=Decimal("50.00"),
+        quantity=Decimal("0.00"),
         is_deleted=False,
     )
     db_session.add(b1)
     await db_session.commit()
+    await StockLedger.post_admin_opening_stock(
+        db_session,
+        comp.id,
+        prod.id,
+        Decimal("50.00"),
+        "Audit test warehouse opening stock",
+        wh1.id,
+        batch_no,
+    )
 
     tenant_ctx = TenantContext(company_id=comp.id, branch_id=br.id)
     wms = InventoryWmsService(db_session, tenant_ctx)
@@ -457,6 +489,9 @@ async def test_08_duplicate_api_requests_do_not_duplicate_movements(db_session):
     s = uuid.uuid4().hex[:8]
     comp, br, wh = await _make_tenant(db_session, s)
     prod = await _make_product(db_session, s, comp.id, br.id, stock=100)
+    await StockLedger.post_admin_opening_stock(
+        db_session, comp.id, prod.id, Decimal("100.00"), "Audit test opening stock", wh.id
+    )
     tenant_ctx = TenantContext(company_id=comp.id, branch_id=br.id)
 
     inv_id = f"inv-dup-{s}"
@@ -532,6 +567,12 @@ async def test_09_variants_cannot_affect_wrong_item(db_session):
 
     prod1 = await _make_product(db_session, f"{s}_1", comp.id, br.id, stock=30, variant_id=var1.id)
     prod2 = await _make_product(db_session, f"{s}_2", comp.id, br.id, stock=30, variant_id=var2.id)
+    await StockLedger.post_admin_opening_stock(
+        db_session, comp.id, prod1.id, Decimal("30.00"), "Audit test variant opening stock", wh.id
+    )
+    await StockLedger.post_admin_opening_stock(
+        db_session, comp.id, prod2.id, Decimal("30.00"), "Audit test variant opening stock", wh.id
+    )
 
     # Post movement for variant 1 only
     sm1 = StockMovement(
@@ -756,6 +797,192 @@ async def test_13_ledger_cached_balance_and_report_reconcile(db_session):
     )
     assert clean_report.discrepancy_count == 0
     assert clean_report.balanced_products_count == 1
+
+
+@pytest.mark.asyncio
+async def test_historical_reconciliation_uses_opening_balance_and_flags_period_negative_stock(db_session):
+    s = uuid.uuid4().hex[:8]
+    comp, br, wh = await _make_tenant(db_session, s)
+    prod = await _make_product(db_session, s, comp.id, br.id, stock=20)
+
+    db_session.add_all([
+        StockMovement(
+            id=f"sm_open_hist_{s}",
+            company_id=comp.id,
+            branch_id=br.id,
+            warehouse_id=wh.id,
+            product_id=prod.id,
+            sku=prod.sku,
+            product_name=prod.name,
+            quantity=Decimal("10.00"),
+            movement_type="OPENING_STOCK",
+            reference_doc_type="OPENING_BALANCE",
+            reference_doc_id=f"OPEN-HIST-{s}",
+            created_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        ),
+        StockMovement(
+            id=f"sm_out_hist_{s}",
+            company_id=comp.id,
+            branch_id=br.id,
+            warehouse_id=wh.id,
+            product_id=prod.id,
+            sku=prod.sku,
+            product_name=prod.name,
+            quantity=Decimal("15.00"),
+            movement_type="OUTWARD_SALE",
+            reference_doc_type="SALES_INVOICE",
+            reference_doc_id=f"INV-HIST-{s}",
+            created_at=datetime(2026, 3, 10, tzinfo=timezone.utc),
+        ),
+        StockMovement(
+            id=f"sm_in_hist_{s}",
+            company_id=comp.id,
+            branch_id=br.id,
+            warehouse_id=wh.id,
+            product_id=prod.id,
+            sku=prod.sku,
+            product_name=prod.name,
+            quantity=Decimal("25.00"),
+            movement_type="INWARD_GRN",
+            reference_doc_type="GOODS_RECEIPT",
+            reference_doc_id=f"GRN-HIST-{s}",
+            created_at=datetime(2026, 9, 1, tzinfo=timezone.utc),
+        ),
+    ])
+    await db_session.commit()
+
+    report = await StockReconciliationEngine.run_reconciliation_audit(
+        session=db_session,
+        company_id=comp.id,
+        branch_id=br.id,
+        warehouse_id=wh.id,
+        start_date=date(2026, 3, 1),
+        end_date=date(2026, 3, 31),
+        product_id=prod.id,
+    )
+
+    assert report.discrepancy_count == 1
+    discrepancy = report.discrepancies[0]
+    assert discrepancy.discrepancy_category == "NEGATIVE_STOCK"
+    assert discrepancy.opening_stock == 10
+    assert discrepancy.sales_dispatches == 15
+    assert discrepancy.expected_closing_stock == -5
+    assert discrepancy.actual_ledger_stock == -5
+
+
+@pytest.mark.asyncio
+async def test_stock_ledger_date_filter_keeps_historical_opening_and_all_type_balances(db_session):
+    s = uuid.uuid4().hex[:8]
+    comp, br, wh = await _make_tenant(db_session, s)
+    prod = await _make_product(db_session, s, comp.id, br.id, stock=8)
+    db_session.add_all([
+        StockMovement(
+            id=f"sm_date_open_{s}",
+            company_id=comp.id,
+            branch_id=br.id,
+            warehouse_id=wh.id,
+            product_id=prod.id,
+            sku=prod.sku,
+            product_name=prod.name,
+            quantity=Decimal("10.00"),
+            movement_type="OPENING_STOCK",
+            reference_doc_type="OPENING_BALANCE",
+            reference_doc_id=f"OPEN-DATE-{s}",
+            created_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        ),
+        StockMovement(
+            id=f"sm_date_in_{s}",
+            company_id=comp.id,
+            branch_id=br.id,
+            warehouse_id=wh.id,
+            product_id=prod.id,
+            sku=prod.sku,
+            product_name=prod.name,
+            quantity=Decimal("5.00"),
+            movement_type="INWARD_GRN",
+            reference_doc_type="GOODS_RECEIPT",
+            reference_doc_id=f"GRN-DATE-{s}",
+            created_at=datetime(2026, 3, 5, tzinfo=timezone.utc),
+        ),
+        StockMovement(
+            id=f"sm_date_out_{s}",
+            company_id=comp.id,
+            branch_id=br.id,
+            warehouse_id=wh.id,
+            product_id=prod.id,
+            sku=prod.sku,
+            product_name=prod.name,
+            quantity=Decimal("7.00"),
+            movement_type="OUTWARD_SHRINKAGE",
+            reference_doc_type="STOCK_TAKE",
+            reference_doc_id=f"COUNT-DATE-{s}",
+            created_at=datetime(2026, 3, 20, tzinfo=timezone.utc),
+        ),
+    ])
+    await db_session.commit()
+
+    result = await list_stock_ledger(
+        skip=0,
+        limit=20,
+        from_date=date(2026, 3, 1),
+        to_date=date(2026, 3, 31),
+        movement_type="INWARD_GRN",
+        warehouse_id=None,
+        warehouse=None,
+        search=None,
+        q=None,
+        product_id=prod.id,
+        sku=None,
+        reference_doc_id=None,
+        reference_doc_no=None,
+        db=db_session,
+        tenant_ctx=TenantContext(company_id=comp.id, branch_id=br.id),
+    )
+
+    receipt = next(item for item in result["items"] if item.movement_type == "INWARD_GRN")
+    assert receipt.opening_qty == 10
+    assert receipt.closing_qty == 15
+    assert result["totals"]["total_in_qty"] == 5
+
+    out_result = await list_stock_ledger(
+        skip=0,
+        limit=20,
+        from_date=date(2026, 3, 1),
+        to_date=date(2026, 3, 31),
+        movement_type="OUTWARD_SHRINKAGE",
+        start_date=None,
+        end_date=None,
+        warehouse_id=None,
+        warehouse=None,
+        search=None,
+        q=None,
+        product_id=prod.id,
+        sku=None,
+        reference_doc_id=None,
+        reference_doc_no=None,
+        db=db_session,
+        tenant_ctx=TenantContext(company_id=comp.id, branch_id=br.id),
+    )
+    shrinkage = out_result["items"][0]
+    assert shrinkage.opening_qty == 15
+    assert shrinkage.closing_qty == 8
+    assert out_result["totals"]["total_out_qty"] == 7
+
+
+def test_inventory_static_get_routes_precede_product_id_fallback():
+    routes = list(inventory_router.routes)
+    product_route_index = next(
+        index
+        for index, route in enumerate(routes)
+        if route.path == "/{product_id}" and "GET" in route.methods
+    )
+    for static_path in ("/reconciliation", "/reconciliation/correction-proposal", "/images/{filename}"):
+        static_route_index = next(
+            index
+            for index, route in enumerate(routes)
+            if route.path == static_path and "GET" in route.methods
+        )
+        assert static_route_index < product_route_index
 
 
 # ==============================================================================

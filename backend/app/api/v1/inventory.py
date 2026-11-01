@@ -13,7 +13,7 @@ License      : Proprietary Commercial Software
 
 import os
 from decimal import Decimal
-from datetime import datetime, date, timedelta, timezone
+from datetime import date
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Body
@@ -34,6 +34,7 @@ from ...services.stock_movement_types import (
 )
 from ...services.stock_synchronizer import StockSynchronizer
 from ...services.stock_ledger import StockLedger, MovementRequest
+from ...services.stock_ledger_query import get_movement_business_date_expr
 from ...services.identity.engine import IdentityEngine
 from ...repositories.product import ProductRepository
 from ...schemas.pagination import PaginatedResponse
@@ -146,6 +147,9 @@ async def list_stock_ledger(
     """List stock ledger movements. Exact tenant and branch scoped with date, type, and search filters."""
     eff_from_date = from_date or start_date
     eff_to_date = to_date or end_date
+    if eff_from_date and eff_to_date and eff_from_date > eff_to_date:
+        raise HTTPException(status_code=422, detail="from_date must be on or before to_date.")
+    movement_business_date = get_movement_business_date_expr()
 
     stmt = (
         select(
@@ -177,10 +181,9 @@ async def list_stock_ledger(
     )
 
     if eff_from_date:
-        stmt = stmt.where(StockMovement.created_at >= eff_from_date)
+        stmt = stmt.where(movement_business_date >= eff_from_date)
     if eff_to_date:
-        next_day = date(eff_to_date.year, eff_to_date.month, eff_to_date.day) + timedelta(days=1)
-        stmt = stmt.where(StockMovement.created_at < next_day)
+        stmt = stmt.where(movement_business_date <= eff_to_date)
 
     if movement_type and movement_type.upper() != "ALL":
         stmt = stmt.where(StockMovement.movement_type == movement_type.upper())
@@ -242,9 +245,9 @@ async def list_stock_ledger(
         raw_qty = movement.quantity if movement.quantity is not None else Decimal("0.00")
         qty_abs = abs(raw_qty)
         m_type = (movement.movement_type or "").upper()
-        if m_type in ("OUTWARD_SALE", "SALE", "ADJUSTMENT_OUT", "TRANSFER_OUT", "DAMAGE", "WRITE_OFF", "OUT"):
+        if m_type in OUTFLOW_MOVEMENT_TYPES:
             is_inward = False
-        elif m_type in ("IN", "RETURN", "RETURN_INWARD", "INWARD_GRN", "ADJUSTMENT_IN", "TRANSFER_IN", "PURCHASE"):
+        elif m_type in INFLOW_MOVEMENT_TYPES:
             is_inward = True
         else:
             is_inward = raw_qty > 0
@@ -261,11 +264,45 @@ async def list_stock_ledger(
             row.prod_buying_price if row.prod_buying_price is not None else (row.prod_price or Decimal("0.00"))
         )
 
-    for row in all_rows:
-        mv = row[0]
+    has_balance_filters = any((
+        eff_from_date,
+        eff_to_date,
+        movement_type and movement_type.upper() != "ALL",
+        product_id,
+        sku,
+        target_wh,
+        target_ref,
+        search_term,
+    ))
+    balance_movements = [row[0] for row in all_rows]
+    if has_balance_filters and all_rows:
+        selected_product_ids = {row[0].product_id for row in all_rows}
+        balance_stmt = select(StockMovement).where(
+            StockMovement.company_id == tenant_ctx.company_id,
+            StockMovement.branch_id == tenant_ctx.branch_id,
+            StockMovement.is_deleted.is_(False),
+            StockMovement.product_id.in_(selected_product_ids),
+        )
+        if eff_to_date:
+            balance_stmt = balance_stmt.where(movement_business_date <= eff_to_date)
+        if product_id:
+            balance_stmt = balance_stmt.where(StockMovement.product_id == product_id)
+        if sku:
+            balance_stmt = balance_stmt.where(StockMovement.sku == sku)
+        if target_wh:
+            balance_stmt = balance_stmt.where(
+                or_(
+                    StockMovement.warehouse_id == target_wh,
+                    StockMovement.warehouse == target_wh,
+                )
+            )
+        balance_movements = (await db.execute(
+            balance_stmt.order_by(StockMovement.created_at.asc(), StockMovement.id.asc())
+        )).scalars().all()
+
+    for mv in balance_movements:
         sku_key = mv.sku or mv.product_id
         raw_qty, in_qty, out_qty = split_quantity(mv)
-        cost_val = movement_cost(row)
         opening_qty = running_by_sku.get(sku_key, Decimal("0.00"))
         closing_qty = opening_qty + in_qty - out_qty
         running_by_sku[sku_key] = closing_qty
@@ -274,16 +311,22 @@ async def list_stock_ledger(
             "out_qty": out_qty,
             "opening_qty": opening_qty,
             "closing_qty": closing_qty,
-            "in_value": in_qty * cost_val,
-            "out_value": out_qty * cost_val,
-            "closing_value": closing_qty * cost_val,
         }
 
+    for row in all_rows:
+        mv = row[0]
+        cost_val = movement_cost(row)
+        ledger_value = ledger_values[mv.id]
+        ledger_value["in_value"] = ledger_value["in_qty"] * cost_val
+        ledger_value["out_value"] = ledger_value["out_qty"] * cost_val
+        ledger_value["closing_value"] = ledger_value["closing_qty"] * cost_val
+
+    displayed_ledger_values = [ledger_values[row[0].id] for row in all_rows]
     totals = {
-        "total_in_qty": sum((v["in_qty"] for v in ledger_values.values()), Decimal("0.00")),
-        "total_out_qty": sum((v["out_qty"] for v in ledger_values.values()), Decimal("0.00")),
-        "total_in_value": sum((v["in_value"] for v in ledger_values.values()), Decimal("0.00")),
-        "total_out_value": sum((v["out_value"] for v in ledger_values.values()), Decimal("0.00")),
+        "total_in_qty": sum((v["in_qty"] for v in displayed_ledger_values), Decimal("0.00")),
+        "total_out_qty": sum((v["out_qty"] for v in displayed_ledger_values), Decimal("0.00")),
+        "total_in_value": sum((v["in_value"] for v in displayed_ledger_values), Decimal("0.00")),
+        "total_out_value": sum((v["out_value"] for v in displayed_ledger_values), Decimal("0.00")),
         "total_movement_value": sum(
             (
                 abs(row[0].quantity or Decimal("0.00")) * movement_cost(row)
@@ -446,6 +489,7 @@ async def create_stock_movement(
         branch_id=movement_in.branch_id or product.branch_id,
         warehouse_id=wh_id,
         batch_no=movement_in.batch,
+        bin_no=movement_in.bin,
         remarks=movement_in.remarks,
         user=movement_in.user,
         source_module=movement_in.source_module or "Inventory",
@@ -455,19 +499,6 @@ async def create_stock_movement(
     await db.commit()
     return result.movement
 
-
-
-@router.get("/{product_id}", response_model=ProductResponse)
-async def get_product(
-    product_id: str,
-    db: AsyncSession = Depends(get_company_db),
-    tenant_ctx: TenantContext = Depends(get_tenant_context),
-):
-    repo = ProductRepository(db, tenant_ctx)
-    product = await repo.get(product_id)
-    if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
-    return product
 
 
 @router.put(
@@ -765,7 +796,7 @@ async def get_product_image(filename: str):
 @router.get(
     "/reconciliation",
     summary="Run Read-Only Stock Movement Reconciliation Audit",
-    description="Audits all inventory transactions against physical stock invariants across 9 discrepancy taxonomies."
+    description="Audits inventory transactions against physical stock invariants across 10 discrepancy taxonomies."
 )
 async def get_stock_reconciliation_audit(
     branch_id: Optional[str] = Query(None, description="Optional branch filter"),
@@ -787,6 +818,8 @@ async def get_stock_reconciliation_audit(
     Identifies drifts against actual ledger and cached values.
     """
     from ...services.stock_reconciliation_engine import StockReconciliationEngine
+    if start_date and end_date and start_date > end_date:
+        raise HTTPException(status_code=422, detail="start_date must be on or before end_date.")
     return await StockReconciliationEngine.run_reconciliation_audit(
         session=db,
         company_id=tenant_ctx.company_id,
@@ -822,6 +855,8 @@ async def get_historical_correction_proposal(
     Strictly read-only; requires explicit administrator authorization to execute.
     """
     from ...services.stock_reconciliation_engine import StockReconciliationEngine
+    if start_date and end_date and start_date > end_date:
+        raise HTTPException(status_code=422, detail="start_date must be on or before end_date.")
     audit_report = await StockReconciliationEngine.run_reconciliation_audit(
         session=db,
         company_id=tenant_ctx.company_id,
@@ -840,3 +875,14 @@ async def get_historical_correction_proposal(
     )
 
 
+@router.get("/{product_id}", response_model=ProductResponse)
+async def get_product(
+    product_id: str,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    repo = ProductRepository(db, tenant_ctx)
+    product = await repo.get(product_id)
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    return product

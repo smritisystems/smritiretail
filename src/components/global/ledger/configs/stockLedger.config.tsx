@@ -61,6 +61,18 @@ export const stockLedgerConfig: LedgerConfig<any> = {
         { label: "Adjustment Out (ADJUSTMENT_OUT)", value: "ADJUSTMENT_OUT" },
         { label: "Transfer In (TRANSFER_IN)", value: "TRANSFER_IN" },
         { label: "Transfer Out (TRANSFER_OUT)", value: "TRANSFER_OUT" },
+        { label: "POS Sale (POS_SALE)", value: "POS_SALE" },
+        { label: "E-commerce Outward (OUTWARD_ECOM)", value: "OUTWARD_ECOM" },
+        { label: "Dispatch Outward (OUTWARD_DISPATCH)", value: "OUTWARD_DISPATCH" },
+        { label: "Dispatch (DISPATCH)", value: "DISPATCH" },
+        { label: "Purchase Return (PURCHASE_RETURN)", value: "PURCHASE_RETURN" },
+        { label: "Return Outward (RETURN_OUTWARD)", value: "RETURN_OUTWARD" },
+        { label: "Damage (DAMAGE)", value: "DAMAGE" },
+        { label: "Write-off (WRITE_OFF)", value: "WRITE_OFF" },
+        { label: "Stock Loss (OUTWARD_LOSS)", value: "OUTWARD_LOSS" },
+        { label: "Stock Shrinkage (OUTWARD_SHRINKAGE)", value: "OUTWARD_SHRINKAGE" },
+        { label: "Outward (OUTWARD)", value: "OUTWARD" },
+        { label: "Out (OUT)", value: "OUT" },
       ],
     },
   ],
@@ -124,11 +136,21 @@ export const stockLedgerConfig: LedgerConfig<any> = {
         ? false
         : qty > 0;
 
-      const inQ = isIn ? Math.abs(qty) : 0;
-      const outQ = !isIn ? Math.abs(qty) : 0;
+      const fallbackIn = isIn ? Math.abs(qty) : 0;
+      const fallbackOut = !isIn ? Math.abs(qty) : 0;
+      const inQ = item.in_qty !== undefined && item.in_qty !== null
+        ? parseFloat(item.in_qty)
+        : fallbackIn;
+      const outQ = item.out_qty !== undefined && item.out_qty !== null
+        ? parseFloat(item.out_qty)
+        : fallbackOut;
 
-      const opening = curBal;
-      const closing = opening + inQ - outQ;
+      const opening = item.opening_qty !== undefined && item.opening_qty !== null
+        ? parseFloat(item.opening_qty)
+        : curBal;
+      const closing = item.closing_qty !== undefined && item.closing_qty !== null
+        ? parseFloat(item.closing_qty)
+        : opening + inQ - outQ;
       skuRunningMap[skuKey] = closing;
 
       enrichedMap.set(item.id, {
@@ -515,4 +537,3 @@ export const stockLedgerConfig: LedgerConfig<any> = {
     },
   ],
 };
-

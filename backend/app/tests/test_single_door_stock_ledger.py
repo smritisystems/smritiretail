@@ -274,6 +274,129 @@ async def test_single_door_post_many_cumulative_negative_stock(db_session):
     assert "INSUFFICIENT_STOCK" in exc_info.value.detail
 
 
+async def test_single_door_outflow_rejects_missing_batch_balance(db_session):
+    s = uuid.uuid4().hex[:6]
+    comp, branch, wh, p1, _ = await _setup_single_door_env(db_session, s)
+    await StockLedger.post(
+        db_session,
+        MovementRequest(
+            company_id=comp.id,
+            product_id=p1.id,
+            movement_type="INWARD_GRN",
+            quantity=Decimal("10.00"),
+            reference_doc_type="GRN",
+            reference_doc_id=f"GRN-NO-BATCH-{s}",
+            warehouse_id=wh.id,
+        ),
+    )
+    await db_session.commit()
+
+    with pytest.raises(HTTPException) as exc_info:
+        await StockLedger.post(
+            db_session,
+            MovementRequest(
+                company_id=comp.id,
+                product_id=p1.id,
+                movement_type="OUTWARD_SALE",
+                quantity=Decimal("1.00"),
+                reference_doc_type="SALE",
+                reference_doc_id=f"SALE-NO-BATCH-{s}",
+                warehouse_id=wh.id,
+                batch_no=f"MISSING-{s}",
+            ),
+        )
+
+    assert exc_info.value.status_code == 400
+    assert "INSUFFICIENT_BATCH_STOCK" in exc_info.value.detail
+
+
+async def test_single_door_batch_availability_excludes_reserved_and_damaged_units(db_session):
+    s = uuid.uuid4().hex[:6]
+    comp, branch, wh, p1, _ = await _setup_single_door_env(db_session, s)
+    batch_no = f"BATCH-RESERVED-{s}"
+    await StockLedger.post(
+        db_session,
+        MovementRequest(
+            company_id=comp.id,
+            product_id=p1.id,
+            movement_type="INWARD_GRN",
+            quantity=Decimal("10.00"),
+            reference_doc_type="GRN",
+            reference_doc_id=f"GRN-RESERVED-{s}",
+            warehouse_id=wh.id,
+            batch_no=batch_no,
+        ),
+    )
+    await db_session.commit()
+    batch = (
+        await db_session.execute(
+            select(ProductBatchStock).where(
+                ProductBatchStock.company_id == comp.id,
+                ProductBatchStock.product_id == p1.id,
+                ProductBatchStock.batch_no == batch_no,
+            )
+        )
+    ).scalar_one()
+    batch.reserved_quantity = Decimal("2.00")
+    batch.damaged_quantity = Decimal("1.00")
+    await db_session.commit()
+
+    with pytest.raises(HTTPException) as exc_info:
+        await StockLedger.post(
+            db_session,
+            MovementRequest(
+                company_id=comp.id,
+                product_id=p1.id,
+                movement_type="OUTWARD_SALE",
+                quantity=Decimal("8.00"),
+                reference_doc_type="SALE",
+                reference_doc_id=f"SALE-RESERVED-{s}",
+                warehouse_id=wh.id,
+                batch_no=batch_no,
+            ),
+        )
+
+    assert exc_info.value.status_code == 400
+    assert "Available: 7.00" in exc_info.value.detail
+
+
+async def test_single_door_outflow_rejects_insufficient_bin_balance(db_session):
+    s = uuid.uuid4().hex[:6]
+    comp, branch, wh, p1, _ = await _setup_single_door_env(db_session, s)
+    await StockLedger.post(
+        db_session,
+        MovementRequest(
+            company_id=comp.id,
+            product_id=p1.id,
+            movement_type="INWARD_GRN",
+            quantity=Decimal("10.00"),
+            reference_doc_type="GRN",
+            reference_doc_id=f"GRN-BIN-{s}",
+            warehouse_id=wh.id,
+            bin_no="BIN-A",
+        ),
+    )
+    await db_session.commit()
+
+    with pytest.raises(HTTPException) as exc_info:
+        await StockLedger.post(
+            db_session,
+            MovementRequest(
+                company_id=comp.id,
+                product_id=p1.id,
+                movement_type="TRANSFER_OUT",
+                quantity=Decimal("1.00"),
+                reference_doc_type="WMS_TRANSFER",
+                reference_doc_id=f"TRANSFER-BIN-{s}",
+                warehouse_id=wh.id,
+                bin_no="BIN-B",
+            ),
+        )
+
+    assert exc_info.value.status_code == 400
+    assert "INSUFFICIENT_BIN_STOCK" in exc_info.value.detail
+
+
 async def test_single_door_same_product_twice_in_one_call(db_session):
     """
     Section C.2 & C.7: The same product appearing multiple times in one post_many call
@@ -597,4 +720,3 @@ async def test_single_door_concurrent_post_many_deadlock_free(db_engine, db_sess
     # P2: 100 - 5 - 10 = 85
     assert fresh_p1.stock == 85
     assert fresh_p2.stock == 85
-

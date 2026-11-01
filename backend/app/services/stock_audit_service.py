@@ -446,7 +446,6 @@ class StockAuditService:
                     line_ref=str(item.id),
                     warehouse_id=audit.warehouse_id,
                     batch_no=item.batch_no,
-                    allow_negative_stock=True,
                     internal_cost=InternalCost(
                         unit_cost=Decimal(str(item.unit_cost or 0)),
                         cost_source="STOCK_AUDIT_DISCREPANCY",
@@ -471,7 +470,6 @@ class StockAuditService:
                     line_ref=str(item.id),
                     warehouse_id=audit.warehouse_id,
                     batch_no=item.batch_no,
-                    allow_negative_stock=True,
                     internal_cost=InternalCost(
                         unit_cost=Decimal(str(item.unit_cost or 0)),
                         cost_source="STOCK_AUDIT_DISCREPANCY",
@@ -494,4 +492,3 @@ class StockAuditService:
         await self.db.commit()
 
         return await self.get_stock_audit(audit_id)
-

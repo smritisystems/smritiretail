@@ -432,7 +432,6 @@ class DistributionService:
                 warehouse_id=getattr(order, "warehouse_id", None),
                 reference_doc_type="DISTRIBUTION_ORDER",
                 user_id="DISTRIBUTION_SERVICE",
-                allow_negative_stock=True,
             )
 
             guard.complete(

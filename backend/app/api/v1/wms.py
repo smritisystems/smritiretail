@@ -963,7 +963,7 @@ async def confirm_manifest_dispatch(
     tenant_ctx: TenantContext = Depends(get_tenant_context),
     guard: Any = Depends(require_permission("stock_ledger", "EDIT")),
 ):
-    """Authorizes truck departure, generates Gate Pass, and posts atomic DISPATCH_OUT ledger entries."""
+    """Authorizes carton dispatch and generates a gate pass; sales posts merchandise stock out."""
     wms_service = InventoryWmsService(db, tenant_ctx)
     res = await wms_service.confirm_manifest_dispatch(
         warehouse_id=warehouse_id,
@@ -1881,4 +1881,3 @@ async def reconcile_stock_audit(
     service = StockAuditService(db, tenant_ctx)
     audit = await service.reconcile_and_post_discrepancies(audit_id=audit_id)
     return StockAuditResponse.model_validate(audit)
-

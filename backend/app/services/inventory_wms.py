@@ -32,12 +32,132 @@ from ..models.inventory import (
 )
 from ..models.item_master import ItemWarehouseLocation
 from .identity.engine import IdentityEngine
+from .stock_ledger import MovementRequest, StockLedger
+from .stock_ledger_query import get_signed_movement_quantity_expr
 
 
 class InventoryWmsService:
     def __init__(self, db: AsyncSession, tenant_ctx: TenantContext):
         self.db = db
         self.tenant_ctx = tenant_ctx
+
+    async def _post_bin_transfer(
+        self,
+        *,
+        warehouse_id: str,
+        product_id: str,
+        item_id: Optional[str],
+        sku: str,
+        source_bin: str,
+        destination_bin: str,
+        quantity: Decimal,
+        reference_doc_type: str,
+        reference_doc_id: str,
+        batch_no: Optional[str] = None,
+        line_ref_prefix: Optional[str] = None,
+        remarks: Optional[str] = None,
+        user: Optional[str] = None,
+        source_module: str = "WMS",
+    ) -> None:
+        if not source_bin or not destination_bin:
+            raise HTTPException(status_code=400, detail="Source and destination bins are required for a stock transfer.")
+        product = (
+            await self.db.execute(
+                select(Product).where(
+                    Product.id == product_id,
+                    Product.company_id == self.tenant_ctx.company_id,
+                    Product.is_deleted.is_(False),
+                )
+            )
+        ).scalar_one_or_none()
+        if not product and sku:
+            products = (
+                await self.db.execute(
+                    select(Product).where(
+                        Product.company_id == self.tenant_ctx.company_id,
+                        Product.is_deleted.is_(False),
+                        (Product.sku == sku) | (Product.code == sku),
+                    ).limit(2)
+                )
+            ).scalars().all()
+            if len(products) > 1:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Stock product SKU '{sku}' is ambiguous for this WMS transfer.",
+                )
+            product = products[0] if products else None
+        if not product and item_id:
+            products = (
+                await self.db.execute(
+                    select(Product).where(
+                        Product.company_id == self.tenant_ctx.company_id,
+                        Product.is_deleted.is_(False),
+                        Product.item_variant_id == item_id,
+                    ).limit(2)
+                )
+            ).scalars().all()
+            if len(products) > 1:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Item variant '{item_id}' resolves to multiple stock products; provide a variant SKU.",
+                )
+            product = products[0] if products else None
+        if not product and item_id:
+            products = (
+                await self.db.execute(
+                    select(Product).where(
+                        Product.company_id == self.tenant_ctx.company_id,
+                        Product.is_deleted.is_(False),
+                        Product.item_id == item_id,
+                    ).limit(2)
+                )
+            ).scalars().all()
+            if len(products) > 1:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Item '{item_id}' resolves to multiple stock products; provide a variant SKU.",
+                )
+            product = products[0] if products else None
+        if not product:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Stock product '{product_id}' could not be resolved for WMS transfer.",
+            )
+
+        quantity = abs(Decimal(str(quantity)))
+        common = {
+            "company_id": self.tenant_ctx.company_id,
+            "branch_id": getattr(self.tenant_ctx, "branch_id", None) or product.branch_id,
+            "product_id": product.id,
+            "reference_doc_type": reference_doc_type,
+            "reference_doc_id": reference_doc_id,
+            "warehouse_id": warehouse_id,
+            "batch_no": batch_no,
+            "source_module": source_module,
+            "user": user or getattr(self.tenant_ctx, "user_id", None) or "SYSTEM",
+        }
+        line_ref = line_ref_prefix or f"{reference_doc_id}-{source_bin}-{destination_bin}"
+        await StockLedger.post_many(
+            self.db,
+            [
+                MovementRequest(
+                    **common,
+                    movement_type="TRANSFER_OUT",
+                    quantity=quantity,
+                    bin_no=source_bin,
+                    line_ref=f"{line_ref}-OUT",
+                    remarks=f"Transfer OUT from {source_bin} to {destination_bin}. {remarks or ''}".strip(),
+                ),
+                MovementRequest(
+                    **common,
+                    movement_type="TRANSFER_IN",
+                    quantity=quantity,
+                    bin_no=destination_bin,
+                    line_ref=f"{line_ref}-IN",
+                    remarks=f"Transfer IN to {destination_bin} from {source_bin}. {remarks or ''}".strip(),
+                ),
+            ],
+        )
 
     async def allocate_stock_fefo(
         self,
@@ -280,7 +400,6 @@ class InventoryWmsService:
             reference_doc_id=reference_doc_id,
             warehouse_id=warehouse_id,
             batch_no=batch_no,
-            allow_negative_stock=True,
             internal_cost=InternalCost(
                 unit_cost=Decimal(str(unit_cost or purchase_rate or 0)),
                 cost_source="WMS_CALLER",
@@ -661,7 +780,7 @@ class InventoryWmsService:
         q_occ = (
             select(
                 StockMovement.bin,
-                func.coalesce(func.sum(StockMovement.quantity), 0).label("total_qty"),
+                func.coalesce(func.sum(get_signed_movement_quantity_expr()), 0).label("total_qty"),
             )
             .where(
                 StockMovement.warehouse_id == warehouse_id,
@@ -679,7 +798,7 @@ class InventoryWmsService:
         q_occ_id = (
             select(
                 StockMovement.location_id,
-                func.coalesce(func.sum(StockMovement.quantity), 0).label("total_qty"),
+                func.coalesce(func.sum(get_signed_movement_quantity_expr()), 0).label("total_qty"),
             )
             .where(
                 StockMovement.warehouse_id == warehouse_id,
@@ -819,7 +938,8 @@ class InventoryWmsService:
                 if sku:
                     filters.append(StockMovement.sku == sku)
                 from sqlalchemy import or_
-                co_q = co_q.where(or_(*filters)).group_by(StockMovement.bin).having(func.sum(StockMovement.quantity) > 0)
+                signed_qty = get_signed_movement_quantity_expr()
+                co_q = co_q.where(or_(*filters)).group_by(StockMovement.bin).having(func.sum(signed_qty) > 0)
 
                 res_co = await self.db.execute(co_q)
                 co_bin_codes = set(r[0] for r in res_co.all() if r[0])
@@ -985,7 +1105,7 @@ class InventoryWmsService:
                 StockMovement.product_id,
                 StockMovement.item_id,
                 StockMovement.sku,
-                func.sum(StockMovement.quantity).label("total_qty")
+                func.sum(get_signed_movement_quantity_expr()).label("total_qty")
             )
             .where(
                 StockMovement.warehouse_id == warehouse_id,
@@ -999,7 +1119,7 @@ class InventoryWmsService:
                 StockMovement.item_id,
                 StockMovement.sku
             )
-            .having(func.sum(StockMovement.quantity) > 0)
+            .having(func.sum(get_signed_movement_quantity_expr()) > 0)
         )
         res_sm = await self.db.execute(sm_q)
         sm_rows = res_sm.all()
@@ -1145,7 +1265,7 @@ class InventoryWmsService:
         executed: List[Dict[str, Any]] = []
         total_units = Decimal("0.00")
 
-        for t in tasks:
+        for task_index, t in enumerate(tasks):
             def _field(name: str, fallback: Any = None) -> Any:
                 if isinstance(t, dict):
                     return t.get(name, fallback)
@@ -1169,47 +1289,22 @@ class InventoryWmsService:
 
             user_val = getattr(self.tenant_ctx, "user_id", None) or "SYSTEM"
 
-            # 1. OUTWARD movement from source bulk bin
-            sm_out = StockMovement(
-                company_id=self.tenant_ctx.company_id,
-                branch_id=getattr(self.tenant_ctx, "branch_id", None),
+            await self._post_bin_transfer(
                 warehouse_id=warehouse_id,
                 product_id=product_id,
                 item_id=item_id,
                 sku=sku,
-                product_name=product_name,
-                quantity=-qty,
-                movement_type="TRANSFER_OUT",
-                reference_doc_type="WMS_REPLENISHMENT",
-                reference_doc_id=run_id,
-                bin=src_bin,
-                batch=batch_no,
-                cost_source="WMS_INTERNAL_TRANSFER",
-                remarks=f"Replenishment transfer OUT to picking bin {dst_bin}. {notes or ''}".strip(),
-                user=str(user_val),
-            )
-            self.db.add(sm_out)
-
-            # 2. INWARD movement into target picking bin
-            sm_in = StockMovement(
-                company_id=self.tenant_ctx.company_id,
-                branch_id=getattr(self.tenant_ctx, "branch_id", None),
-                warehouse_id=warehouse_id,
-                product_id=product_id,
-                item_id=item_id,
-                sku=sku,
-                product_name=product_name,
+                source_bin=src_bin,
+                destination_bin=dst_bin,
                 quantity=qty,
-                movement_type="TRANSFER_IN",
                 reference_doc_type="WMS_REPLENISHMENT",
                 reference_doc_id=run_id,
-                bin=dst_bin,
-                batch=batch_no,
-                cost_source="WMS_INTERNAL_TRANSFER",
-                remarks=f"Replenishment transfer IN from bulk bin {src_bin}. {notes or ''}".strip(),
+                batch_no=batch_no,
+                line_ref_prefix=f"TASK-{task_index}",
+                remarks=notes,
                 user=str(user_val),
+                source_module="WMS_INTERNAL_TRANSFER",
             )
-            self.db.add(sm_in)
 
             total_units += qty
             executed.append({
@@ -1262,7 +1357,7 @@ class InventoryWmsService:
 
         # Query stock by bin and item
         sm_res = await self.db.execute(
-            select(StockMovement.bin, StockMovement.item_id, func.sum(StockMovement.quantity))
+            select(StockMovement.bin, StockMovement.item_id, func.sum(get_signed_movement_quantity_expr()))
             .where(
                 StockMovement.warehouse_id == warehouse_id,
                 StockMovement.company_id == self.tenant_ctx.company_id,
@@ -1462,7 +1557,7 @@ class InventoryWmsService:
                 assigned_bin = res_iwl.scalars().first()
 
                 # Sum stock for this item in this warehouse
-                sm_q = select(func.sum(StockMovement.quantity)).where(
+                sm_q = select(func.sum(get_signed_movement_quantity_expr())).where(
                     StockMovement.warehouse_id == warehouse_id,
                     StockMovement.company_id == self.tenant_ctx.company_id,
                     (StockMovement.item_id == item.id) | (StockMovement.sku == item.item_code),
@@ -1500,7 +1595,7 @@ class InventoryWmsService:
             res_prod = await self.db.execute(prod_q)
             prod = res_prod.scalars().first()
             if prod:
-                sm_q = select(func.sum(StockMovement.quantity)).where(
+                sm_q = select(func.sum(get_signed_movement_quantity_expr())).where(
                     StockMovement.warehouse_id == warehouse_id,
                     StockMovement.company_id == self.tenant_ctx.company_id,
                     (StockMovement.product_id == prod.id) | (StockMovement.sku == prod.sku),
@@ -1571,7 +1666,7 @@ class InventoryWmsService:
                 StockMovement.sku,
                 StockMovement.product_name,
                 StockMovement.batch,
-                func.sum(StockMovement.quantity).label("total_qty")
+                func.sum(get_signed_movement_quantity_expr()).label("total_qty")
             )
             .where(
                 StockMovement.warehouse_id == warehouse_id,
@@ -1692,10 +1787,11 @@ class InventoryWmsService:
         sku = item.item_code if item else item_id
 
         # Verify source stock
-        src_stock_q = select(func.sum(StockMovement.quantity)).where(
+        src_stock_q = select(func.coalesce(func.sum(get_signed_movement_quantity_expr()), 0)).where(
             StockMovement.warehouse_id == warehouse_id,
             StockMovement.company_id == self.tenant_ctx.company_id,
             StockMovement.bin == loc_from.code,
+            StockMovement.is_deleted.is_(False),
             (StockMovement.item_id == item_id) | (StockMovement.product_id == item_id) | (StockMovement.sku == sku),
         )
         src_stock = await self.db.scalar(src_stock_q) or 0.0
@@ -1708,57 +1804,32 @@ class InventoryWmsService:
         run_id = f"RF-MOV-{uuid.uuid4().hex[:8].upper()}"
         user_val = getattr(self.tenant_ctx, "user_id", None) or "RF_GUN"
 
-        # 1. OUTWARD movement from source bin
-        sm_out = StockMovement(
-            company_id=self.tenant_ctx.company_id,
-            branch_id=getattr(self.tenant_ctx, "branch_id", None),
+        await self._post_bin_transfer(
             warehouse_id=warehouse_id,
             product_id=item_id,
             item_id=item_id,
             sku=sku,
-            product_name=product_name,
-            quantity=-quantity,
-            movement_type="TRANSFER_OUT",
-            reference_doc_type="WMS_RF_TRANSFER",
-            reference_doc_id=run_id,
-            bin=loc_from.code,
-            batch=batch_no,
-            cost_source="WMS_RF_RELOCATE",
-            remarks=f"RF Quick Transfer OUT to {loc_to.code}. {notes or ''}".strip(),
-            user=str(user_val),
-        )
-        self.db.add(sm_out)
-
-        # 2. INWARD movement to target bin
-        sm_in = StockMovement(
-            company_id=self.tenant_ctx.company_id,
-            branch_id=getattr(self.tenant_ctx, "branch_id", None),
-            warehouse_id=warehouse_id,
-            product_id=item_id,
-            item_id=item_id,
-            sku=sku,
-            product_name=product_name,
+            source_bin=loc_from.code,
+            destination_bin=loc_to.code,
             quantity=quantity,
-            movement_type="TRANSFER_IN",
             reference_doc_type="WMS_RF_TRANSFER",
             reference_doc_id=run_id,
-            bin=loc_to.code,
-            batch=batch_no,
-            cost_source="WMS_RF_RELOCATE",
-            remarks=f"RF Quick Transfer IN from {loc_from.code}. {notes or ''}".strip(),
+            batch_no=batch_no,
+            remarks=notes,
             user=str(user_val),
+            source_module="WMS_RF_RELOCATE",
         )
-        self.db.add(sm_in)
 
         await self.db.flush()
 
         remaining_source = float(src_stock) - float(quantity)
 
         # Query new target stock
-        tgt_stock_q = select(func.sum(StockMovement.quantity)).where(
+        tgt_stock_q = select(func.coalesce(func.sum(get_signed_movement_quantity_expr()), 0)).where(
             StockMovement.warehouse_id == warehouse_id,
             StockMovement.company_id == self.tenant_ctx.company_id,
             StockMovement.bin == loc_to.code,
+            StockMovement.is_deleted.is_(False),
             (StockMovement.item_id == item_id) | (StockMovement.product_id == item_id) | (StockMovement.sku == sku),
         )
         tgt_stock = await self.db.scalar(tgt_stock_q) or float(quantity)
@@ -1855,10 +1926,11 @@ class InventoryWmsService:
         sku = item.item_code if item else item_code
 
         # 4. Check available stock in source bin
-        src_stock_q = select(func.sum(StockMovement.quantity)).where(
+        src_stock_q = select(func.coalesce(func.sum(get_signed_movement_quantity_expr()), 0)).where(
             StockMovement.warehouse_id == warehouse_id,
             StockMovement.company_id == self.tenant_ctx.company_id,
             StockMovement.bin == src_loc.code,
+            StockMovement.is_deleted.is_(False),
             (StockMovement.item_id == item_id) | (StockMovement.product_id == item_id) | (StockMovement.sku == sku),
         )
         src_stock = await self.db.scalar(src_stock_q) or 0.0
@@ -1871,45 +1943,20 @@ class InventoryWmsService:
         run_id = f"RF-REP-{uuid.uuid4().hex[:8].upper()}"
         user_val = getattr(self.tenant_ctx, "user_id", None) or "RF_GUN"
 
-        # Outgoing StockMovement
-        sm_out = StockMovement(
-            company_id=self.tenant_ctx.company_id,
-            branch_id=getattr(self.tenant_ctx, "branch_id", None),
+        await self._post_bin_transfer(
             warehouse_id=warehouse_id,
             product_id=item_id,
             item_id=item_id,
             sku=sku,
-            product_name=product_name,
-            quantity=-quantity,
-            movement_type="TRANSFER_OUT",
-            reference_doc_type="WMS_REPLENISHMENT",
-            reference_doc_id=run_id,
-            bin=src_loc.code,
-            cost_source="WMS_RF_REPLENISHMENT",
-            remarks=f"RF Replenishment verified OUT to picking bin {dst_loc.code}. {notes or ''}".strip(),
-            user=str(user_val),
-        )
-        self.db.add(sm_out)
-
-        # Incoming StockMovement
-        sm_in = StockMovement(
-            company_id=self.tenant_ctx.company_id,
-            branch_id=getattr(self.tenant_ctx, "branch_id", None),
-            warehouse_id=warehouse_id,
-            product_id=item_id,
-            item_id=item_id,
-            sku=sku,
-            product_name=product_name,
+            source_bin=src_loc.code,
+            destination_bin=dst_loc.code,
             quantity=quantity,
-            movement_type="TRANSFER_IN",
             reference_doc_type="WMS_REPLENISHMENT",
             reference_doc_id=run_id,
-            bin=dst_loc.code,
-            cost_source="WMS_RF_REPLENISHMENT",
-            remarks=f"RF Replenishment verified IN from bulk bin {src_loc.code}. {notes or ''}".strip(),
+            remarks=notes,
             user=str(user_val),
+            source_module="WMS_RF_REPLENISHMENT",
         )
-        self.db.add(sm_in)
 
         await self.db.flush()
 
@@ -2315,7 +2362,7 @@ class InventoryWmsService:
 
         user_val = getattr(self.tenant_ctx, "user_id", None) or "wms_wave_system"
 
-        for task in wave.get("tasks", []):
+        for task_index, task in enumerate(wave.get("tasks", [])):
             qty = task.get("picked_qty", 0.0)
             if qty <= 0:
                 continue
@@ -2324,45 +2371,21 @@ class InventoryWmsService:
             total_units += qty
             transfers_count += 1
 
-            # 1. Outgoing from picking bin
-            sm_out = StockMovement(
-                company_id=self.tenant_ctx.company_id,
-                branch_id=getattr(self.tenant_ctx, "branch_id", None),
+            await self._post_bin_transfer(
                 warehouse_id=warehouse_id,
                 product_id=task.get("item_id"),
                 item_id=task.get("item_id"),
-                sku=task.get("sku") or task.get("item_code"),
-                product_name=task.get("product_name"),
-                quantity=-dec_qty,
-                movement_type="TRANSFER_OUT",
-                reference_doc_type="WMS_WAVE_PICK",
-                reference_doc_id=wave_id,
-                bin=task.get("bin_location"),
-                cost_source="WMS_WAVE_PICK",
-                remarks=f"Wave {wave_id} pick OUT to {final_bay}. {notes or ''}".strip(),
-                user=str(user_val),
-            )
-            self.db.add(sm_out)
-
-            # 2. Incoming to Staging Bay / Packing Station
-            sm_in = StockMovement(
-                company_id=self.tenant_ctx.company_id,
-                branch_id=getattr(self.tenant_ctx, "branch_id", None),
-                warehouse_id=warehouse_id,
-                product_id=task.get("item_id"),
-                item_id=task.get("item_id"),
-                sku=task.get("sku") or task.get("item_code"),
-                product_name=task.get("product_name"),
+                sku=task.get("sku") or task.get("item_code") or "",
+                source_bin=task.get("bin_location") or "",
+                destination_bin=final_bay,
                 quantity=dec_qty,
-                movement_type="TRANSFER_IN",
                 reference_doc_type="WMS_WAVE_PICK",
                 reference_doc_id=wave_id,
-                bin=final_bay,
-                cost_source="WMS_WAVE_PICK",
-                remarks=f"Wave {wave_id} pick IN at {final_bay} for {packing_station_id}. {notes or ''}".strip(),
+                line_ref_prefix=f"TASK-{task_index}-{task.get('item_id')}",
+                remarks=f"Wave {wave_id} pick. {notes or ''}".strip(),
                 user=str(user_val),
+                source_module="WMS_WAVE_PICK",
             )
-            self.db.add(sm_in)
 
         await self.db.flush()
 
@@ -2590,7 +2613,7 @@ class InventoryWmsService:
         is_blind = plan.get("is_blind", True) and not reveal_blind and plan.get("status") == "IN_PROGRESS"
 
         masked_items = []
-        for it in plan.get("items", []):
+        for item_index, it in enumerate(plan.get("items", [])):
             it_copy = dict(it)
             if is_blind:
                 it_copy["system_qty"] = None
@@ -2825,26 +2848,25 @@ class InventoryWmsService:
             adjustments_count += 1
 
             m_type = "INWARD_SURPLUS" if var_qty > 0 else "OUTWARD_LOSS"
-            actual_signed_qty = dec_qty if var_qty > 0 else -dec_qty
-
-            sm = StockMovement(
-                company_id=self.tenant_ctx.company_id,
-                branch_id=getattr(self.tenant_ctx, "branch_id", None),
-                warehouse_id=warehouse_id,
-                product_id=it.get("product_id") or it.get("item_id"),
-                item_id=it.get("item_id"),
-                sku=it.get("sku") or it.get("item_code"),
-                product_name=it.get("product_name"),
-                quantity=actual_signed_qty,
-                movement_type=m_type,
-                reference_doc_type="WMS_CYCLE_COUNT",
-                reference_doc_id=plan.get("plan_no") or plan_id,
-                bin=it.get("bin_location"),
-                cost_source="WMS_CYCLE_COUNT",
-                remarks=f"Cycle Count Recon ({it.get('discrepancy_reason')}) for {it.get('bin_location')}",
-                user=str(user_val),
+            await StockLedger.post(
+                self.db,
+                MovementRequest(
+                    company_id=self.tenant_ctx.company_id,
+                    branch_id=getattr(self.tenant_ctx, "branch_id", None),
+                    product_id=it.get("product_id") or it.get("item_id"),
+                    quantity=dec_qty,
+                    movement_type=m_type,
+                    reference_doc_type="WMS_CYCLE_COUNT",
+                    reference_doc_id=plan.get("plan_no") or plan_id,
+                    warehouse_id=warehouse_id,
+                    batch_no=it.get("batch_no"),
+                    bin_no=it.get("bin_location"),
+                    line_ref=f"CYCLE-COUNT-{item_index}-{it.get('item_id')}",
+                    remarks=f"Cycle Count Recon ({it.get('discrepancy_reason')}) for {it.get('bin_location')}",
+                    source_module="WMS_CYCLE_COUNT",
+                    user=str(user_val),
+                ),
             )
-            self.db.add(sm)
             it["status"] = "RECONCILED"
 
         await self.db.flush()
@@ -3159,7 +3181,8 @@ class InventoryWmsService:
         override_reason: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
-        Authorizes final gate departure and commits StockMovement ledger reductions.
+        Authorizes final gate departure. Merchandise stock is posted by the sales
+        document; this operation only confirms the physical shipment of cartons.
         Requires 100% carton scan completion unless overridden by supervisor.
         """
         manifests_store = globals().get("_DISPATCH_MANIFESTS", {})
@@ -3181,32 +3204,6 @@ class InventoryWmsService:
         dock_code = manifest.get("dock_door_code", "DOCK-01")
         cartons = manifest.get("cartons", [])
         user_val = getattr(self.tenant_ctx, "user_id", None) or "gate_dispatcher"
-
-        # Generate atomic StockMovement records for each dispatched carton
-        for c in cartons:
-            if not c.get("is_gate_scanned") and not supervisor_override:
-                continue
-
-            qty = Decimal(str(c.get("items_count") or 1))
-            sm = StockMovement(
-                company_id=self.tenant_ctx.company_id,
-                branch_id=getattr(self.tenant_ctx, "branch_id", None),
-                warehouse_id=warehouse_id,
-                product_id=c.get("carton_barcode"),
-                sku=c.get("carton_barcode"),
-                product_name=f"Shipping Carton {c.get('carton_barcode')}",
-                quantity=-qty,
-                movement_type="DISPATCH_OUT",
-                reference_doc_type="WMS_DISPATCH",
-                reference_doc_id=manifest.get("manifest_no") or manifest_id,
-                bin=dock_code,
-                cost_source="WMS_DISPATCH",
-                remarks=f"Outbound Dispatch to {manifest.get('transporter_name')} (Veh: {manifest.get('vehicle_no')})",
-                user=str(user_val),
-            )
-            self.db.add(sm)
-
-        await self.db.flush()
 
         manifest["status"] = "DISPATCHED"
         manifest["dispatched_at"] = now.isoformat()
@@ -3232,6 +3229,3 @@ class InventoryWmsService:
             "dispatched_at": now.isoformat(),
             "message": f"Manifest {manifest['manifest_no']} dispatched. Gate Pass {gate_pass_no} generated.",
         }
-
-
-

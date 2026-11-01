@@ -76,6 +76,11 @@ def get_unclassified_movement_count_expr(type_col=StockMovement.movement_type):
     )
 
 
+def get_movement_business_date_expr(created_at_col=StockMovement.created_at):
+    """Return a movement's business date in the store's configured timezone."""
+    return func.date(func.timezone("Asia/Kolkata", created_at_col))
+
+
 async def get_authoritative_stock_by_product(
     session: AsyncSession,
     company_id: str,

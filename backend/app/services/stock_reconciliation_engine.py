@@ -15,6 +15,7 @@ Classification: Comprehensive Stock Movement Invariant Validation & Reconciliati
 from datetime import datetime, date, timezone
 from decimal import Decimal
 from typing import Optional, List, Dict, Any, Set
+from zoneinfo import ZoneInfo
 from pydantic import BaseModel, Field
 from sqlalchemy import select, func, and_, or_, distinct
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -25,6 +26,12 @@ from app.models.sales import SalesInvoice
 from app.models.purchase import PurchaseReceipt, PurchaseOrder
 from app.models.goods_receipt import GoodsReceiptNote
 from app.services.stock_synchronizer import INFLOW_MOVEMENT_TYPES, OUTFLOW_MOVEMENT_TYPES
+from app.services.stock_movement_types import ALL_MOVEMENT_TYPES
+from app.services.stock_ledger_query import (
+    compute_signed_movement_quantity,
+    get_movement_business_date_expr,
+    get_signed_movement_quantity_expr,
+)
 
 
 class TransactionReference(BaseModel):
@@ -188,6 +195,7 @@ class StockReconciliationEngine:
             "NEGATIVE_STOCK": 0,
             "CACHE_MISMATCH": 0,
             "UNEXPLAINED_VARIANCE": 0,
+            "UNCLASSIFIED_MOVEMENT_TYPE": 0,
         }
         severity_counts: Dict[str, int] = {
             "CRITICAL": 0,
@@ -214,6 +222,13 @@ class StockReconciliationEngine:
                 StockMovement.company_id == company_id,
                 StockMovement.is_deleted.is_(False),
             ]
+            if branch_id:
+                move_filters.append(
+                    or_(
+                        StockMovement.branch_id == branch_id,
+                        StockMovement.branch_id.is_(None),
+                    )
+                )
             if p_canon_var_id:
                 move_filters.append(
                     or_(
@@ -227,10 +242,29 @@ class StockReconciliationEngine:
             if warehouse_id:
                 move_filters.append(StockMovement.warehouse_id == warehouse_id)
 
+            movement_business_date = get_movement_business_date_expr()
+            opening_stock = Decimal("0.00")
+            unclassified_history_found = False
             if start_date:
-                move_filters.append(func.date(StockMovement.created_at) >= start_date)
+                opening_stmt = select(
+                    func.coalesce(func.sum(get_signed_movement_quantity_expr()), 0)
+                ).where(
+                    *move_filters,
+                    movement_business_date < start_date,
+                )
+                opening_stock = Decimal(str((await session.execute(opening_stmt)).scalar() or 0))
+                unknown_type = func.upper(func.coalesce(StockMovement.movement_type, ""))
+                unknown_history_stmt = select(func.count(StockMovement.id)).where(
+                    *move_filters,
+                    movement_business_date < start_date,
+                    unknown_type.notin_(tuple(ALL_MOVEMENT_TYPES)),
+                )
+                unclassified_history_found = bool(
+                    (await session.execute(unknown_history_stmt)).scalar() or 0
+                )
+                move_filters.append(movement_business_date >= start_date)
             if end_date:
-                move_filters.append(func.date(StockMovement.created_at) <= end_date)
+                move_filters.append(movement_business_date <= end_date)
 
             moves_stmt = select(StockMovement).where(*move_filters).order_by(StockMovement.created_at.asc())
             movements = (await session.execute(moves_stmt)).scalars().all()
@@ -243,6 +277,13 @@ class StockReconciliationEngine:
             ]
             if warehouse_id:
                 batch_filters.append(ProductBatchStock.warehouse_id == warehouse_id)
+            if branch_id:
+                batch_filters.append(
+                    or_(
+                        ProductBatchStock.branch_id == branch_id,
+                        ProductBatchStock.branch_id.is_(None),
+                    )
+                )
             
             batch_res = await session.execute(select(ProductBatchStock).where(*batch_filters))
             batches = batch_res.scalars().all()
@@ -250,7 +291,6 @@ class StockReconciliationEngine:
             has_batches = len(batches) > 0
 
             # Compute formula components according to Phase 2 invariant:
-            opening_stock = Decimal("0.00")
             purchase_receipts = Decimal("0.00")
             sales_returns = Decimal("0.00")
             transfers_in = Decimal("0.00")
@@ -265,6 +305,9 @@ class StockReconciliationEngine:
             duplicate_movements_found = False
             variant_mismatch_found = False
             wrong_tenant_found = False
+            unclassified_movement_found = unclassified_history_found
+            running_stock = opening_stock
+            minimum_running_stock = opening_stock
 
             tx_refs: List[TransactionReference] = []
 
@@ -272,6 +315,11 @@ class StockReconciliationEngine:
                 mtype = (m.movement_type or "").upper()
                 qty_raw = Decimal(str(m.quantity or 0))
                 abs_qty = abs(qty_raw)
+                if mtype not in ALL_MOVEMENT_TYPES:
+                    unclassified_movement_found = True
+                else:
+                    running_stock += compute_signed_movement_quantity(qty_raw, mtype)
+                    minimum_running_stock = min(minimum_running_stock, running_stock)
 
                 # Check Tenant & Warehouse context invariant
                 if m.company_id != company_id:
@@ -318,7 +366,7 @@ class StockReconciliationEngine:
                     purchase_returns += abs_qty
                 elif mtype in ("TRANSFER_OUT", "OUTWARD_DISPATCH", "DISPATCH"):
                     transfers_out += abs_qty
-                elif mtype == "ADJUSTMENT_OUT" or (mtype in ("ADJUSTMENT", "STOCK_ADJUSTMENT") and qty_raw < 0):
+                elif mtype in ("ADJUSTMENT_OUT", "OUTWARD_SHRINKAGE") or (mtype in ("ADJUSTMENT", "STOCK_ADJUSTMENT") and qty_raw < 0):
                     negative_adjustments += abs_qty
                 elif mtype in ("DAMAGE", "WRITE_OFF", "OUTWARD_LOSS"):
                     damage_write_offs += abs_qty
@@ -346,14 +394,20 @@ class StockReconciliationEngine:
                 - damage_write_offs
             )
 
+            historical_snapshot = bool(
+                end_date
+                and end_date < datetime.now(ZoneInfo("Asia/Kolkata")).date()
+            )
             # Authoritative Ledger Stock
-            if has_batches:
+            if has_batches and not historical_snapshot:
                 actual_ledger_stock = total_batch_stock
             else:
                 actual_ledger_stock = expected_closing_stock
 
             cached_stock = Decimal(str(p.stock or 0))
-            variance = cached_stock - actual_ledger_stock
+            variance = Decimal("0.00") if historical_snapshot else cached_stock - actual_ledger_stock
+            if minimum_running_stock < 0:
+                variance = min(variance, minimum_running_stock)
 
             # Determine Discrepancy Taxonomy
             category: Optional[str] = None
@@ -361,7 +415,12 @@ class StockReconciliationEngine:
             likely_root_cause = ""
             recommended_action = ""
 
-            if wrong_tenant_found:
+            if unclassified_movement_found:
+                category = "UNCLASSIFIED_MOVEMENT_TYPE"
+                severity = "CRITICAL"
+                likely_root_cause = "One or more ledger rows use movement types outside the canonical stock movement vocabulary."
+                recommended_action = "Review the affected movement records, map each type to the correct inflow/outflow classification, and reconcile balances before correction."
+            elif wrong_tenant_found:
                 category = "WRONG_WAREHOUSE_OR_COMPANY"
                 severity = "CRITICAL"
                 likely_root_cause = "Stock movements recorded under cross-tenant company or foreign warehouse identifier."
@@ -376,22 +435,28 @@ class StockReconciliationEngine:
                 severity = "HIGH"
                 likely_root_cause = "Transaction line resolved to parent product instead of specific article/color/size variant ID."
                 recommended_action = "Re-resolve transaction lines to canonical item_variant_id via ProductResolutionService."
-            elif actual_ledger_stock < 0:
+            elif minimum_running_stock < 0 or actual_ledger_stock < 0:
                 category = "NEGATIVE_STOCK"
                 severity = "HIGH"
-                likely_root_cause = "Sales or transfers dispatched beyond recorded physical on-hand without unledgered initial stock synthesis."
-                recommended_action = "Synthesize opening stock audit record with explicit administrator verification."
-            elif len(movements) == 0 and not has_batches and cached_stock > 0:
+                likely_root_cause = "An outbound movement reduced the authoritative balance below zero during the audited period."
+                recommended_action = "Verify movement dates and missing receipts/opening stock; correct the source transaction or post an authorized, documented adjustment."
+            elif (
+                not historical_snapshot
+                and len(movements) == 0
+                and opening_stock == 0
+                and not has_batches
+                and cached_stock > 0
+            ):
                 category = "MISSING_MOVEMENT"
                 severity = "MEDIUM"
                 likely_root_cause = "Legacy product initialized directly via catalog seed with stock > 0 without opening StockMovement entry."
                 recommended_action = "Generate authorized OPENING_STOCK movement to anchor movement ledger to catalog balance."
-            elif abs(variance) > Decimal("0.001"):
+            elif not historical_snapshot and abs(variance) > Decimal("0.001"):
                 category = "CACHE_MISMATCH"
                 severity = "MEDIUM"
                 likely_root_cause = "Materialized products.stock cache drifted from authoritative ledger after async transaction or unhooked mutation."
                 recommended_action = "Run StockSynchronizer.sync_product_stock_cache to realign cached stock with ledger truth."
-            elif abs(expected_closing_stock - actual_ledger_stock) > Decimal("0.001"):
+            elif not historical_snapshot and abs(expected_closing_stock - actual_ledger_stock) > Decimal("0.001"):
                 category = "UNEXPLAINED_VARIANCE"
                 severity = "CRITICAL"
                 likely_root_cause = "Divergence between movement ledger invariant formula and active batch stock physical balances."
@@ -483,13 +548,24 @@ class StockReconciliationEngine:
         proposals: List[ProposedStockCorrection] = []
         net_pos = Decimal("0.00")
         net_neg = Decimal("0.00")
+        historical_snapshot = bool(
+            audit_report.end_date
+            and date.fromisoformat(audit_report.end_date)
+            < datetime.now(ZoneInfo("Asia/Kolkata")).date()
+        )
 
         for disc in audit_report.discrepancies:
             corr_type = "RESYNC_CACHE"
             delta = Decimal(str(disc.actual_ledger_stock)) - Decimal(str(disc.cached_stock))
             proposed_after = disc.actual_ledger_stock
+            before_stock = disc.cached_stock
 
-            if disc.discrepancy_category == "MISSING_MOVEMENT":
+            if historical_snapshot:
+                corr_type = "HISTORICAL_REVIEW"
+                delta = Decimal("0.00")
+                proposed_after = disc.actual_ledger_stock
+                before_stock = disc.actual_ledger_stock
+            elif disc.discrepancy_category == "MISSING_MOVEMENT":
                 corr_type = "SYNTHESIZE_OPENING_LEDGER"
                 delta = Decimal(str(disc.cached_stock))
                 proposed_after = disc.cached_stock
@@ -514,11 +590,15 @@ class StockReconciliationEngine:
                     sku=disc.sku,
                     product_name=disc.product_name,
                     correction_type=corr_type,
-                    before_stock=disc.cached_stock,
+                    before_stock=before_stock,
                     proposed_after_stock=float(proposed_after),
                     delta_stock=float(delta),
                     source_reference=f"AUDIT-DISC-{disc.discrepancy_category}-{disc.product_id[:8]}",
-                    audit_trail_reason=f"Compensatory remediation for {disc.discrepancy_category}. {disc.likely_root_cause}",
+                    audit_trail_reason=(
+                        f"Historical audit only; no current stock change is proposed. {disc.likely_root_cause}"
+                        if historical_snapshot
+                        else f"Compensatory remediation for {disc.discrepancy_category}. {disc.likely_root_cause}"
+                    ),
                     manual_approval_required=True,
                     status="PROPOSED_READ_ONLY",
                 )

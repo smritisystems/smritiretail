@@ -45,6 +45,7 @@ from app.models.profitability import ProductCostValuation
 from app.models.tenant import Branch, Company
 from app.core.security import create_access_token
 from app.api.deps import get_db, get_company_db, get_tenant_context
+from app.services.stock_ledger import MovementRequest, StockLedger
 
 pytestmark = pytest.mark.asyncio
 
@@ -129,6 +130,29 @@ async def _insert_count_line(
     computed_qty: float, counted_qty: float,
     unit_cost: float = None,
 ) -> str:
+    has_ledger_stock = (
+        await db.execute(
+            select(StockMovement.id).where(
+                StockMovement.company_id == co_id,
+                StockMovement.product_id == product_id,
+                StockMovement.is_deleted.is_(False),
+            ).limit(1)
+        )
+    ).first(    )
+    if not has_ledger_stock and computed_qty > 0:
+        await StockLedger.post(
+            db,
+            MovementRequest(
+                company_id=co_id,
+                branch_id=br_id,
+                product_id=product_id,
+                movement_type="OPENING_STOCK",
+                quantity=Decimal(str(computed_qty)),
+                reference_doc_type="OPENING_BALANCE",
+                reference_doc_id=f"COUNT-OPEN-{product_id}",
+                warehouse_id=wh_id,
+            ),
+        )
     line_id  = f"scl-{uuid.uuid4().hex[:10]}"
     variance = counted_qty - computed_qty
     uc = unit_cost

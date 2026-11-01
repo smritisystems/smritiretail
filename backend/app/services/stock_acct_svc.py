@@ -118,7 +118,6 @@ class StockAccountingBoundaryService:
             reference_doc_id=req.reference_doc_id,
             warehouse_id=wh_id,
             batch_no=req.batch,
-            allow_negative_stock=True,
             internal_cost=InternalCost(
                 unit_cost=Decimal(str(cost_val)),
                 cost_source="STOCK_ACCT_CALLER",

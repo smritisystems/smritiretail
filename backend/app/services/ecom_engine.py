@@ -447,7 +447,6 @@ class EcomGrowthEngine:
                         reference_doc_type="ECOM_INVOICE",
                         reference_doc_id=invoice.invoice_no,
                         line_ref=str(idx),
-                        allow_negative_stock=True,
                         internal_cost=InternalCost(
                             unit_cost=unit_p,
                             cost_source="ECOM_ORDER_UNIT_PRICE",

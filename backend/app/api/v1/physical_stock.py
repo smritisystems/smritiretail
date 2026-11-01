@@ -23,7 +23,6 @@ stock_takes and stock_count_lines tables now present (v1372 migration).
 from datetime import date, datetime, timezone, timedelta
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
-import uuid, hashlib
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -35,6 +34,7 @@ from ...api.deps import (
 )
 from ...models.inventory import StockMovement
 from ...models.profitability import ProductCostValuation  # WAC cost freeze at approval time
+from ...services.stock_ledger import InternalCost, MovementRequest, StockLedger
 
 router = APIRouter(prefix="/physical-stock")
 
@@ -558,55 +558,42 @@ async def approve_stock_take(
         movement_qty    = abs(variance_qty)
         variance_value  = (movement_qty * unit_cost).quantize(Decimal("0.01"))
 
-        # Idempotency key: deterministic per session + line
-        idem_raw    = f"phy_approve_{take_id}_{line_id}"
-        idem_key    = hashlib.sha256(idem_raw.encode()).hexdigest()[:64]
-        movement_id = f"sm_{uuid.uuid4().hex[:12]}"
-
-        movement = StockMovement(
-            id=movement_id,
-            uuid=movement_id,
-            company_id=company_id,
-            branch_id=branch_id,
-            product_id=product_id,
-            product_name=product_name or "",
-            sku=sku or "",
-            quantity=movement_qty,
-            movement_type=movement_type,
-            reference_doc_type="STOCK_TAKE",
-            reference_doc_id=take_id,
-            warehouse_id=line_wh_id or wh_id,
-            bin=bin_loc,
-            batch=batch_no,
-            unit_cost=unit_cost,
-            cost_source=cost_src,
-            idempotency_key=idem_key,
-            remarks=f"Physical count variance: {movement_type} {movement_qty} units @ {take_id}",
-            source_module="PHYSICAL_STOCK",
-            user=approver,
-            approval=approver,
-        )
-
-        try:
-            async with db.begin_nested():
-                db.add(movement)
-                await db.flush()
-                # Stamp line as reconciled and update its unit_cost if it was missing
-                await db.execute(text("""
-                    UPDATE stock_count_lines
-                    SET is_reconciled = true,
-                        unit_cost     = COALESCE(unit_cost, :uc),
-                        variance_value= :vv,
-                        status        = 'RECONCILED',
-                        modified_at   = NOW()
-                    WHERE id = :lid
-                """), {"uc": float(unit_cost), "vv": float(variance_value), "lid": line_id})
-                movements_created += 1
-                total_variance_qty   += variance_qty
-                total_variance_value += variance_value
-        except Exception:
-            # Idempotency: movement already exists for this line — skip
-            pass
+        async with db.begin_nested():
+            await StockLedger.post(
+                db,
+                MovementRequest(
+                    company_id=company_id,
+                    branch_id=branch_id,
+                    product_id=product_id,
+                    movement_type=movement_type,
+                    quantity=movement_qty,
+                    reference_doc_type="STOCK_TAKE",
+                    reference_doc_id=take_id,
+                    warehouse_id=line_wh_id or wh_id,
+                    batch_no=batch_no,
+                    bin_no=bin_loc,
+                    line_ref=f"COUNT-LINE-{line_id}",
+                    remarks=f"Physical count variance: {movement_type} {movement_qty} units @ {take_id}",
+                    source_module="PHYSICAL_STOCK",
+                    user=approver,
+                    approval=approver,
+                    internal_cost=InternalCost(unit_cost=unit_cost, cost_source=cost_src),
+                    allow_negative_stock=False,
+                ),
+            )
+            # Stamp line as reconciled and update its unit_cost if it was missing.
+            await db.execute(text("""
+                UPDATE stock_count_lines
+                SET is_reconciled = true,
+                    unit_cost     = COALESCE(unit_cost, :uc),
+                    variance_value= :vv,
+                    status        = 'RECONCILED',
+                    modified_at   = NOW()
+                WHERE id = :lid
+            """), {"uc": float(unit_cost), "vv": float(variance_value), "lid": line_id})
+            movements_created += 1
+            total_variance_qty   += variance_qty
+            total_variance_value += variance_value
 
     # ------------------------------------------------------------------ #
     # 4. Approve session + roll up totals atomically
