@@ -1079,6 +1079,48 @@ class CustomerRelationshipResponse(CustomerRelationshipCreate):
     model_config = ConfigDict(populate_by_name=True, from_attributes=True)
 
 
+class CustomerLinkedRestoreRequest(BaseModel):
+    dry_run: bool = Field(True, alias="dryRun")
+    expected_candidate_count: Optional[int] = Field(
+        None, ge=1, le=100, alias="expectedCandidateCount"
+    )
+    confirmed_customer_ids: List[str] = Field(
+        default_factory=list, max_length=100, alias="confirmedCustomerIds"
+    )
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    @model_validator(mode="after")
+    def require_restore_confirmation(self):
+        if len(set(self.confirmed_customer_ids)) != len(self.confirmed_customer_ids):
+            raise ValueError("confirmed_customer_ids must not contain duplicates.")
+        if not self.dry_run and (
+            self.expected_candidate_count is None or not self.confirmed_customer_ids
+        ):
+            raise ValueError(
+                "A restore requires an expected candidate count and explicit customer IDs."
+            )
+        return self
+
+
+class CustomerLinkedRestoreCandidate(BaseModel):
+    id: str
+    code: Optional[str] = None
+    name: str
+
+
+class CustomerLinkedRestoreResponse(BaseModel):
+    status: str
+    dry_run: bool = Field(..., alias="dryRun")
+    parent_customer_id: str = Field(..., alias="parentCustomerId")
+    parent_customer_code: str = Field(..., alias="parentCustomerCode")
+    candidate_count: int = Field(..., alias="candidateCount")
+    restored_count: int = Field(0, alias="restoredCount")
+    candidates: List[CustomerLinkedRestoreCandidate] = Field(default_factory=list)
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
 # ──────────────────────── CustomerCompanyRelationship ───────────────────────
 
 class CustomerCompanyRelationshipBase(BaseModel):

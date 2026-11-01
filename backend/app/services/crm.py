@@ -20,8 +20,8 @@ from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any, Set
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy.orm import selectinload
-from sqlalchemy import func, text
+from sqlalchemy.orm import aliased, selectinload
+from sqlalchemy import func, or_, text
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException
 from ..models.crm import (
@@ -58,6 +58,7 @@ from ..schemas.crm import (
     CompanyCreditExposureItem, CustomerCreditExposureResponse,
     CustomerCodeRecommendationResponse, CustomerCodeValidationResponse,
     EligibleCustomerCodeItem,
+    CustomerLinkedRestoreCandidate,
 )
 from ..repositories.customer import (
     CustomerRepository, CustomerGroupRepository,
@@ -1582,6 +1583,179 @@ class CrmService:
 
     async def get_customer(self, customer_id: str) -> Optional[Customer]:
         return await self.customer_repo.get(customer_id)
+
+    async def restore_linked_soft_deleted_children(
+        self,
+        parent_customer_id: str,
+        confirmed_customer_ids: List[str],
+        expected_candidate_count: Optional[int],
+        dry_run: bool,
+        current_user: User,
+    ) -> Dict[str, Any]:
+        company_id = self._require_company_id()
+        parent = await self.customer_repo.get(parent_customer_id)
+        if not parent or not parent.is_active or parent.status != "Active":
+            raise HTTPException(
+                status_code=404,
+                detail="The active parent customer was not found in the current company and branch.",
+            )
+
+        await acquire_customer_hierarchy_lock(self.db, company_id)
+        active_link = aliased(CustomerRelationship, name="restore_active_link")
+        active_link_count = (
+            select(func.count(active_link.id))
+            .where(
+                active_link.dependant_customer_id == Customer.id,
+                active_link.company_id == company_id,
+                active_link.is_deleted.is_(False),
+            )
+            .correlate(Customer)
+            .scalar_subquery()
+        )
+        branch_ids = {self.tenant_ctx.branch_id}
+        if self.tenant_ctx.branch_id in ("BR-MAIN-001", "MAIN", "BR-001"):
+            branch_ids.update(("BR-MAIN-001", "MAIN", "BR-001"))
+
+        candidates_stmt = (
+            select(Customer)
+            .join(
+                CustomerRelationship,
+                CustomerRelationship.dependant_customer_id == Customer.id,
+            )
+            .where(
+                CustomerRelationship.parent_customer_id == parent.id,
+                CustomerRelationship.company_id == company_id,
+                CustomerRelationship.is_deleted.is_(False),
+                or_(
+                    CustomerRelationship.branch_id.in_(branch_ids),
+                    CustomerRelationship.branch_id.is_(None),
+                ),
+                Customer.company_id == company_id,
+                or_(
+                    Customer.branch_id.in_(branch_ids),
+                    Customer.branch_id.is_(None),
+                ),
+                Customer.is_deleted.is_(True),
+                Customer.deleted_at.is_(None),
+                Customer.deleted_by.is_(None),
+                Customer.is_active.is_(True),
+                Customer.status == "Active",
+                active_link_count == 1,
+            )
+            .order_by(Customer.code.asc(), Customer.id.asc())
+            .with_for_update(of=Customer)
+        )
+        candidates = (await self.db.execute(candidates_stmt)).scalars().all()
+        candidate_ids = {customer.id for customer in candidates}
+        response_candidates = [
+            CustomerLinkedRestoreCandidate(
+                id=customer.id,
+                code=customer.code,
+                name=customer.name,
+            )
+            for customer in candidates
+        ]
+        response = {
+            "status": "preview" if dry_run else "restored",
+            "dry_run": dry_run,
+            "parent_customer_id": parent.id,
+            "parent_customer_code": parent.code or "",
+            "candidate_count": len(candidates),
+            "restored_count": 0,
+            "candidates": response_candidates,
+        }
+        if dry_run:
+            return response
+
+        confirmed_ids = set(confirmed_customer_ids)
+        if (
+            expected_candidate_count != len(candidates)
+            or confirmed_ids != candidate_ids
+            or len(confirmed_ids) != len(confirmed_customer_ids)
+            or not candidates
+        ):
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "The eligible customer set changed or confirmation does not match the preview. "
+                    "Run a new dry-run preview before restoring."
+                ),
+            )
+
+        codes = [customer.code for customer in candidates if customer.code]
+        if len(codes) != len(set(codes)):
+            raise HTTPException(
+                status_code=409,
+                detail="Duplicate customer codes prevent a safe restore. Reconcile the codes first.",
+            )
+        duplicate_codes = (
+            await self.db.execute(
+                select(Customer.code).where(
+                    Customer.company_id == company_id,
+                    Customer.is_deleted.is_(False),
+                    Customer.code.in_(codes),
+                    Customer.id.not_in(candidate_ids),
+                )
+            )
+        ).scalars().all()
+        if duplicate_codes:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "message": "Active customer codes conflict with the restore set.",
+                    "conflicting_codes": sorted(set(duplicate_codes)),
+                },
+            )
+
+        now = datetime.now(timezone.utc)
+        actor_id = str(getattr(current_user, "id", ""))
+        actor_name = str(getattr(current_user, "username", ""))
+        for customer in candidates:
+            customer.is_deleted = False
+            customer.deleted_at = None
+            customer.deleted_by = None
+            customer.modified_at = now
+            customer.updated_by = actor_id
+            customer.version = (customer.version or 0) + 1
+            audit_details = {
+                "parent_customer_id": parent.id,
+                "parent_customer_code": parent.code,
+                "customer_code": customer.code,
+                "restored_by": actor_id,
+                "restored_at": now.isoformat(),
+            }
+            self.db.add(SmritiAuditLog(
+                id=f"aud-{uuid.uuid4().hex[:8]}",
+                tenant_id=company_id,
+                entity_id=customer.id,
+                changed_table="customers",
+                changed_record_id=customer.id,
+                field_name="is_deleted",
+                old_value="true",
+                new_value="false",
+                change_type="RESTORE_LINKED_CUSTOMER",
+                change_reason=json.dumps(audit_details, sort_keys=True),
+                change_source="CRM_LINKED_CUSTOMER_RESTORE",
+                changed_by=actor_id,
+                changed_by_name=actor_name,
+                changed_at=now,
+                sha256_hash=hashlib.sha256(
+                    json.dumps(audit_details, sort_keys=True).encode("utf-8")
+                ).hexdigest(),
+            ))
+
+        try:
+            await self.db.flush()
+            await self.db.commit()
+        except IntegrityError as exc:
+            await self.db.rollback()
+            raise HTTPException(
+                status_code=409,
+                detail="Restore was rolled back because a customer integrity constraint changed.",
+            ) from exc
+
+        response["restored_count"] = len(candidates)
+        return response
 
     async def check_credit_limit(self, customer_id: str, new_amount: float) -> bool:
         if customer_id == "CUST-WALKIN":

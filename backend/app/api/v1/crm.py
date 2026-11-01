@@ -53,6 +53,7 @@ from ...schemas.crm import (
     CustomerHierarchyNodeResponse, CustomerHierarchyTreeResponse,
     BulkAssignDependantsRequest, BulkAssignDependantsResponse,
     AssignableChildCandidate,
+    CustomerLinkedRestoreRequest, CustomerLinkedRestoreResponse,
     get_loaded_relationship, get_loaded_single,
 )
 from ...repositories.customer import CustomerRepository, CustomerGroupRepository
@@ -1420,6 +1421,30 @@ async def list_customer_dependants(
             notes=row.notes,
         ))
     return results
+
+
+@router.post(
+    "/customers/{customer_id}/restore-linked-soft-deleted",
+    response_model=CustomerLinkedRestoreResponse,
+    dependencies=[Depends(require_role(UserRole.SYSADMIN))],
+    summary="Preview or Restore Soft-Deleted Active Linked Customers",
+)
+async def restore_linked_soft_deleted_customers(
+    customer_id: str,
+    payload: CustomerLinkedRestoreRequest,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(get_current_user),
+):
+    """Restore only explicitly confirmed active child records after a dry-run preview."""
+    service = CrmService(db, tenant_ctx)
+    return await service.restore_linked_soft_deleted_children(
+        parent_customer_id=customer_id,
+        confirmed_customer_ids=payload.confirmed_customer_ids,
+        expected_candidate_count=payload.expected_candidate_count,
+        dry_run=payload.dry_run,
+        current_user=current_user,
+    )
 
 
 @router.post(
