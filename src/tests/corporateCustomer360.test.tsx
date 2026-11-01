@@ -515,6 +515,75 @@ describe("Corporate Customer 360 Dashboard Components", () => {
     expect(markup).toContain("Add Typed Address");
   });
 
+  it("normalizes API camelCase addresses in the Stores / Outlets view", () => {
+    const apiAddresses = [
+      {
+        id: "addr-delivery",
+        addressType: "Delivery",
+        addressTitle: "Primary Store Front",
+        addressLine1: "RKB Path",
+        city: "Dibrugarh",
+        state: "Assam",
+        pincode: "786001",
+        isPrimary: true,
+        isActive: true,
+      },
+      {
+        id: "addr-shipping",
+        addressType: "Shipping",
+        addressTitle: "Store Code Shipping Address",
+        addressLine1: "RKB Path",
+        city: "Dibrugarh",
+        state: "Assam",
+        pincode: "786001",
+        isPrimary: true,
+        isActive: true,
+      },
+      {
+        id: "addr-inactive",
+        addressType: "Shipping",
+        addressTitle: "Old Shipping Address",
+        addressLine1: "Old Road",
+        city: "Dibrugarh",
+        state: "Assam",
+        pincode: "786001",
+        isPrimary: false,
+        isActive: false,
+      },
+    ] as unknown as StoreAddressItem[];
+    const mockStore: CorporateStoreItem = {
+      id: "cdl-1888",
+      store_code: "1888",
+      store_name: "RRL Footprint RKB Path",
+      city: "Dibrugarh",
+      state: "Assam",
+      store_type: "Store",
+      status: "Active",
+      psv_value: 0,
+      addresses: apiAddresses,
+    };
+
+    const modalMarkup = renderToStaticMarkup(
+      <StoreAddressModal
+        isOpen={true}
+        onClose={() => {}}
+        customerId="cust-rrl-192b561d"
+        store={mockStore}
+        readOnly
+      />
+    );
+    const networkMarkup = renderToStaticMarkup(
+      <CorporateStoreNetwork stores={[mockStore]} customerId="cust-rrl-192b561d" />
+    );
+
+    expect(modalMarkup).toContain("Configured Addresses (2 Active)");
+    expect(modalMarkup).toContain("Primary Store Front");
+    expect(modalMarkup).toContain("Store Code Shipping Address");
+    expect(modalMarkup).toContain("RKB Path");
+    expect(modalMarkup).toContain("786001");
+    expect(networkMarkup).toContain("Addresses (2)");
+  });
+
   it("renders CorporateStoreNetwork with Address Summary column and Map Store Code trigger", () => {
     const testStores: CorporateStoreItem[] = [
       {

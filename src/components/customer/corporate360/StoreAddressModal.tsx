@@ -17,7 +17,7 @@
 
 import React, { useState, useEffect } from "react";
 import { X, Plus, Edit2, Trash2, Check, MapPin, Building, Phone, Mail, User, ShieldCheck, AlertCircle } from "lucide-react";
-import { CorporateStoreItem, StoreAddressItem } from "./types.ts";
+import { CorporateStoreItem, normalizeStoreAddress, StoreAddressItem } from "./types.ts";
 import { apiFetchV1 } from "../../../lib/apiFetchV1.ts";
 
 interface StoreAddressModalProps {
@@ -39,7 +39,9 @@ export const StoreAddressModal: React.FC<StoreAddressModalProps> = ({
   onAddressesUpdated,
   readOnly = false,
 }) => {
-  const [addresses, setAddresses] = useState<StoreAddressItem[]>(() => store?.addresses || []);
+  const [addresses, setAddresses] = useState<StoreAddressItem[]>(() =>
+    (store?.addresses || []).map(normalizeStoreAddress)
+  );
   const [loading, setLoading] = useState(false);
   const [editingAddress, setEditingAddress] = useState<Partial<StoreAddressItem> | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -56,7 +58,7 @@ export const StoreAddressModal: React.FC<StoreAddressModalProps> = ({
     }
 
     if (store.addresses && store.addresses.length > 0) {
-      setAddresses(store.addresses);
+      setAddresses(store.addresses.map(normalizeStoreAddress));
     } else {
       fetchAddresses();
     }
@@ -71,7 +73,7 @@ export const StoreAddressModal: React.FC<StoreAddressModalProps> = ({
           `/crm/customers/${customerId}/delivery-locations/${store.id}/addresses`
         );
         if (Array.isArray(res) && res.length > 0) {
-          setAddresses(res);
+          setAddresses(res.map(normalizeStoreAddress));
           return;
         }
       }
@@ -179,21 +181,23 @@ export const StoreAddressModal: React.FC<StoreAddressModalProps> = ({
 
       if (customerId && store?.id && !store.id.startsWith("loc-ref-")) {
         if (isEdit) {
-          savedItem = await apiFetchV1<StoreAddressItem>(
+          const response = await apiFetchV1<StoreAddressItem>(
             `/crm/customers/${customerId}/delivery-locations/${store.id}/addresses/${editingAddress.id}`,
             {
               method: "PUT",
               body: JSON.stringify(editingAddress),
             }
           );
+          savedItem = normalizeStoreAddress(response);
         } else {
-          savedItem = await apiFetchV1<StoreAddressItem>(
+          const response = await apiFetchV1<StoreAddressItem>(
             `/crm/customers/${customerId}/delivery-locations/${store.id}/addresses`,
             {
               method: "POST",
               body: JSON.stringify(editingAddress),
             }
           );
+          savedItem = normalizeStoreAddress(response);
         }
       } else {
         // Local state update for mock/in-memory store
@@ -265,7 +269,7 @@ export const StoreAddressModal: React.FC<StoreAddressModalProps> = ({
                 </h2>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Multi-address registry: Delivery, Billing, Warehouse & Registered sites.
+                Multi-address registry: Delivery, Billing, Shipping, Warehouse & Registered sites.
               </p>
             </div>
           </div>

@@ -109,6 +109,46 @@ export interface StoreAddressItem {
   updated_at?: string;
 }
 
+export const normalizeStoreAddress = (address: StoreAddressItem | Record<string, unknown>): StoreAddressItem => {
+  const source = address as Record<string, unknown>;
+  const stringValue = (snakeKey: string, camelKey: string, fallback = ""): string => {
+    const value = source[snakeKey] ?? source[camelKey];
+    return value == null ? fallback : String(value);
+  };
+  const optionalString = (snakeKey: string, camelKey: string): string | undefined => {
+    const value = source[snakeKey] ?? source[camelKey];
+    return value == null ? undefined : String(value);
+  };
+  const booleanValue = (snakeKey: string, camelKey: string, fallback: boolean): boolean => {
+    const value = source[snakeKey] ?? source[camelKey];
+    if (typeof value === "boolean") return value;
+    if (typeof value === "string") return value.toLowerCase() === "true";
+    return fallback;
+  };
+
+  return {
+    id: stringValue("id", "id"),
+    address_type: stringValue("address_type", "addressType", "Delivery"),
+    address_title: optionalString("address_title", "addressTitle"),
+    address_line1: stringValue("address_line1", "addressLine1"),
+    address_line2: optionalString("address_line2", "addressLine2"),
+    locality: optionalString("locality", "locality"),
+    city: stringValue("city", "city"),
+    district: optionalString("district", "district"),
+    state: stringValue("state", "state"),
+    state_code: optionalString("state_code", "stateCode"),
+    pincode: stringValue("pincode", "pincode"),
+    country: optionalString("country", "country"),
+    contact_person: optionalString("contact_person", "contactPerson"),
+    phone: optionalString("phone", "phone"),
+    email: optionalString("email", "email"),
+    is_primary: booleanValue("is_primary", "isPrimary", false),
+    is_active: booleanValue("is_active", "isActive", true),
+    created_at: optionalString("created_at", "createdAt"),
+    updated_at: optionalString("updated_at", "updatedAt"),
+  };
+};
+
 export interface StoreCodeLookupItem {
   id: string;
   store_code: string;

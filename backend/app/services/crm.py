@@ -11,6 +11,7 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
+import copy
 import hashlib
 import json
 import logging
@@ -2523,7 +2524,7 @@ class CrmService:
         self, customer_id: str, location_id: str, addr_in: StoreAddressCreate
     ) -> StoreAddressItem:
         loc = await self.get_delivery_location(customer_id, location_id, with_for_update=True)
-        raw_list = list(self._extract_store_addresses(loc))
+        raw_list = copy.deepcopy(self._extract_store_addresses(loc))
 
         # If new address is primary, reset is_primary on existing active addresses of same type
         if addr_in.is_primary:
@@ -2587,7 +2588,7 @@ class CrmService:
         self, customer_id: str, location_id: str, address_id: str, addr_in: StoreAddressUpdate
     ) -> StoreAddressItem:
         loc = await self.get_delivery_location(customer_id, location_id, with_for_update=True)
-        raw_list = list(self._extract_store_addresses(loc))
+        raw_list = copy.deepcopy(self._extract_store_addresses(loc))
 
         target = None
         for a in raw_list:
@@ -2645,7 +2646,7 @@ class CrmService:
         self, customer_id: str, location_id: str, address_id: str
     ) -> StoreAddressItem:
         loc = await self.get_delivery_location(customer_id, location_id, with_for_update=True)
-        raw_list = list(self._extract_store_addresses(loc))
+        raw_list = copy.deepcopy(self._extract_store_addresses(loc))
 
         target = None
         for a in raw_list:

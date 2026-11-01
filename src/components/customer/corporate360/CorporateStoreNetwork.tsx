@@ -17,7 +17,7 @@
 
 import React, { useState, useMemo } from "react";
 import { Search, ChevronDown, ArrowRight, ExternalLink, Plus, MapPin, Pencil, Save, X } from "lucide-react";
-import { CorporateStoreItem, StoreAddressItem, StoreCodeLookupItem } from "./types.ts";
+import { CorporateStoreItem, normalizeStoreAddress, StoreAddressItem, StoreCodeLookupItem } from "./types.ts";
 import { StoreCodeLookupModal } from "./StoreCodeLookupModal.tsx";
 import { StoreAddressModal } from "./StoreAddressModal.tsx";
 import { apiFetchV1 } from "../../../lib/apiFetchV1.ts";
@@ -35,6 +35,12 @@ export interface CorporateStoreNetworkProps {
   isEditing?: boolean;
 }
 
+const normalizeStoreItems = (items: CorporateStoreItem[]): CorporateStoreItem[] =>
+  items.map((store) => ({
+    ...store,
+    addresses: (store.addresses || []).map(normalizeStoreAddress),
+  }));
+
 export const CorporateStoreNetwork: React.FC<CorporateStoreNetworkProps> = ({
   stores: initialStores,
   customerId,
@@ -47,7 +53,7 @@ export const CorporateStoreNetwork: React.FC<CorporateStoreNetworkProps> = ({
   onStoreUpdated,
   isEditing = false,
 }) => {
-  const [stores, setStores] = useState<CorporateStoreItem[]>(initialStores);
+  const [stores, setStores] = useState<CorporateStoreItem[]>(() => normalizeStoreItems(initialStores));
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedRegion, setSelectedRegion] = useState("ALL");
   const [selectedType, setSelectedType] = useState("ALL");
@@ -65,7 +71,7 @@ export const CorporateStoreNetwork: React.FC<CorporateStoreNetworkProps> = ({
 
   // Sync with initialStores prop if it changes
   React.useEffect(() => {
-    setStores(initialStores);
+    setStores(normalizeStoreItems(initialStores));
   }, [initialStores]);
 
   // Extract unique regions & types for filters
@@ -363,7 +369,7 @@ export const CorporateStoreNetwork: React.FC<CorporateStoreNetworkProps> = ({
                         title="Manage typed addresses for this Store Code"
                       >
                         <MapPin size={11} />
-                        <span>Addresses ({store.addresses?.filter(a => a.is_active).length || 1})</span>
+                        <span>Addresses ({store.addresses?.length ? store.addresses.filter(a => a.is_active).length : 1})</span>
                       </button>
                     </td>
                   </tr>
