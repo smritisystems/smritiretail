@@ -15,7 +15,7 @@
  * Target UI    : Store Code Multi-Address Management Modal
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { X, Plus, Edit2, Trash2, Check, MapPin, Building, Phone, Mail, User, ShieldCheck, AlertCircle } from "lucide-react";
 import { CorporateStoreItem, normalizeStoreAddress, StoreAddressItem } from "./types.ts";
 import { apiFetchV1 } from "../../../lib/apiFetchV1.ts";
@@ -30,6 +30,12 @@ interface StoreAddressModalProps {
 }
 
 const ADDRESS_TYPES = ["Delivery", "Billing", "Warehouse", "Registered", "Shipping", "Other"];
+
+type PostalLookupState = {
+  pincode: string;
+  status: "loading" | "success" | "warning" | "error";
+  message: string;
+};
 
 export const StoreAddressModal: React.FC<StoreAddressModalProps> = ({
   isOpen,
@@ -47,6 +53,8 @@ export const StoreAddressModal: React.FC<StoreAddressModalProps> = ({
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [postalLookup, setPostalLookup] = useState<PostalLookupState | null>(null);
+  const postalLookupRequest = useRef(0);
 
   useEffect(() => {
     if (!isOpen || !store) {
@@ -54,6 +62,7 @@ export const StoreAddressModal: React.FC<StoreAddressModalProps> = ({
       setIsFormOpen(false);
       setEditingAddress(null);
       setFeedback(null);
+      setPostalLookup(null);
       return;
     }
 
@@ -117,6 +126,7 @@ export const StoreAddressModal: React.FC<StoreAddressModalProps> = ({
   };
 
   const handleStartCreate = () => {
+    setPostalLookup(null);
     setEditingAddress({
       address_type: "Delivery",
       address_title: "",
@@ -142,6 +152,61 @@ export const StoreAddressModal: React.FC<StoreAddressModalProps> = ({
     setEditingAddress({ ...addr });
     setIsFormOpen(true);
     setFeedback(null);
+    setPostalLookup(null);
+  };
+
+  const handlePincodeBlur = async () => {
+    const pincode = String(editingAddress?.pincode || "").trim();
+    const requestId = ++postalLookupRequest.current;
+    if (!/^\d{6}$/.test(pincode)) {
+      setPostalLookup(null);
+      return;
+    }
+
+    setPostalLookup({ pincode, status: "loading", message: "Finding city from PIN code..." });
+    try {
+      const postal = await apiFetchV1<{ city?: string; state_name?: string }>(
+        `/control/reference/postal-codes/${pincode}`
+      );
+      const city = postal.city?.trim().replace(/\s+/g, " ");
+      if (!city) {
+        throw new Error("No city was returned for this PIN code.");
+      }
+
+      if (requestId === postalLookupRequest.current) {
+        const postalState = postal.state_name?.trim();
+        const currentState = editingAddress?.state?.trim();
+        const stateMismatch = Boolean(
+          postalState &&
+          currentState &&
+          postalState.toLocaleLowerCase() !== currentState.toLocaleLowerCase()
+        );
+        setEditingAddress((current) =>
+          current && String(current.pincode || "").trim() === pincode
+            ? { ...current, city }
+            : current
+        );
+        setPostalLookup({
+          pincode,
+          status: stateMismatch ? "warning" : "success",
+          message: stateMismatch
+            ? `City set to ${city}. This PIN belongs to ${postalState}, but the address state is ${currentState}; verify both.`
+            : `City set to ${city}. Please verify the address.`,
+        });
+      }
+    } catch (error: unknown) {
+      if (requestId !== postalLookupRequest.current) return;
+      const status = typeof error === "object" && error !== null && "status" in error
+        ? (error as { status?: number }).status
+        : undefined;
+      setPostalLookup({
+        pincode,
+        status: "error",
+        message: status === 404
+          ? "PIN code not found in the postal reference. Enter the city manually."
+          : "Could not look up this PIN code. Enter the city manually.",
+      });
+    }
   };
 
   const handleDeactivate = async (addrId: string) => {
@@ -523,10 +588,31 @@ export const StoreAddressModal: React.FC<StoreAddressModalProps> = ({
                     data-field-key="pincode"
                     required
                     maxLength={6}
+                    inputMode="numeric"
                     value={editingAddress?.pincode || ""}
-                    onChange={(e) => setEditingAddress({ ...editingAddress, pincode: e.target.value })}
+                    onChange={(e) => {
+                      setEditingAddress({ ...editingAddress, pincode: e.target.value.replace(/\D/g, "") });
+                      setPostalLookup(null);
+                    }}
+                    onBlur={handlePincodeBlur}
                     className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 focus:border-[#0284c7] focus:outline-none font-mono"
                   />
+                  {postalLookup && postalLookup.pincode === String(editingAddress?.pincode || "").trim() && (
+                    <p
+                      role="status"
+                      className={`mt-1 text-[11px] ${
+                        postalLookup.status === "error"
+                          ? "text-rose-600 dark:text-rose-400"
+                          : postalLookup.status === "warning"
+                            ? "text-amber-700 dark:text-amber-400"
+                            : postalLookup.status === "success"
+                            ? "text-emerald-700 dark:text-emerald-400"
+                            : "text-slate-500 dark:text-slate-400"
+                      }`}
+                    >
+                      {postalLookup.message}
+                    </p>
+                  )}
                 </div>
 
                 {/* Contact Person */}

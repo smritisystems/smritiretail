@@ -12,34 +12,38 @@ License      : Proprietary Commercial Software
 Classification: Internal
 """
 
-from typing import List, Optional
-from fastapi import APIRouter, Depends, Query, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
+import logging
 from decimal import Decimal
+from typing import List, Optional
+
+import httpx
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.deps import get_company_db, get_current_user
 from ...schemas.localization import (
     CountryResponse,
-    StateResponse,
-    DistrictResponse,
-    PostalCodeResponse,
-    LanguageResponse,
-    LocaleResponse,
-    TranslationDictionaryResponse,
     CurrencyResponse,
+    DistrictResponse,
     FormatCurrencyRequest,
     FormattedCurrencyResponse,
-    UOMResponse,
+    HsnSacCodeResponse,
+    LanguageResponse,
+    LocaleResponse,
+    PlatformReferenceResponse,
+    PostalCodeResponse,
+    StateResponse,
+    TaxReferenceResponse,
+    TranslationDictionaryResponse,
     UOMConversionResponse,
     UOMConvertRequest,
     UOMConvertResult,
-    TaxReferenceResponse,
-    HsnSacCodeResponse,
-    PlatformReferenceResponse,
+    UOMResponse,
 )
 from ...services.localization_svc import GlobalReferenceService, LocalizationDictionaryService
 
 router = APIRouter(prefix="/control/reference", tags=["Control Plane Reference Data & Localization"])
+logger = logging.getLogger(__name__)
 
 
 @router.get("/countries", response_model=List[CountryResponse])
@@ -118,7 +122,14 @@ async def get_postal_code(
     current_user=Depends(get_current_user),
 ):
     """Resolve one active postal code for address validation."""
-    postal = await GlobalReferenceService(db).get_postal_code(postal_code, country_code)
+    try:
+        postal = await GlobalReferenceService(db).get_postal_code(postal_code, country_code)
+    except (httpx.HTTPError, ValueError) as exc:
+        logger.warning("Postal lookup provider failed for PIN %s", postal_code, exc_info=exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Postal code lookup is temporarily unavailable.",
+        ) from exc
     if not postal:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Postal code not found")
     return postal
@@ -296,4 +307,3 @@ async def convert_localization_uom(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"SMRITI-UOM-CONV-FAIL: Incompatible UOM conversion {req.from_uom} -> {req.to_uom}: {e}",
         )
-

@@ -12,30 +12,34 @@ License      : Proprietary Commercial Software
 Classification: Internal
 """
 
-from typing import List, Optional, Dict, Any, Tuple
+import logging
+import re
+from collections import Counter
+from datetime import date, datetime
 from decimal import Decimal
-from datetime import datetime, date
+from typing import Any, Dict, List, Optional, Tuple
+
+import httpx
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, or_, func
 from sqlalchemy.orm import selectinload
 
 from ..models.localization import (
     CountryRef,
-    StateRef,
+    CurrencyRef,
     DistrictRef,
-    PostalCodeRef,
+    HsnSacCodeRef,
     LanguageRef,
     LocaleRef,
+    PlatformReferenceData,
+    PostalCodeRef,
+    StateRef,
+    TaxReferenceRef,
     TranslationKeyRef,
     TranslationRef,
-    CurrencyRef,
     UnitOfMeasurementRef,
     UOMConversionRef,
-    TaxReferenceRef,
-    HsnSacCodeRef,
-    PlatformReferenceData,
 )
-
 
 INDIAN_STATE_CODE_TO_ZONE: Dict[str, str] = {
     "MH": "West", "GJ": "West", "GA": "West", "DN": "West", "DD": "West",
@@ -46,6 +50,8 @@ INDIAN_STATE_CODE_TO_ZONE: Dict[str, str] = {
     "MP": "Central", "CG": "Central", "CT": "Central",
     "AS": "North East", "ML": "North East", "MN": "North East", "MZ": "North East", "NL": "North East", "TR": "North East", "AR": "North East", "SK": "North East",
 }
+
+logger = logging.getLogger(__name__)
 
 
 class GlobalReferenceService:
@@ -103,12 +109,81 @@ class GlobalReferenceService:
         )
         row = (await self.db.execute(stmt)).first()
         if not row:
-            return None
+            return await self._lookup_india_postal_code(postal_code, country_code)
         pin_ref, state_name, gst_state_code = row
         pin_ref.state_name = state_name
         pin_ref.gst_state_code = gst_state_code
         pin_ref.zone = INDIAN_STATE_CODE_TO_ZONE.get(pin_ref.state_code.upper()) if pin_ref.country_code == "IN" else None
         return pin_ref
+
+    async def _lookup_india_postal_code(
+        self, postal_code: str, country_code: str
+    ) -> Optional[PostalCodeRef]:
+        clean_code = postal_code.strip()
+        if country_code.upper() != "IN" or not re.fullmatch(r"\d{6}", clean_code):
+            return None
+
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.get(f"https://api.postalpincode.in/pincode/{clean_code}")
+            response.raise_for_status()
+            payload = response.json()
+
+        if (
+            not isinstance(payload, list)
+            or not payload
+            or not isinstance(payload[0], dict)
+            or payload[0].get("Status") != "Success"
+        ):
+            return None
+        offices = [
+            office for office in payload[0].get("PostOffice", [])
+            if isinstance(office, dict)
+            and office.get("Pincode") == clean_code
+            and office.get("State")
+        ]
+        if not offices:
+            return None
+
+        state_name = offices[0]["State"].strip()
+        state_result = await self.db.execute(
+            select(StateRef).where(
+                StateRef.country_code == "IN",
+                StateRef.is_active == True,
+                func.lower(StateRef.name) == state_name.lower(),
+            )
+        )
+        state_ref = state_result.scalars().first()
+        if not state_ref:
+            logger.warning("India Post returned an unmapped state for PIN %s: %s", clean_code, state_name)
+            return None
+
+        city = ""
+        for field in ("Region", "Division", "District"):
+            candidates = [
+                re.sub(r"\s+(?:HQ|GPO)$", "", office.get(field, "").strip(), flags=re.IGNORECASE)
+                for office in offices
+                if office.get(field)
+            ]
+            candidates = [candidate for candidate in candidates if candidate]
+            if candidates:
+                city = Counter(candidates).most_common(1)[0][0]
+                break
+        if not city:
+            return None
+
+        postal = PostalCodeRef(
+            id=f"india-post-{clean_code}",
+            country_code="IN",
+            state_code=state_ref.state_code,
+            postal_code=clean_code,
+            locality=None,
+            city=city,
+            is_active=True,
+        )
+        postal.state_name = state_ref.name
+        postal.gst_state_code = state_ref.gst_state_code
+        postal.zone = INDIAN_STATE_CODE_TO_ZONE.get(state_ref.state_code.upper())
+        return postal
 
     async def search_postal_codes(
         self,
@@ -570,4 +645,3 @@ class LocalizationService:
             "supply_type": "INTERSTATE",
             "tax_components": ["IGST"],
         }
-
