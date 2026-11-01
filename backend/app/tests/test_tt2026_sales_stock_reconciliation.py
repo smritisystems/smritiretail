@@ -122,6 +122,45 @@ async def _seed_invoice(db_session, suffix: str):
 async def test_tt2026_reconciliation_preview_is_read_only_and_shows_shortage(db_session):
     suffix = uuid.uuid4().hex[:8]
     company, branch, product, invoice = await _seed_invoice(db_session, suffix)
+    sibling_variant = ItemVariant(
+        id=f"VAR-TTREC-SIB-{suffix}",
+        company_id=company.id,
+        item_id=product.item_id,
+        variant_sku=f"SKU-TTREC-SIB-{suffix}",
+        variant_name="Sibling variant",
+        is_active=True,
+        is_deleted=False,
+    )
+    sibling_product = Product(
+        id=f"PROD-TTREC-SIB-{suffix}",
+        company_id=company.id,
+        branch_id=branch.id,
+        item_id=product.item_id,
+        item_variant_id=sibling_variant.id,
+        code=f"CODE-TTREC-SIB-{suffix}",
+        sku=sibling_variant.variant_sku,
+        name="Sibling variant product",
+        category="Test",
+        barcode=f"BAR-TTREC-SIB-{suffix}",
+        price=Decimal("100.00"),
+        mrp=Decimal("100.00"),
+        gst_percentage=Decimal("18.00"),
+        stock=0,
+        is_active=True,
+        is_deleted=False,
+    )
+    db_session.add(sibling_variant)
+    await db_session.commit()
+    db_session.add(sibling_product)
+    await db_session.commit()
+    await StockLedger.post_admin_opening_stock(
+        db_session,
+        company.id,
+        sibling_product.id,
+        Decimal("100"),
+        "Sibling variant opening balance",
+    )
+    await db_session.commit()
 
     result = await reconcile_tt2026_sales_stock(
         session=db_session,
@@ -135,6 +174,9 @@ async def test_tt2026_reconciliation_preview_is_read_only_and_shows_shortage(db_
     assert result["dry_run"] is True
     assert result["planned_stock_movements"] == 1
     assert result["negative_sku_count"] == 1
+    assert result["total_current_on_hand"] == "5.00"
+    assert result["total_pending_sale_out"] == "6.0000"
+    assert result["total_projected_on_hand"] == "-1.0000"
     assert result["sku_preview"][0]["current_on_hand"] == "5.00"
     assert result["sku_preview"][0]["pending_sale_out"] == "6.0000"
     assert result["sku_preview"][0]["projected_on_hand"] == "-1.0000"

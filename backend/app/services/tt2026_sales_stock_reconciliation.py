@@ -3,7 +3,7 @@ from decimal import Decimal
 from typing import Any
 
 from fastapi import HTTPException
-from sqlalchemy import String, and_, cast, func, or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import TenantContext
@@ -17,15 +17,6 @@ from app.services.stock_movement_types import ALL_MOVEMENT_TYPES
 TT2026_PREFIX = "TT2026"
 _SALE_REFERENCE_TYPES = ("SALES_INVOICE", "Sales Invoice", "SALES INVOICE")
 _ZERO = Decimal("0")
-
-
-def _product_identity_join():
-    return or_(
-        StockMovement.product_id == Product.id,
-        and_(Product.item_id.is_not(None), StockMovement.item_id == Product.item_id),
-        and_(Product.item_variant_id.is_not(None), StockMovement.variant_id == Product.item_variant_id),
-        and_(Product.variant_id.is_not(None), StockMovement.variant_id == cast(Product.variant_id, String)),
-    )
 
 
 async def reconcile_tt2026_sales_stock(
@@ -63,6 +54,8 @@ async def reconcile_tt2026_sales_stock(
         raise HTTPException(status_code=422, detail="Only TT2026-prefixed invoices can be reconciled.")
     if any((invoice.status or "").casefold() != "submitted" for invoice in invoices):
         raise HTTPException(status_code=409, detail="All selected invoices must be Submitted.")
+    if len({invoice.warehouse_id for invoice in invoices}) > 1:
+        raise HTTPException(status_code=409, detail="Selected invoices span multiple warehouses; reconcile separately.")
 
     selected_ids = [invoice.id for invoice in invoices]
     lines = (
@@ -252,23 +245,17 @@ async def reconcile_tt2026_sales_stock(
         pending_movements += group_count
 
     unknown_type = func.upper(func.coalesce(StockMovement.movement_type, ""))
+    movement_scope = [
+        StockMovement.company_id == tenant_ctx.company_id,
+        StockMovement.is_deleted.is_(False),
+        StockMovement.product_id.in_(pending.keys()),
+    ]
+    if tenant_ctx.branch_id:
+        movement_scope.append(or_(StockMovement.branch_id == tenant_ctx.branch_id, StockMovement.branch_id.is_(None)))
     unknown_stmt = (
-        select(Product.id, func.count(StockMovement.id))
-        .select_from(Product)
-        .join(
-            StockMovement,
-            and_(
-                StockMovement.company_id == tenant_ctx.company_id,
-                StockMovement.is_deleted.is_(False),
-                _product_identity_join(),
-            ),
-        )
-        .where(
-            Product.company_id == tenant_ctx.company_id,
-            Product.id.in_(pending.keys()),
-            unknown_type.notin_(tuple(ALL_MOVEMENT_TYPES)),
-        )
-        .group_by(Product.id)
+        select(StockMovement.product_id, func.count(StockMovement.id))
+        .where(*movement_scope, unknown_type.notin_(tuple(ALL_MOVEMENT_TYPES)))
+        .group_by(StockMovement.product_id)
     )
     unknown_rows = (await session.execute(unknown_stmt)).all() if pending else []
     if unknown_rows:
@@ -278,24 +265,14 @@ async def reconcile_tt2026_sales_stock(
         )
 
     balance_stmt = (
-        select(Product.id, func.coalesce(func.sum(get_signed_movement_quantity_expr()), 0))
-        .select_from(Product)
-        .outerjoin(
-            StockMovement,
-            and_(
-                StockMovement.company_id == tenant_ctx.company_id,
-                StockMovement.is_deleted.is_(False),
-                _product_identity_join(),
-            ),
-        )
-        .where(
-            Product.company_id == tenant_ctx.company_id,
-            Product.id.in_(pending.keys()),
-        )
-        .group_by(Product.id)
+        select(StockMovement.product_id, func.coalesce(func.sum(get_signed_movement_quantity_expr()), 0))
+        .where(*movement_scope)
+        .group_by(StockMovement.product_id)
     )
     balance_rows = (await session.execute(balance_stmt)).all() if pending else []
     balances = {product_id: Decimal(str(quantity or 0)) for product_id, quantity in balance_rows}
+    for product_id in pending:
+        balances.setdefault(product_id, _ZERO)
 
     sku_preview = []
     for product_id, deduction in sorted(pending.items(), key=lambda entry: (product_by_id[entry[0]].sku or "", entry[0])):
@@ -329,6 +306,9 @@ async def reconcile_tt2026_sales_stock(
         "negative_shortage_units": str(
             sum((abs(Decimal(item["projected_on_hand"])) for item in negative_products), _ZERO)
         ),
+        "total_current_on_hand": str(sum((Decimal(item["current_on_hand"]) for item in sku_preview), _ZERO)),
+        "total_pending_sale_out": str(sum((Decimal(item["pending_sale_out"]) for item in sku_preview), _ZERO)),
+        "total_projected_on_hand": str(sum((Decimal(item["projected_on_hand"]) for item in sku_preview), _ZERO)),
         "sku_preview": sku_preview,
         "posted_invoice_ids": [],
     }
