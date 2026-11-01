@@ -16,6 +16,7 @@ import hashlib
 import logging
 import uuid
 from dataclasses import dataclass
+from datetime import date
 from decimal import Decimal
 from typing import Optional, List, Dict, Any, Tuple, Set
 
@@ -68,6 +69,7 @@ class MovementRequest:
     source_module: Optional[str] = None
     internal_cost: Optional[InternalCost] = None
     allow_negative_stock: bool = False
+    business_date: Optional[date] = None
 
 
 @dataclass
@@ -162,9 +164,10 @@ class StockLedger:
         quantity: Decimal,
         movement_type: str,
         bin_no: Optional[str] = None,
+        business_date: Optional[date] = None,
     ) -> str:
         """
-        Computes SHA-256 payload hash of (product_id, batch_no, warehouse_id, quantity, movement_type).
+        Computes a SHA-256 payload hash including optional business date for replay integrity.
         """
         b_val = (batch_no or "").strip()
         w_val = (warehouse_id or "").strip()
@@ -179,6 +182,8 @@ class StockLedger:
         if bin_val:
             parts.append(bin_val.lower())
         parts.extend([q_val, movement_type.strip().lower()])
+        if business_date:
+            parts.append(business_date.isoformat())
         raw_payload = "|".join(parts)
         return hashlib.sha256(raw_payload.encode("utf-8")).hexdigest()
 
@@ -249,6 +254,7 @@ class StockLedger:
                 quantity=qty,
                 movement_type=mtype,
                 bin_no=req.bin_no,
+                business_date=req.business_date,
             )
             computed_meta.append({
                 "req": req,
@@ -562,6 +568,7 @@ class StockLedger:
                 bin=req.bin_no,
                 unit_cost=resolved_cost,
                 cost_source=val_source,
+                business_date=req.business_date,
                 idempotency_key=idem_key,
                 payload_hash=pay_hash,
                 remarks=req.remarks or f"Single-Door {mtype} posting for {req.reference_doc_type} {req.reference_doc_id}",

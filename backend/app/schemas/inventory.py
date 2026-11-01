@@ -13,7 +13,7 @@ License      : Proprietary Commercial Software
 
 import re
 from typing import List, Optional, Dict, Any
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator, ValidationInfo
 
@@ -430,6 +430,7 @@ class StockMovementResponse(BaseModel):
     approval: Optional[str] = None
     company_id: Optional[str] = None
     branch_id: Optional[str] = None
+    business_date: Optional[date] = None
     created_at: Optional[datetime] = None
     modified_at: Optional[datetime] = None
     barcode: Optional[str] = None

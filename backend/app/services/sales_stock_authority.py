@@ -15,7 +15,7 @@ Classification: Authoritative Sales Stock Movement & Ledger Engine (Phase S2)
 import uuid
 import logging
 from decimal import Decimal
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Optional, List, Dict, Any, Tuple
 
 from fastapi import HTTPException
@@ -74,6 +74,10 @@ class SalesStockAuthority:
         user_id: Optional[str] = None,
         allow_negative_stock: bool = False,
         reference_doc_type: str = "SALES_INVOICE",
+        business_date: Optional[date] = None,
+        approval: Optional[str] = None,
+        movement_remarks: Optional[str] = None,
+        source_module: Optional[str] = None,
     ) -> List[StockMovement]:
         """
         Records authoritative OUTWARD_SALE stock movements for a confirmed/posted Sales Invoice or Distribution Order.
@@ -169,9 +173,11 @@ class SalesStockAuthority:
                     batch_no=line.get("batch_no"),
                     internal_cost=cost_obj,
                     allow_negative_stock=allow_negative_stock,
-                    remarks=f"Authoritative stock deduction for {reference_doc_type} {invoice_no}",
-                    source_module=src_module,
+                    remarks=movement_remarks or f"Authoritative stock deduction for {reference_doc_type} {invoice_no}",
+                    source_module=source_module or src_module,
                     user=user,
+                    approval=approval,
+                    business_date=business_date,
                     line_ref=line.get("line_ref") or f"LINE-{line_idx + 1}",
                 )
             )
@@ -518,4 +524,3 @@ class SalesStockAuthority:
             await session.flush()
 
         return movements
-

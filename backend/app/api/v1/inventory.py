@@ -18,6 +18,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from fastapi.responses import FileResponse, Response
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import or_, cast, String
@@ -374,6 +375,7 @@ async def list_stock_ledger(
             "approval": mv.approval,
             "company_id": mv.company_id,
             "branch_id": mv.branch_id,
+            "business_date": mv.business_date,
             "created_at": mv.created_at,
             "modified_at": mv.modified_at,
             "barcode": row.prod_barcode,
@@ -872,6 +874,37 @@ async def get_historical_correction_proposal(
         session=db,
         company_id=tenant_ctx.company_id,
         audit_report=audit_report,
+    )
+
+
+class TT2026SalesStockReconciliationRequest(BaseModel):
+    invoice_ids: list[str] = Field(..., min_length=1, max_length=200)
+    reason: str = Field(..., min_length=12, max_length=500)
+    dry_run: bool = True
+    authorize_negative_stock: bool = False
+
+
+@router.post(
+    "/admin/tt2026-sales-stock-reconciliation",
+    summary="Preview or post stock-only TT2026 sales reconciliation",
+)
+async def reconcile_tt2026_sales_stock(
+    payload: TT2026SalesStockReconciliationRequest,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(require_role(UserRole.SYSADMIN)),
+):
+    """Reconcile explicitly selected TT2026 invoices without changing invoice or GL state."""
+    from ...services.tt2026_sales_stock_reconciliation import reconcile_tt2026_sales_stock as run_reconciliation
+
+    return await run_reconciliation(
+        session=db,
+        tenant_ctx=tenant_ctx,
+        invoice_ids=payload.invoice_ids,
+        user_id=current_user.username or str(current_user.id),
+        reason=payload.reason,
+        dry_run=payload.dry_run,
+        authorize_negative_stock=payload.authorize_negative_stock,
     )
 
 

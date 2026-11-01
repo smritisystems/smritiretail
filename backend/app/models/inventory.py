@@ -11,7 +11,7 @@
  * License      : Proprietary Commercial Software
  """
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from sqlalchemy import Column, String, Numeric, Boolean, Integer, BigInteger, Index, ForeignKey, Text, text, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
@@ -139,6 +139,7 @@ class StockMovement(BaseEntity):
     idempotency_key = Column(String(64), nullable=True, index=True)
     payload_hash = Column(String(64), nullable=True)
     cost_source = Column(String(50), nullable=True)
+    business_date = Column(Date, nullable=True, index=True)
 
     # Tracking Relationships (Phase 5)
     batch_rel = relationship("ItemBatch", foreign_keys=[batch_id], lazy="selectin")
@@ -356,5 +357,4 @@ class StockAuditItem(BaseEntity):
 
     audit = relationship("StockAudit", back_populates="items")
     product = relationship("Product")
-
 
