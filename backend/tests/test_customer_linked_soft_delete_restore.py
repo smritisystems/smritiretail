@@ -58,6 +58,7 @@ async def test_linked_soft_deleted_restore_defaults_to_read_only_preview():
         response = await service.restore_linked_soft_deleted_children(
             parent_customer_id="RRL-001",
             confirmed_customer_ids=[],
+            excluded_customer_ids=[],
             expected_candidate_count=None,
             dry_run=True,
             current_user=SimpleNamespace(id="admin-1", username="admin"),
@@ -89,6 +90,7 @@ async def test_linked_soft_deleted_restore_requires_exact_confirmed_set():
         response = await service.restore_linked_soft_deleted_children(
             parent_customer_id="RRL-001",
             confirmed_customer_ids=["child-1"],
+            excluded_customer_ids=[],
             expected_candidate_count=1,
             dry_run=False,
             current_user=SimpleNamespace(id="admin-1", username="admin"),
@@ -119,6 +121,7 @@ async def test_linked_soft_deleted_restore_rejects_stale_confirmation_without_wr
             await service.restore_linked_soft_deleted_children(
                 parent_customer_id="RRL-001",
                 confirmed_customer_ids=["different-id"],
+                excluded_customer_ids=[],
                 expected_candidate_count=1,
                 dry_run=False,
                 current_user=SimpleNamespace(id="admin-1", username="admin"),
@@ -130,6 +133,37 @@ async def test_linked_soft_deleted_restore_rejects_stale_confirmation_without_wr
     db.add.assert_not_called()
 
 
+@pytest.mark.asyncio
+async def test_linked_soft_deleted_restore_allows_explicit_exclusion():
+    restored_child = _customer("child-1", "1888", deleted=True)
+    excluded_child = _customer("child-2", "V051", deleted=True)
+    db = AsyncMock()
+    db.add = MagicMock()
+    db.execute = AsyncMock(side_effect=[_result([restored_child, excluded_child]), _result([])])
+    service = _service(db)
+
+    with patch("app.services.crm.acquire_customer_hierarchy_lock", new_callable=AsyncMock):
+        response = await service.restore_linked_soft_deleted_children(
+            parent_customer_id="RRL-001",
+            confirmed_customer_ids=["child-1"],
+            excluded_customer_ids=["child-2"],
+            expected_candidate_count=2,
+            dry_run=False,
+            current_user=SimpleNamespace(id="admin-1", username="admin"),
+        )
+
+    assert response["candidate_count"] == 2
+    assert response["restored_count"] == 1
+    assert response["excluded_count"] == 1
+    assert response["excluded_candidates"][0].id == "child-2"
+    typed_response = CustomerLinkedRestoreResponse.model_validate(response)
+    assert typed_response.excluded_candidates[0].code == "V051"
+    assert restored_child.is_deleted is False
+    assert excluded_child.is_deleted is True
+    assert db.commit.await_count == 1
+    assert db.add.call_count == 1
+
+
 def test_linked_soft_deleted_restore_requires_explicit_confirmation_for_writes():
     with pytest.raises(ValidationError):
         CustomerLinkedRestoreRequest(dry_run=False)
@@ -139,4 +173,20 @@ def test_linked_soft_deleted_restore_requires_explicit_confirmation_for_writes()
             dry_run=False,
             expected_candidate_count=1,
             confirmed_customer_ids=["child-1", "child-1"],
+        )
+
+    with pytest.raises(ValidationError):
+        CustomerLinkedRestoreRequest(
+            dry_run=False,
+            expected_candidate_count=1,
+            confirmed_customer_ids=["child-1"],
+            excluded_customer_ids=["child-1"],
+        )
+
+    with pytest.raises(ValidationError):
+        CustomerLinkedRestoreRequest(
+            dry_run=False,
+            expected_candidate_count=1,
+            confirmed_customer_ids=["child-1"],
+            excluded_customer_ids=["child-2", "child-2"],
         )

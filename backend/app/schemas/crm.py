@@ -1087,6 +1087,9 @@ class CustomerLinkedRestoreRequest(BaseModel):
     confirmed_customer_ids: List[str] = Field(
         default_factory=list, max_length=100, alias="confirmedCustomerIds"
     )
+    excluded_customer_ids: List[str] = Field(
+        default_factory=list, max_length=100, alias="excludedCustomerIds"
+    )
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -1094,6 +1097,10 @@ class CustomerLinkedRestoreRequest(BaseModel):
     def require_restore_confirmation(self):
         if len(set(self.confirmed_customer_ids)) != len(self.confirmed_customer_ids):
             raise ValueError("confirmed_customer_ids must not contain duplicates.")
+        if len(set(self.excluded_customer_ids)) != len(self.excluded_customer_ids):
+            raise ValueError("excluded_customer_ids must not contain duplicates.")
+        if set(self.confirmed_customer_ids).intersection(self.excluded_customer_ids):
+            raise ValueError("A customer cannot be both confirmed and excluded.")
         if not self.dry_run and (
             self.expected_candidate_count is None or not self.confirmed_customer_ids
         ):
@@ -1117,6 +1124,10 @@ class CustomerLinkedRestoreResponse(BaseModel):
     candidate_count: int = Field(..., alias="candidateCount")
     restored_count: int = Field(0, alias="restoredCount")
     candidates: List[CustomerLinkedRestoreCandidate] = Field(default_factory=list)
+    excluded_count: int = Field(0, alias="excludedCount")
+    excluded_candidates: List[CustomerLinkedRestoreCandidate] = Field(
+        default_factory=list, alias="excludedCandidates"
+    )
 
     model_config = ConfigDict(populate_by_name=True)
 

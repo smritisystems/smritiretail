@@ -1588,6 +1588,7 @@ class CrmService:
         self,
         parent_customer_id: str,
         confirmed_customer_ids: List[str],
+        excluded_customer_ids: List[str],
         expected_candidate_count: Optional[int],
         dry_run: bool,
         current_user: User,
@@ -1663,26 +1664,34 @@ class CrmService:
             "candidate_count": len(candidates),
             "restored_count": 0,
             "candidates": response_candidates,
+            "excluded_count": 0,
+            "excluded_candidates": [],
         }
         if dry_run:
             return response
 
         confirmed_ids = set(confirmed_customer_ids)
+        excluded_ids = set(excluded_customer_ids)
         if (
             expected_candidate_count != len(candidates)
-            or confirmed_ids != candidate_ids
+            or confirmed_ids.intersection(excluded_ids)
+            or confirmed_ids.union(excluded_ids) != candidate_ids
             or len(confirmed_ids) != len(confirmed_customer_ids)
+            or len(excluded_ids) != len(excluded_customer_ids)
             or not candidates
+            or not confirmed_ids
         ):
             raise HTTPException(
                 status_code=409,
                 detail=(
-                    "The eligible customer set changed or confirmation does not match the preview. "
-                    "Run a new dry-run preview before restoring."
+                    "The eligible customer set changed or confirmation does not account for every "
+                    "preview candidate exactly once. Run a new dry-run preview before restoring."
                 ),
             )
 
-        codes = [customer.code for customer in candidates if customer.code]
+        restore_candidates = [customer for customer in candidates if customer.id in confirmed_ids]
+        excluded_candidates = [customer for customer in candidates if customer.id in excluded_ids]
+        codes = [customer.code for customer in restore_candidates if customer.code]
         if len(codes) != len(set(codes)):
             raise HTTPException(
                 status_code=409,
@@ -1694,7 +1703,7 @@ class CrmService:
                     Customer.company_id == company_id,
                     Customer.is_deleted.is_(False),
                     Customer.code.in_(codes),
-                    Customer.id.not_in(candidate_ids),
+                    Customer.id.not_in(confirmed_ids),
                 )
             )
         ).scalars().all()
@@ -1707,10 +1716,19 @@ class CrmService:
                 },
             )
 
+        response["excluded_count"] = len(excluded_candidates)
+        response["excluded_candidates"] = [
+            CustomerLinkedRestoreCandidate(
+                id=customer.id,
+                code=customer.code,
+                name=customer.name,
+            )
+            for customer in excluded_candidates
+        ]
         now = datetime.now(timezone.utc)
         actor_id = str(getattr(current_user, "id", ""))
         actor_name = str(getattr(current_user, "username", ""))
-        for customer in candidates:
+        for customer in restore_candidates:
             customer.is_deleted = False
             customer.deleted_at = None
             customer.deleted_by = None
@@ -1754,7 +1772,7 @@ class CrmService:
                 detail="Restore was rolled back because a customer integrity constraint changed.",
             ) from exc
 
-        response["restored_count"] = len(candidates)
+        response["restored_count"] = len(restore_candidates)
         return response
 
     async def check_credit_limit(self, customer_id: str, new_amount: float) -> bool:

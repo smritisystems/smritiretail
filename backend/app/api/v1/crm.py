@@ -1441,6 +1441,7 @@ async def restore_linked_soft_deleted_customers(
     return await service.restore_linked_soft_deleted_children(
         parent_customer_id=customer_id,
         confirmed_customer_ids=payload.confirmed_customer_ids,
+        excluded_customer_ids=payload.excluded_customer_ids,
         expected_candidate_count=payload.expected_candidate_count,
         dry_run=payload.dry_run,
         current_user=current_user,
