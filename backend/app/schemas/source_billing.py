@@ -3,7 +3,7 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
-from .sales import SalesInvoiceBase
+from .sales import SalesInvoiceBase, SalesInvoiceCreate
 
 
 SourceDocumentType = Literal["SALES_ORDER", "PACKING_SLIP"]
@@ -33,8 +33,11 @@ class SourceBillingPrepareLine(BaseModel):
     item_id: Optional[str] = None
     variant_id: Optional[str] = None
     code: str
+    barcodes: list[str] = Field(default_factory=list)
     name: str
     ordered_quantity: Decimal
+    po_quantity: Decimal = Decimal("0")
+    document_quantity: Optional[Decimal] = None
     previously_billed_quantity: Decimal
     reserved_quantity: Decimal = Decimal("0")
     remaining_quantity: Decimal
@@ -55,6 +58,7 @@ class SourceBillingPrepareResponse(BaseModel):
     source_document_number: str
     sales_order_id: Optional[str] = None
     sales_order_number: Optional[str] = None
+    po_reference: Optional[str] = None
     packing_slip_id: Optional[str] = None
     packing_slip_number: Optional[str] = None
     customer_id: str
@@ -69,6 +73,13 @@ class SourceBillingCommitRequest(BaseModel):
     source_document_id: str = Field(..., min_length=1, max_length=100)
     lines: list[SourceBillingLineRequest] = Field(..., min_length=1)
     invoice: SalesInvoiceBase
+
+
+class SourceBillingDraftRequest(BaseModel):
+    source_type: SourceDocumentType
+    source_document_id: str = Field(..., min_length=1, max_length=100)
+    lines: list[SourceBillingLineRequest] = Field(..., min_length=1)
+    invoice: SalesInvoiceCreate
 
 
 class SourceBillingCommitResponse(BaseModel):

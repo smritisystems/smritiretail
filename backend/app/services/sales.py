@@ -1792,6 +1792,12 @@ class SalesService:
                 detail="Posted tax invoices are immutable. Use the approved cancellation, amendment, credit-note, or debit-note workflow.",
             )
 
+        if str(invoice.source_document_type or "").strip().upper().startswith(("SALES_ORDER", "PACKING_SLIP")):
+            raise HTTPException(
+                status_code=409,
+                detail="Source-backed drafts are immutable. Cancel and recreate the draft from its verified Sales Order or Packing Slip.",
+            )
+
         # Apply scalar patches
         for attr in ("status", "customer_id", "date", "is_interstate",
                      "eway_bill_no", "invoice_no", "customer_name",
@@ -1903,6 +1909,13 @@ class SalesService:
             raise HTTPException(
                 status_code=400,
                 detail=f"Only DRAFT or HELD sales invoices can be submitted. Current status: '{invoice.status}'."
+            )
+
+        source_document_type = str(invoice.source_document_type or "").strip().upper()
+        if source_document_type.startswith(("SALES_ORDER", "PACKING_SLIP")):
+            raise HTTPException(
+                status_code=409,
+                detail="Source-backed drafts are not posted from the invoice draft screen. Re-select the source and use the authorized source-billing workflow.",
             )
 
         if not invoice.items:

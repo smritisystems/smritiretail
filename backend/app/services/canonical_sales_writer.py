@@ -1604,43 +1604,43 @@ class CanonicalSalesPostingWriter:
         db_invoice.balance_amount = max(Decimal("0.00"), net_rounded - total_paid)
         change_amount = max(Decimal("0.00"), total_paid - net_rounded)
 
-        # 12b. Real-Time POS Sales Commission Accrual Hook
-        from .sales_hook import write_commission_accrual
-        await write_commission_accrual(
-            db=session,
-            company_id=company_id,
-            branch_id=branch_id,
-            invoice_id=db_invoice.id,
-            invoice_no=db_invoice.invoice_no,
-            grand_total=db_invoice.grand_total,
-            items=calculated_lines,
-            header_salesperson_id=req.context.cashier_id,
-            creator=req.context.cashier_id or "SYSTEM",
-        )
+        outbox_event = None
+        if not req.is_draft:
+            from .sales_hook import write_commission_accrual
+            await write_commission_accrual(
+                db=session,
+                company_id=company_id,
+                branch_id=branch_id,
+                invoice_id=db_invoice.id,
+                invoice_no=db_invoice.invoice_no,
+                grand_total=db_invoice.grand_total,
+                items=calculated_lines,
+                header_salesperson_id=req.context.cashier_id,
+                creator=req.context.cashier_id or "SYSTEM",
+            )
 
-        # 13. Transactional Outbox Event Publication
-        outbox_event = await OutboxService.record_event(
-            session=session,
-            target_channel="SALES_POSTING",
-            payload={
-                "event_type": "CanonicalSalesInvoicePostedEvent",
-                "invoice_id": db_invoice.id,
-                "invoice_no": db_invoice.invoice_no,
-                "company_id": company_id,
-                "branch_id": branch_id,
-                "grand_total": str(db_invoice.grand_total),
-                "customer_id": db_invoice.customer_id,
-                "shift_id": shift_id,
-                "items_count": len(calculated_lines),
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-            },
-            correlation_id=idempotency_key,
-            event_type="SALES_INVOICE_POSTED",
-            aggregate_type="SALES_INVOICE",
-            aggregate_id=db_invoice.id,
-            company_id=company_id,
-            branch_id=branch_id,
-        )
+            outbox_event = await OutboxService.record_event(
+                session=session,
+                target_channel="SALES_POSTING",
+                payload={
+                    "event_type": "CanonicalSalesInvoicePostedEvent",
+                    "invoice_id": db_invoice.id,
+                    "invoice_no": db_invoice.invoice_no,
+                    "company_id": company_id,
+                    "branch_id": branch_id,
+                    "grand_total": str(db_invoice.grand_total),
+                    "customer_id": db_invoice.customer_id,
+                    "shift_id": shift_id,
+                    "items_count": len(calculated_lines),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                },
+                correlation_id=idempotency_key,
+                event_type="SALES_INVOICE_POSTED",
+                aggregate_type="SALES_INVOICE",
+                aggregate_id=db_invoice.id,
+                company_id=company_id,
+                branch_id=branch_id,
+            )
 
         if idemp_record:
             idemp_record.status = "COMMITTED"
@@ -1658,22 +1658,22 @@ class CanonicalSalesPostingWriter:
         # Flush to persist db_invoice and its items to session
         await session.flush()
 
-        # Automatic PSV Preparation (Immediate visibility in PSV workspace as Ready for Receiving)
-        try:
-            from .psv_projection import PSVProjectionService
-            async with session.begin_nested():
-                await PSVProjectionService.project_posted_invoice(
-                    session=session,
-                    invoice_id=db_invoice.id,
-                    company_id=company_id,
-                    branch_id=branch_id,
+        if not req.is_draft:
+            try:
+                from .psv_projection import PSVProjectionService
+                async with session.begin_nested():
+                    await PSVProjectionService.project_posted_invoice(
+                        session=session,
+                        invoice_id=db_invoice.id,
+                        company_id=company_id,
+                        branch_id=branch_id,
+                    )
+            except Exception as psv_exc:
+                logger.warning(
+                    "Automatic PSV preparation encountered notice for invoice %s: %s",
+                    db_invoice.id,
+                    psv_exc,
                 )
-        except Exception as psv_exc:
-            logger.warning(
-                "Automatic PSV preparation encountered notice for invoice %s: %s",
-                db_invoice.id,
-                psv_exc,
-            )
 
         if commit:
             await session.commit()

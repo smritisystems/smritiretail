@@ -38,6 +38,7 @@ from ...schemas.billing_catalog import (
     BillingCustomerListResponse,
     BillingCustomerItem,
 )
+from ...schemas.sales import SalesInvoiceResponse
 from ...services.canonical_sales_writer import CanonicalSalesPostingWriter
 from ...services.headless_billing import HeadlessBillingCore
 from ...services.billing_catalog_service import BillingCatalogService
@@ -45,6 +46,7 @@ from ...services.billing_profile_service import BillingProfileService
 from ...schemas.source_billing import (
     SourceBillingCommitRequest,
     SourceBillingCommitResponse,
+    SourceBillingDraftRequest,
     SourceBillingPrepareRequest,
     SourceBillingPrepareResponse,
 )
@@ -65,6 +67,20 @@ async def prepare_source_billing(
     tenant: TenantContext = Depends(get_tenant_context),
 ):
     return await SourceBillingService(db, tenant).prepare(request)
+
+
+@router.post(
+    "/sources/draft",
+    response_model=SalesInvoiceResponse,
+    summary="Save a source-backed invoice as an unposted draft",
+    dependencies=[Depends(require_permission("sales_billing", "NEW"))],
+)
+async def save_source_billing_draft(
+    request: SourceBillingDraftRequest,
+    db: AsyncSession = Depends(get_company_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+):
+    return await SourceBillingService(db, tenant).save_draft(request)
 
 
 @router.post(

@@ -393,7 +393,7 @@ export const BillingProfileConfigModal: React.FC<BillingProfileConfigModalProps>
                     update: setAllowedSalesChannels,
                   },
                   {
-                    label: "Permitted sources",
+                    label: "Permitted billing sources",
                     values: ["DIRECT", "CUSTOMER_PO", "SALES_ORDER", "PACKING_SLIP_CONSOLIDATED"],
                     selected: allowedSourceTypes,
                     update: setAllowedSourceTypes,
@@ -426,6 +426,11 @@ export const BillingProfileConfigModal: React.FC<BillingProfileConfigModalProps>
                         {value.replaceAll("_", " ")}
                       </label>
                     ))}
+                    {group.label === "Permitted billing sources" && (
+                      <p className="w-full text-[10px] text-slate-500">
+                        Enable Sales Order, Packing Slip, or both. Each enabled source appears as its own button. Scope applies to the selected company or current branch; source actions also require billing permission.
+                      </p>
+                    )}
                   </fieldset>
                 ))}
               </div>

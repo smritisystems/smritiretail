@@ -11,6 +11,7 @@ from sqlalchemy.orm import selectinload
 from ..api.deps import TenantContext
 from ..models.crm import Customer
 from ..models.fulfillment import PackingSlip, PackingSlipItem, SalesSourceInvoiceAllocation
+from ..models.inventory import Product
 from ..models.sales import (
     SalesInvoice,
     SalesOrder,
@@ -23,6 +24,7 @@ from ..schemas.sales import SalesInvoiceCreate
 from ..schemas.source_billing import (
     SourceBillingCommitRequest,
     SourceBillingCommitResponse,
+    SourceBillingDraftRequest,
     SourceBillingPrepareLine,
     SourceBillingPrepareRequest,
     SourceBillingPrepareResponse,
@@ -175,6 +177,24 @@ class SourceBillingService:
             reason = f"Sales Order line is {line_status.lower()}."
         elif remaining <= 0:
             reason = "No unbilled quantity remains."
+        product = None
+        if item.product_id:
+            product = (await self.session.execute(
+                select(Product).where(
+                    Product.id == item.product_id,
+                    Product.company_id == self.tenant_ctx.company_id,
+                    or_(
+                        Product.branch_id == self.tenant_ctx.branch_id,
+                        Product.branch_id.is_(None),
+                    ),
+                    Product.is_deleted.is_(False),
+                )
+            )).scalars().first()
+        barcodes = list(dict.fromkeys(
+            str(value).strip()
+            for value in ([getattr(product, "barcode", None)] + list(getattr(product, "secondary_barcodes", None) or []))
+            if value and str(value).strip()
+        ))
         return SourceBillingPrepareLine(
             source_line_id=source_line_id,
             order_line_id=str(item.id),
@@ -182,8 +202,11 @@ class SourceBillingService:
             item_id=item.item_id,
             variant_id=item.variant_id,
             code=item.code,
+            barcodes=barcodes or [item.code],
             name=item.name,
             ordered_quantity=package_quantity if package_quantity is not None else ordered,
+            po_quantity=ordered,
+            document_quantity=package_quantity,
             previously_billed_quantity=package_billed if package_quantity is not None else previously_billed,
             remaining_quantity=remaining,
             unit_price=Decimal(str(item.price or 0)),
@@ -274,6 +297,7 @@ class SourceBillingService:
             source_document_number=slip.packing_slip_number if slip else order.order_no,
             sales_order_id=order.id,
             sales_order_number=order.order_no,
+            po_reference=order.po_number,
             packing_slip_id=slip.id if slip else None,
             packing_slip_number=slip.packing_slip_number if slip else None,
             customer_id=customer.id,
@@ -282,6 +306,80 @@ class SourceBillingService:
             branch_id=self.tenant_ctx.branch_id,
             lines=lines,
         )
+
+    async def save_draft(self, request: SourceBillingDraftRequest) -> SalesInvoice:
+        prepared = await self.prepare(SourceBillingPrepareRequest(
+            source_type=request.source_type,
+            source_document_id=request.source_document_id,
+        ))
+        if request.invoice.customer_id and request.invoice.customer_id != prepared.customer_id:
+            raise HTTPException(status_code=422, detail="Invoice customer must match the source document customer.")
+
+        prepared_lines = {line.source_line_id: line for line in prepared.lines}
+        requested: dict[str, Decimal] = {}
+        for line in request.lines:
+            if line.source_line_id in requested:
+                raise HTTPException(status_code=422, detail="Duplicate source line in billing request.")
+            requested[line.source_line_id] = line.quantity
+
+        invoice_lines: list[dict[str, Any]] = []
+        for source_line_id, quantity in requested.items():
+            source_line = prepared_lines.get(source_line_id)
+            if not source_line or not source_line.eligible or quantity > source_line.remaining_quantity:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Requested quantity exceeds remaining billable quantity for source line {source_line_id}.",
+                )
+            discount_percent = Decimal(str(source_line.discount_percent or 0))
+            discount_amount = Decimal("0.00") if discount_percent > 0 else _allocate_fixed_line_discount(
+                Decimal(str(source_line.discount_amount or 0)),
+                Decimal(str(source_line.discount_quantity_basis or 0)),
+                Decimal(str(source_line.previously_billed_order_quantity or 0)),
+                quantity,
+            )
+            invoice_lines.append({
+                "product_id": source_line.product_id,
+                "item_id": source_line.item_id,
+                "variant_id": source_line.variant_id,
+                "code": source_line.code,
+                "name": source_line.name,
+                "quantity": quantity,
+                "price": source_line.unit_price,
+                "hsn_code": source_line.hsn_code,
+                "gst_rate": source_line.gst_rate,
+                "disc_pct": discount_percent,
+                "disc_amt": discount_amount,
+                "source_line_type": request.source_type,
+                "source_line_id": source_line_id,
+            })
+
+        invoice_header = request.invoice.model_dump(exclude_unset=True)
+        invoice_header.update({
+            "customer_id": prepared.customer_id,
+            "customer_name": prepared.customer_name,
+            "source_document_type": (
+                "PACKING_SLIP_CONSOLIDATED"
+                if request.source_type == "PACKING_SLIP"
+                else "SALES_ORDER"
+            ),
+            "source_document_id": prepared.source_document_id,
+            "po_reference": prepared.po_reference or request.invoice.po_reference,
+            "status": "Draft",
+            "is_draft": True,
+            "paid_amount": Decimal("0.00"),
+            "items": invoice_lines,
+        })
+        invoice_input = SalesInvoiceCreate.model_validate(invoice_header)
+        invoice = await SalesService(self.session, self.tenant_ctx).create_sales_invoice(
+            invoice_input,
+            idempotency_key=f"SRC-DRAFT-{uuid.uuid4().hex[:16]}",
+            commit=False,
+            source_billing_authorized=True,
+        )
+        if not invoice:
+            raise HTTPException(status_code=500, detail="Canonical source draft creation returned no invoice.")
+        await self.session.commit()
+        return invoice
 
     async def commit(
         self,

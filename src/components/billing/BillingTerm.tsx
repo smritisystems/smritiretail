@@ -676,7 +676,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       ...prev,
       billingSource: source.sourceType === "PACKING_SLIP" ? "PACKING_SLIP_CONSOLIDATED" : "SALES_ORDER",
       customerPoId: null,
-      poReference: prev.poReference || source.prepared.sales_order_number || "",
+      poReference: source.prepared.po_reference || prev.poReference || source.prepared.sales_order_number || "",
     }));
     setSourceBillingModalType(null);
     onNotification?.("Source Prepared", `${source.documentNumber} lines are ready for review and billing.`, "success");
@@ -1224,6 +1224,10 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   );
 
   const openSettlement = () => {
+    if (sourceBillingSelection) {
+      onNotification?.("Source Billing Is Draft-Only", "Save this source-backed invoice as a draft. Posting is not available from this workflow.", "info");
+      return;
+    }
     if (items.length === 0) {
       onNotification?.("Settlement", "Add items to invoice before opening settlement.", "error");
       return;
@@ -3299,8 +3303,12 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
 
   // Save as Draft Sales Invoice (persisted SalesInvoice, status="Draft", zero stock/GL mutations)
   const handleSaveDraftInvoice = async () => {
-    if (sourceBillingSelection) {
-      onNotification?.("Source Invoice Cannot Be Drafted", "Source billing does not reserve quantities in drafts. Commit it through settlement when ready.", "error");
+    if (activeDraftId && sourceBillingSelection) {
+      onNotification?.(
+        "Source Draft Already Saved",
+        "This source-linked draft is saved and cannot be edited or duplicated here. Cancel the draft and prepare the source again to create a new draft.",
+        "info",
+      );
       return;
     }
     if (items.length === 0) {
@@ -3327,8 +3335,10 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       place_of_supply_code: headerState.placeOfSupplyCode || null,
       po_reference: headerState.poReference || null,
       customer_po_id: headerState.customerPoId || null,
-      source_document_type: headerState.billingSource || "DIRECT",
-      source_document_id: headerState.customerPoId || null,
+      source_document_type: sourceBillingSelection?.sourceType === "PACKING_SLIP"
+        ? "PACKING_SLIP_CONSOLIDATED"
+        : sourceBillingSelection?.sourceType || headerState.billingSource || "DIRECT",
+      source_document_id: sourceBillingSelection?.documentId || headerState.customerPoId || null,
       sales_channel: headerState.salesChannel || "B2B_WHOLESALE",
       psv_party_id: headerState.psvPartyId || null,
       status: "Draft",
@@ -3381,9 +3391,21 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
           "success"
         );
       } else {
-        const saved = await apiFetchV1<any>("/sales/invoices", {
+        const saveUrl = sourceBillingSelection ? "/billing/sources/draft" : "/sales/invoices";
+        const saveBody = sourceBillingSelection
+          ? {
+            source_type: sourceBillingSelection.sourceType,
+            source_document_id: sourceBillingSelection.documentId,
+            lines: sourceBillingSelection.lines.map(line => ({
+              source_line_id: line.sourceLineId,
+              quantity: line.quantity,
+            })),
+            invoice: draftPayload,
+          }
+          : draftPayload;
+        const saved = await apiFetchV1<any>(saveUrl, {
           method: "POST",
-          body: JSON.stringify(draftPayload)
+          body: JSON.stringify(saveBody)
         });
         setActiveDraftId(saved.id);
         setHeaderState(prev => ({
@@ -3408,6 +3430,10 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         "Cart is empty. Add items or scan barcodes before previewing a draft invoice.",
         "error"
       );
+      return;
+    }
+    if (sourceBillingSelection) {
+      onNotification?.("Source Billing Is Draft-Only", "Save this source-backed invoice as a draft; settlement and posting are disabled for this workflow.", "info");
       return;
     }
 
@@ -3692,6 +3718,11 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     denominations?: any
   ) => {
     const isCreditTx = headerState.transaction === "Credit" || payments.some(p => (p.mode || "").toUpperCase() === "CREDIT");
+    if (sourceBillingSelection) {
+      setShowSettlementModal(false);
+      await handleSaveDraftInvoice();
+      return;
+    }
     console.error("[SETTLEMENT CHECK] handleCompleteSettlement invoked", {
       isCreditTx,
       billingPolicyLoading,
@@ -3929,33 +3960,12 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         });
         setActiveDraftId(null);
       } else {
-        const sourceLinesMatchCart = sourceBillingSelection
-          && items.length === sourceBillingSelection.lines.length
-          && items.every(item => sourceBillingSelection.lines.some(line =>
-            line.sourceLineId === item.sourceLineId && line.quantity === item.qty
-          ));
-        if (sourceBillingSelection && !sourceLinesMatchCart) {
-          onNotification?.("Source Review Changed", "The source lines no longer match the reviewed invoice. Re-select the source before committing.", "error");
-          return;
-        }
-        const saveUrl = sourceBillingSelection
-          ? "/billing/sources/commit"
-          : headerState.billingSource === "CUSTOMER_PO" && headerState.customerPoId
-            ? `/sales/customer-pos/${headerState.customerPoId}/bill`
-            : "/sales/invoices";
-        const saveBody = sourceBillingSelection
-          ? {
-            source_type: sourceBillingSelection.sourceType,
-            source_document_id: sourceBillingSelection.documentId,
-            lines: sourceBillingSelection.lines.map(line => ({
-              source_line_id: line.sourceLineId,
-              quantity: line.quantity,
-            })),
-            invoice: invoicePayload,
-          }
-          : headerState.billingSource === "CUSTOMER_PO" && headerState.customerPoId
-            ? { invoice: invoicePayload, lines: items.map(item => ({ customer_po_line_id: item.customerPoLineId, quantity: item.qty })) }
-            : invoicePayload;
+        const saveUrl = headerState.billingSource === "CUSTOMER_PO" && headerState.customerPoId
+          ? `/sales/customer-pos/${headerState.customerPoId}/bill`
+          : "/sales/invoices";
+        const saveBody = headerState.billingSource === "CUSTOMER_PO" && headerState.customerPoId
+          ? { invoice: invoicePayload, lines: items.map(item => ({ customer_po_line_id: item.customerPoLineId, quantity: item.qty })) }
+          : invoicePayload;
         const requestFingerprint = JSON.stringify(saveBody);
         if (settlementIdempotencyKeyRef.current?.fingerprint !== requestFingerprint) {
           settlementIdempotencyKeyRef.current = {
@@ -4078,6 +4088,10 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
 
   // Enterprise Retail: F7 Exact Cash Instant Checkout
   const handleExactCashSettlement = async () => {
+    if (sourceBillingSelection) {
+      await handleSaveDraftInvoice();
+      return;
+    }
     if (items.length === 0) {
       onNotification?.("Settlement", "Add items to invoice before exact cash settlement [F7].", "error");
       return;
@@ -4353,7 +4367,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                   <button
                     type="button"
                     onClick={() => { handleSaveDraftInvoice(); setShowMoreMenu(false); }}
-                    disabled={isReadOnlyView || items.length === 0}
+                    disabled={isReadOnlyView || items.length === 0 || (Boolean(activeDraftId) && Boolean(sourceBillingSelection))}
                     className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-left w-full cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <Edit2 size={14} className="text-indigo-600" />
@@ -4891,7 +4905,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                         onClick={() => handleBillingSourceChoice("SALES_ORDER")}
                         disabled={isReadOnlyView || Boolean(sourceBillingSelection)}
                         className="min-h-9 rounded-md border border-slate-300 bg-white px-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
-                        title="Prepare a Sales Order and commit its invoice atomically"
+                        title="Enter actual bill quantities from this Sales Order, then save an unposted draft"
                       >
                         Sales Order
                       </button>
@@ -4902,7 +4916,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                         onClick={() => handleBillingSourceChoice("PACKING_SLIP")}
                         disabled={isReadOnlyView || Boolean(sourceBillingSelection)}
                         className="min-h-9 rounded-md border border-slate-300 bg-white px-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
-                        title="Prepare a Packing Slip and commit its invoice atomically"
+                        title="Prefill remaining packed quantities from this Packing Slip, then save an unposted draft"
                       >
                         Packing Slip
                       </button>
@@ -5944,10 +5958,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => {
-                      if (items.length > 0) setShowSettlementModal(true);
-                      else alert("Add items before opening settlement.");
-                    }}
+                    onClick={openSettlement}
                     className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-lg text-xs font-bold transition shadow-xs cursor-pointer"
                   >
                     Open Multi-Tender Settlement Studio (F8)
@@ -6069,9 +6080,11 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
             <button
               type="button"
               onClick={handleSaveDraftInvoice}
-              disabled={isReadOnlyView || items.length === 0 || Boolean(sourceBillingSelection)}
+              disabled={isReadOnlyView || items.length === 0 || (Boolean(activeDraftId) && Boolean(sourceBillingSelection))}
               className="px-3 py-1.5 bg-white hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-100 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs"
-              title="Save as Draft Invoice (No stock deduction / No GL impact)"
+              title={sourceBillingSelection
+                ? activeDraftId ? "Source draft already saved; cancel and re-prepare to create another" : "Save source-backed invoice as a draft (no stock/GL impact)"
+                : "Save as Draft Invoice (No stock deduction / No GL impact)"}
             >
               <Edit2 size={14} className="text-indigo-600" />
               <span>{activeDraftId ? "Update Draft" : "Draft"}</span>
@@ -6113,13 +6126,15 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
             )}
             <button
               type="button"
-              onClick={openSettlement}
-              disabled={isReadOnlyView || items.length === 0}
+              onClick={sourceBillingSelection ? handleSaveDraftInvoice : openSettlement}
+              disabled={isReadOnlyView || items.length === 0 || (Boolean(activeDraftId) && Boolean(sourceBillingSelection))}
               className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-2 cursor-pointer shadow-md hover:shadow-lg disabled:opacity-40 disabled:cursor-not-allowed"
-              title="Settle & Save Invoice (F8)"
+              title={sourceBillingSelection ? "Save source-backed invoice as a draft (no posting)" : "Settle & Save Invoice (F8)"}
             >
               <Check size={16} />
-              <span>Settle &amp; Save <span className="hidden sm:inline">(F8)</span></span>
+              <span>{sourceBillingSelection
+                ? activeDraftId ? "Source Draft Saved" : "Save Source Draft"
+                : <>Settle &amp; Save <span className="hidden sm:inline">(F8)</span></>}</span>
             </button>
           </div>
         </div>
@@ -6161,6 +6176,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
 
       {sourceBillingModalType && headerState.customer && (
         <SourceBillingSelectionModal
+          key={sourceBillingModalType}
           sourceType={sourceBillingModalType}
           customerId={headerState.customer.id}
           customerName={headerState.customer.name}

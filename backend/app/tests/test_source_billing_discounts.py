@@ -1,6 +1,9 @@
 from decimal import Decimal
 from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock
 
+import pytest
+from fastapi import HTTPException
 from app.core.gst_engine import calculate_line_item_tax
 from app.services.invoice_pdf_service import invoice_line_discount_details
 from app.services.headless_billing import resolve_line_discount
@@ -151,3 +154,26 @@ def test_invoice_discount_details_keep_resolved_source_and_amount():
         "discount_amount": Decimal("20.00"),
         "source": "SALES_ORDER",
     }
+
+
+@pytest.mark.asyncio
+async def test_source_backed_drafts_cannot_be_edited_or_posted_from_draft_screen():
+    from app.schemas.sales import SalesInvoiceUpdate
+    from app.services.sales import SalesService
+
+    invoice = SimpleNamespace(status="Draft", source_document_type="SALES_ORDER")
+    result = MagicMock()
+    result.scalars.return_value.first.return_value = invoice
+    session = AsyncMock()
+    session.execute.return_value = result
+    service = SalesService(
+        session,
+        SimpleNamespace(company_id="company-1", branch_id="branch-1"),
+    )
+
+    with pytest.raises(HTTPException) as edit_error:
+        await service.update_sales_invoice("invoice-1", SalesInvoiceUpdate())
+    assert "Source-backed drafts are immutable" in edit_error.value.detail
+    with pytest.raises(HTTPException) as submit_error:
+        await service.submit_draft_sales_invoice("invoice-1")
+    assert "Source-backed drafts are not posted" in submit_error.value.detail
