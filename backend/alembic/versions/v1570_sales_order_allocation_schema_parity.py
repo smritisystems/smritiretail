@@ -84,6 +84,17 @@ def upgrade() -> None:
         WHERE uuid IS NULL
     """))
     bind.execute(sa.text(f"""
+        WITH duplicate_uuids AS (
+            SELECT ctid, row_number() OVER (PARTITION BY uuid ORDER BY id) AS row_number
+            FROM {TABLE}
+        )
+        UPDATE {TABLE} AS allocation
+        SET uuid = gen_random_uuid()::text
+        FROM duplicate_uuids
+        WHERE allocation.ctid = duplicate_uuids.ctid
+          AND duplicate_uuids.row_number > 1
+    """))
+    bind.execute(sa.text(f"""
         UPDATE {TABLE} AS allocation
         SET company_id = COALESCE(allocation.company_id, sales_order.company_id),
             branch_id = COALESCE(allocation.branch_id, sales_order.branch_id),
@@ -106,11 +117,11 @@ def upgrade() -> None:
            OR version IS NULL
     """))
 
-    constraints = {
-        constraint["name"]
+    has_uuid_unique = any(
+        constraint.get("column_names") == ["uuid"]
         for constraint in sa.inspect(bind).get_unique_constraints(TABLE)
-    }
-    if "uq_sales_order_invoice_allocations_uuid" not in constraints:
+    )
+    if not has_uuid_unique:
         op.create_unique_constraint(
             "uq_sales_order_invoice_allocations_uuid",
             TABLE,
