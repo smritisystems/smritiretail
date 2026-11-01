@@ -245,6 +245,54 @@ describe("Corporate Customer 360 Dashboard Components", () => {
     expect(markup).toContain("Search customer");
   });
 
+  it("shows and links a child's parent account in the profile and relationship tab", () => {
+    const child = {
+      ...mockPayload.customer,
+      id: "child-1888",
+      code: "1888",
+      name: "RRL Footprint RKB Path Dibrugarh",
+      is_dependant: true,
+      parent_customer_id: "parent-rrl",
+      primary_account_code: "RRL-001",
+      primary_account_name: "Reliance Retail Limited",
+      dependants: [],
+    };
+    const markup = renderToStaticMarkup(
+      <Customer360DashboardView
+        customer={child}
+        corporate360Data={{ ...mockPayload, customer: child }}
+        initialTab="parent_child"
+        onSelectCustomer={vi.fn()}
+      />
+    );
+
+    expect(markup).toContain("Child account of");
+    expect(markup).toContain("Reliance Retail Limited");
+    expect(markup).toContain("RRL-001");
+    expect(markup).toContain("Parent account");
+    expect(markup).toContain("Direct child accounts");
+  });
+
+  it("explicitly identifies a customer with no parent account", () => {
+    const standalone = {
+      ...mockPayload.customer,
+      is_dependant: false,
+      parent_customer_id: null,
+      primary_account_code: null,
+      primary_account_name: null,
+      dependants: [],
+    };
+    const markup = renderToStaticMarkup(
+      <Customer360DashboardView
+        customer={standalone}
+        corporate360Data={{ ...mockPayload, customer: standalone }}
+        initialTab="parent_child"
+      />
+    );
+
+    expect(markup).toContain("No parent account linked.");
+  });
+
   it("renders Corporate Account Header with Reliance brand identity and metadata", () => {
     const markup = renderToStaticMarkup(
       <CorporateAccountHeader

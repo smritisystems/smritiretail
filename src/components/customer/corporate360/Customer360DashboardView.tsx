@@ -17,7 +17,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Ban, CalendarDays, CreditCard, Loader2, MapPin, PackageCheck, Pencil, Plus, Receipt, RefreshCw, Save, Search, ShoppingCart, Store, Users, X } from "lucide-react";
+import { ArrowLeft, Ban, CalendarDays, CreditCard, GitFork, Loader2, MapPin, PackageCheck, Pencil, Plus, Receipt, RefreshCw, Save, Search, ShoppingCart, Store, Users, X } from "lucide-react";
 import { CorporateCustomerTabs } from "./CorporateCustomerTabs.tsx";
 import { CorporateTabKey, CorporateCustomer360Data, PsvDetailedItem, PsvQuantityReconciliationPayload, PsvQuantityReconciliationSummary } from "./types.ts";
 import { apiFetchV1 } from "../../../lib/apiFetchV1.ts";
@@ -257,6 +257,40 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
     return Array.isArray(rows) ? rows.filter((row: any) => !isDeleted(row)) : [];
   }, [customer]);
 
+  const parentAccountId = customer?.parent_customer_id || customer?.parentCustomerId;
+  const parentAccountCode =
+    customer?.parent_customer_code ||
+    customer?.parentCustomerCode ||
+    customer?.primary_account_code ||
+    customer?.primaryAccountCode;
+  const parentAccountName =
+    customer?.parent_customer_name ||
+    customer?.parentCustomerName ||
+    customer?.primary_account_name ||
+    customer?.primaryAccountName;
+  const hasParentRelationship = Boolean(
+    customer?.is_dependant ||
+    customer?.isDependant ||
+    parentAccountId ||
+    parentAccountCode ||
+    parentAccountName
+  );
+  const openParentAccount = () => {
+    const targetId = parentAccountId || parentAccountCode;
+    if (!targetId || !onSelectCustomer) return;
+    onSelectCustomer({
+      id: String(targetId),
+      code: parentAccountCode || null,
+      name: parentAccountName || parentAccountCode || "Parent account",
+      mobile: null,
+      customer_group_id: null,
+      customer_group_name: null,
+      status: customer?.primary_account_status || customer?.primaryAccountStatus || "Unknown",
+      is_active: Boolean(customer?.primary_account_is_active ?? customer?.primaryAccountIsActive ?? false),
+      relationship_type: "parent",
+    });
+  };
+
   const invoices = initialInvoices || corporate360Data?.sales_invoices || corporate360Data?.recent_orders || customer?.invoices || [];
   const activeStores = stores.filter((store: any) => String(store.status || "").toLowerCase() === "active").length;
   const isDraft = customer?.id?.startsWith("cust-draft-") === true;
@@ -440,6 +474,25 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
                 {(customer.mobile || customer.phone) && <><span className="mx-1.5">·</span>{textValue(customer.mobile || customer.phone)}</>}
                 {customer.email && <><span className="mx-1.5">·</span>{textValue(customer.email)}</>}
               </p>
+              {hasParentRelationship && (
+                <p className="mt-1 flex flex-wrap items-center gap-1 text-xs text-slate-600 dark:text-slate-300">
+                  <GitFork size={13} aria-hidden="true" />
+                  <span>Child account of</span>
+                  {onSelectCustomer && (parentAccountId || parentAccountCode) ? (
+                    <button type="button" onClick={openParentAccount} className="font-semibold text-sky-700 hover:underline dark:text-sky-300">
+                      {parentAccountName || parentAccountCode || "Open parent account"}
+                      {parentAccountCode && <span className="ml-1 font-mono font-normal">({parentAccountCode})</span>}
+                    </button>
+                  ) : parentAccountName || parentAccountCode ? (
+                    <span className="font-semibold">
+                      {parentAccountName || "Parent account"}
+                      {parentAccountCode && <span className="ml-1 font-mono font-normal">({parentAccountCode})</span>}
+                    </span>
+                  ) : (
+                    <span role="status" className="text-amber-700 dark:text-amber-300">Parent account details unavailable</span>
+                  )}
+                </p>
+              )}
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -708,8 +761,9 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
                 <button type="button" onClick={() => openTab("commercial")} className="mt-3 text-xs font-semibold text-sky-700 hover:underline dark:text-sky-300">View commercial terms</button>
               </Section>
               <Section title="Customer network">
-                <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-3 text-sm dark:border-slate-800"><span className="flex items-center gap-2 text-slate-600 dark:text-slate-300"><Users size={15} />Child customers</span><strong>{children.length}</strong></div>
-                <div className="flex items-center justify-between gap-3 pt-3 text-sm dark:border-slate-800"><span className="flex items-center gap-2 text-slate-600 dark:text-slate-300"><Store size={15} />Active stores / outlets</span><strong>{activeStores} / {stores.length}</strong></div>
+                <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-3 text-sm dark:border-slate-800"><span className="flex items-center gap-2 text-slate-600 dark:text-slate-300"><Users size={15} />Linked child accounts</span><strong>{children.length}</strong></div>
+                <div className="flex items-center justify-between gap-3 pt-3 text-sm dark:border-slate-800"><span className="flex items-center gap-2 text-slate-600 dark:text-slate-300"><Store size={15} />Active delivery locations</span><strong>{activeStores} / {stores.length}</strong></div>
+                <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">Child accounts and delivery locations are separate records, so their counts can differ.</p>
                 <button type="button" onClick={() => openTab("parent_child")} className="mt-3 text-xs font-semibold text-sky-700 hover:underline dark:text-sky-300">View customer relationships</button>
               </Section>
             </div>
@@ -722,7 +776,30 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
 
         {!isEditing && activeTab === "addresses" && <div className="grid gap-4 lg:grid-cols-2"><Section title="Billing locations">{billingLocations.length ? <DataTable headers={["Location", "Address", "City", "Default"]} rows={billingLocations.map((row: any) => [row.location_name || row.locationName || row.name || "Billing Location", row.address_line1 || row.addressLine1 || row.address || "—", row.city || "—", (row.is_default ?? row.isDefault) ? "Yes" : "No"])} /> : <Empty>No billing locations are recorded.</Empty>}</Section><Section title="Delivery locations">{deliveryLocations.length ? <DataTable headers={["Store code", "Location", "City", "Status"]} rows={deliveryLocations.map((row: any) => [row.store_code || row.storeCode || "—", row.location_name || row.locationName || row.name || "Delivery Location", row.city || "—", row.status || "Active"])} /> : <Empty>No delivery locations are recorded.</Empty>}</Section></div>}
 
-        {!isEditing && activeTab === "parent_child" && <Section title="Customer relationships" description="Linked customer accounts are separate records from delivery locations.">
+        {!isEditing && activeTab === "parent_child" && <Section title="Customer relationships" description="Customer account relationships are separate from store and delivery locations.">
+          <div className="mb-5 rounded-lg border border-slate-200 p-4 dark:border-slate-700">
+            <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white"><GitFork size={15} />Parent account</h3>
+            {hasParentRelationship ? (
+              <div className="mt-2">
+                {onSelectCustomer && (parentAccountId || parentAccountCode) ? (
+                  <button type="button" onClick={openParentAccount} className="text-left text-sm font-semibold text-sky-700 hover:underline dark:text-sky-300">
+                    {parentAccountName || parentAccountCode || "Open parent account"}
+                    {parentAccountCode && <span className="ml-2 font-mono text-xs font-medium text-slate-500">({parentAccountCode})</span>}
+                  </button>
+                ) : parentAccountName || parentAccountCode ? (
+                  <p className="text-sm font-medium text-slate-900 dark:text-white">
+                    {parentAccountName || "Parent account"}
+                    {parentAccountCode && <span className="ml-2 font-mono text-xs text-slate-500">({parentAccountCode})</span>}
+                  </p>
+                ) : (
+                  <p role="status" className="text-sm text-amber-800 dark:text-amber-200">A parent relationship is recorded, but the parent account details are unavailable.</p>
+                )}
+              </div>
+            ) : (
+              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">No parent account linked.</p>
+            )}
+          </div>
+          <h3 className="mb-3 text-sm font-semibold text-slate-900 dark:text-white">Direct child accounts</h3>
           {children.length ? <>
             <DataTable headers={["Customer code", "Customer", "Status"]} rows={children.map((row: any) => [
               row.dependant_customer_code || row.dependantCustomerCode || row.customer_code || row.customerCode || row.code || "—",
