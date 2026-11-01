@@ -41,6 +41,77 @@ const normalizeStoreItems = (items: CorporateStoreItem[]): CorporateStoreItem[] 
     addresses: (store.addresses || []).map(normalizeStoreAddress),
   }));
 
+const normalizeFilterValue = (value: unknown) => String(value ?? "").trim().toLocaleLowerCase();
+
+export const getStoreNetworkRegions = (stores: CorporateStoreItem[]): string[] => {
+  const uniqueRegions = new Map<string, string>();
+  stores.forEach((store) => {
+    const region = String(store.state || store.city || "").trim();
+    const key = normalizeFilterValue(region);
+    if (key && !uniqueRegions.has(key)) uniqueRegions.set(key, region);
+  });
+  return Array.from(uniqueRegions.values()).sort((a, b) => a.localeCompare(b));
+};
+
+export const getStoreNetworkTypes = (stores: CorporateStoreItem[]): string[] => {
+  const uniqueTypes = new Map<string, string>();
+  stores.forEach((store) => {
+    const type = String(store.store_type || "").trim();
+    const key = normalizeFilterValue(type);
+    if (key && !uniqueTypes.has(key)) uniqueTypes.set(key, type);
+  });
+  return Array.from(uniqueTypes.values()).sort((a, b) => a.localeCompare(b));
+};
+
+export const filterStoreNetworkItems = (
+  stores: CorporateStoreItem[],
+  searchTerm: string,
+  selectedRegion: string,
+  selectedType: string,
+  selectedStatus: string
+): CorporateStoreItem[] => {
+  const query = normalizeFilterValue(searchTerm);
+  const region = normalizeFilterValue(selectedRegion);
+  const type = normalizeFilterValue(selectedType);
+  const status = normalizeFilterValue(selectedStatus);
+
+  return stores.filter((store) => {
+    const searchableFields = [
+      store.store_code,
+      store.store_name,
+      store.city,
+      store.state,
+      store.gstin,
+      store.contact,
+      store.contact_person,
+      store.phone,
+      store.email,
+      store.address_summary,
+      ...(store.addresses || []).flatMap((address) => [
+        address.address_title,
+        address.address_line1,
+        address.address_line2,
+        address.locality,
+        address.city,
+        address.district,
+        address.state,
+        address.state_code,
+        address.pincode,
+        address.country,
+      ]),
+    ];
+    const matchesSearch = !query ||
+      searchableFields.some((value) => normalizeFilterValue(value).includes(query));
+    const matchesRegion = selectedRegion === "ALL" ||
+      normalizeFilterValue(store.state) === region ||
+      normalizeFilterValue(store.city) === region;
+    const matchesType = selectedType === "ALL" || normalizeFilterValue(store.store_type) === type;
+    const matchesStatus = selectedStatus === "ALL" || normalizeFilterValue(store.status) === status;
+
+    return matchesSearch && matchesRegion && matchesType && matchesStatus;
+  });
+};
+
 export const CorporateStoreNetwork: React.FC<CorporateStoreNetworkProps> = ({
   stores: initialStores,
   customerId,
@@ -76,46 +147,16 @@ export const CorporateStoreNetwork: React.FC<CorporateStoreNetworkProps> = ({
 
   // Extract unique regions & types for filters
   const regions = useMemo(() => {
-    const set = new Set<string>();
-    stores.forEach((s) => {
-      if (s.state) set.add(s.state);
-      else if (s.city) set.add(s.city);
-    });
-    return Array.from(set).sort();
+    return getStoreNetworkRegions(stores);
   }, [stores]);
 
   const storeTypes = useMemo(() => {
-    const set = new Set<string>();
-    stores.forEach((s) => {
-      if (s.store_type) set.add(s.store_type);
-    });
-    return Array.from(set).sort();
+    return getStoreNetworkTypes(stores);
   }, [stores]);
 
   // Filtered stores
   const filteredStores = useMemo(() => {
-    return stores.filter((s) => {
-      const q = searchTerm.toLowerCase().trim();
-      const matchSearch =
-        !q ||
-        s.store_code.toLowerCase().includes(q) ||
-        s.store_name.toLowerCase().includes(q) ||
-        s.city.toLowerCase().includes(q) ||
-        (s.address_summary && s.address_summary.toLowerCase().includes(q));
-
-      const matchRegion =
-        selectedRegion === "ALL" ||
-        s.state === selectedRegion ||
-        s.city === selectedRegion;
-
-      const matchType = selectedType === "ALL" || s.store_type === selectedType;
-
-      const matchStatus =
-        selectedStatus === "ALL" ||
-        s.status.toUpperCase() === selectedStatus.toUpperCase();
-
-      return matchSearch && matchRegion && matchType && matchStatus;
-    });
+    return filterStoreNetworkItems(stores, searchTerm, selectedRegion, selectedType, selectedStatus);
   }, [stores, searchTerm, selectedRegion, selectedType, selectedStatus]);
 
   // Paginated stores
@@ -282,7 +323,7 @@ export const CorporateStoreNetwork: React.FC<CorporateStoreNetworkProps> = ({
           <Search size={14} className="absolute left-2.5 top-2.5 text-slate-400" />
           <input
             type="text"
-            placeholder="Search by Store Code, Name, City, or Address..."
+            placeholder="Search by Store Code, Name, City, State, PIN, or Address..."
             value={searchTerm}
             onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
             className="w-full bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-[#0284c7]"
