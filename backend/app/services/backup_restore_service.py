@@ -177,9 +177,39 @@ class BackupRestoreService:
                 try:
                     with open(manifest_path, "r", encoding="utf-8") as f:
                         data = json.load(f)
+                        if data.get("backup_type") == "LOGICAL_EXPORT" or data.get("filename", "").endswith(".json.gz"):
+                            data["backup_category"] = "PARTIAL"
+                            data["backup_type"] = "LOGICAL_EXPORT"
+                            data["is_complete_business_backup"] = False
+                            data["is_restorable"] = False
+                            data["completeness_status"] = "Partial"
+                            data["verification_status"] = "Partial"
+                            data["has_schema"] = False
+                            data["has_indexes"] = False
+                            data["has_sequences"] = False
+                            data["has_globals"] = False
                         # Verify the actual payload file exists on disk
                         payload_path = os.path.join(BACKUP_DIR, data.get("filename", ""))
                         if os.path.exists(payload_path):
+                            if data.get("has_globals"):
+                                globals_filename = data.get("globals_filename")
+                                globals_hash = data.get("globals_sha256_hash")
+                                globals_path = os.path.join(BACKUP_DIR, globals_filename or "")
+                                try:
+                                    with open(globals_path, "rb") as globals_file:
+                                        globals_valid = (
+                                            bool(globals_hash)
+                                            and hashlib.sha256(globals_file.read()).hexdigest() == globals_hash
+                                        )
+                                except OSError:
+                                    globals_valid = False
+                                if not globals_valid:
+                                    data["backup_category"] = "FAILED"
+                                    data["is_complete_business_backup"] = False
+                                    data["is_restorable"] = False
+                                    data["completeness_status"] = "Failed"
+                                    data["verification_status"] = "Failed"
+                                    data["file_integrity_status"] = "Failed"
                             # Retrofit audit for legacy manifests
                             if "backup_category" not in data:
                                 entities = data.get("entities_count", {})
@@ -315,6 +345,10 @@ class BackupRestoreService:
                     payload_path = os.path.join(BACKUP_DIR, item.filename)
                     if os.path.exists(payload_path):
                         os.remove(payload_path)
+                    if item.has_globals and item.globals_filename:
+                        globals_path = os.path.join(BACKUP_DIR, item.globals_filename)
+                        if os.path.exists(globals_path):
+                            os.remove(globals_path)
                     # Remove manifest
                     manifest_path = os.path.join(BACKUP_DIR, f"{item.filename}.manifest.json")
                     if os.path.exists(manifest_path):
@@ -364,6 +398,17 @@ class BackupRestoreService:
             if computed_hash != target.sha256_hash:
                 raise ValueError("Integrity verification failed: Backup package hash mismatch.")
 
+        if target.has_globals:
+            if not target.globals_filename or not target.globals_sha256_hash:
+                raise ValueError("Integrity verification failed: Globals backup metadata is incomplete.")
+            globals_path = os.path.join(BACKUP_DIR, target.globals_filename)
+            if not os.path.exists(globals_path):
+                raise ValueError("Integrity verification failed: Cluster globals backup is missing.")
+            with open(globals_path, "rb") as f:
+                globals_hash = hashlib.sha256(f.read()).hexdigest()
+            if globals_hash != target.globals_sha256_hash:
+                raise ValueError("Integrity verification failed: Cluster globals backup hash mismatch.")
+
         # Enforce completeness requirement: Partial backups CANNOT be restored to production
         is_partial = (
             getattr(target, "backup_category", "FULL") == "PARTIAL"
@@ -389,12 +434,16 @@ class BackupRestoreService:
                 omitted_tables=omitted,
             )
 
+        warning_body = "This will replace your existing database data with the selected verified database backup."
+        if target.has_globals:
+            warning_body += " The companion PostgreSQL globals SQL file is verified but is not automatically applied by this database restore."
+
         return RestoreReviewResponse(
             backup=target,
             can_restore=True,
             block_reason=None,
             warning_title="This will replace your current data",
-            warning_body="Your existing database tables, records, schemas and sequences will be replaced with the data from this verified backup.",
+            warning_body=warning_body,
             pre_restore_snapshot_created=True,
             backup_category="FULL",
             is_complete_business_backup=True,

@@ -54,6 +54,28 @@ def test_backup_values_normalize_dates_and_numeric_types():
     assert _normalize_backup_value("sku") == "sku"
 
 
+def test_full_backup_requires_both_native_postgres_tools(monkeypatch):
+    monkeypatch.setattr(MasterBackupEngine, "_is_pg_dump_available", lambda: True)
+    monkeypatch.setattr(MasterBackupEngine, "_is_pg_dumpall_available", lambda: False)
+    assert MasterBackupEngine._native_backup_tools_available() is False
+
+    monkeypatch.setattr(MasterBackupEngine, "_is_pg_dumpall_available", lambda: True)
+    assert MasterBackupEngine._native_backup_tools_available() is True
+
+
+@pytest.mark.asyncio
+async def test_full_backup_fails_closed_without_native_tools(monkeypatch):
+    monkeypatch.setattr(
+        MasterBackupEngine,
+        "_native_backup_tools_available",
+        classmethod(lambda cls: False),
+    )
+    engine = MasterBackupEngine(None, "COMP-001")
+
+    with pytest.raises(ValueError, match="No logical-export fallback"):
+        await engine.start_job(backup_mode="full")
+
+
 def test_preflight_check():
     preflight = MasterBackupEngine.get_preflight_check(estimated_mb=50)
     assert preflight.free_space_bytes > 0

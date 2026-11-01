@@ -46,6 +46,9 @@ class BackupItemInfo(BaseModel):
     has_schema: bool = True
     has_indexes: bool = True
     has_sequences: bool = True
+    has_globals: bool = False
+    globals_filename: Optional[str] = None
+    globals_sha256_hash: Optional[str] = None
     media_included: bool = False
 
 
@@ -183,4 +186,3 @@ class BackupSchedulerStatusResponse(BaseModel):
     total_automated_runs: int = 0
     last_prune_at: Optional[str] = None
     total_pruned_packages: int = 0
-

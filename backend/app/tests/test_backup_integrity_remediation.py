@@ -219,6 +219,62 @@ async def test_block_production_restore_for_partial_backup():
 
 
 @pytest.mark.asyncio
+async def test_legacy_logical_export_marked_full_is_not_restorable():
+    manifest_id = f"test-logical-full-{uuid.uuid4().hex[:8]}"
+    fname = f"smriti_backup_COMP-001_{manifest_id}.json.gz"
+    payload_path = os.path.join(BACKUP_PACKAGES_DIR, fname)
+    manifest_path = os.path.join(BACKUP_PACKAGES_DIR, f"{fname}.manifest.json")
+
+    import gzip
+    import hashlib
+
+    with gzip.open(payload_path, "wb") as f:
+        f.write(json.dumps({"entities": {"products": [{"id": "p1"}]}}).encode("utf-8"))
+    with open(payload_path, "rb") as f:
+        file_hash = hashlib.sha256(f.read()).hexdigest()
+
+    item = BackupItemInfo(
+        id=manifest_id,
+        backup_id=manifest_id,
+        filename=fname,
+        created_at=datetime.now(timezone.utc).isoformat(),
+        backup_time_pretty="Today, 12:00 PM",
+        data_included="Products (1)",
+        storage_location="This Device",
+        storage_location_type="local",
+        backup_size_bytes=os.path.getsize(payload_path),
+        backup_size_pretty="1.0 KB",
+        verification_status="Verified",
+        sha256_hash=file_hash,
+        entities_count={"products": 1},
+        is_restorable=True,
+        backup_type="LOGICAL_EXPORT",
+        backup_category="FULL",
+        is_complete_business_backup=True,
+    )
+    with open(manifest_path, "w", encoding="utf-8") as f:
+        json.dump(item.model_dump(), f, indent=2)
+
+    try:
+        service = BackupRestoreService(None, "COMP-001")
+        history = await service.get_history()
+        found = next((b for b in history if b.backup_id == manifest_id), None)
+        assert found is not None
+        assert found.backup_category == "PARTIAL"
+        assert found.is_complete_business_backup is False
+        assert found.is_restorable is False
+
+        review = await service.review_restore_point(manifest_id)
+        assert review.can_restore is False
+        assert review.block_reason == "PARTIAL_BACKUP_CANNOT_OVERWRITE_PRODUCTION"
+    finally:
+        if os.path.exists(payload_path):
+            os.remove(payload_path)
+        if os.path.exists(manifest_path):
+            os.remove(manifest_path)
+
+
+@pytest.mark.asyncio
 async def test_native_pg_dump_and_isolated_database_restore():
     """
     P0 Test: Verifies full PostgreSQL-native pg_dump and isolated test database restore.

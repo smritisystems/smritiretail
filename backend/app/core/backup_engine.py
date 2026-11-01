@@ -333,8 +333,7 @@ class MasterBackupEngine:
         """Checks if native pg_dump is available in container or environment."""
         try:
             proc = subprocess.run(
-                "docker exec smriti-db pg_dump --version",
-                shell=True,
+                ["docker", "exec", "smriti-db", "pg_dump", "--version"],
                 capture_output=True,
                 text=True,
                 timeout=5,
@@ -342,6 +341,24 @@ class MasterBackupEngine:
             return proc.returncode == 0
         except Exception:
             return False
+
+    @staticmethod
+    def _is_pg_dumpall_available() -> bool:
+        """Checks if pg_dumpall is available for backing up cluster globals."""
+        try:
+            proc = subprocess.run(
+                ["docker", "exec", "smriti-db", "pg_dumpall", "--version"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            return proc.returncode == 0
+        except Exception:
+            return False
+
+    @classmethod
+    def _native_backup_tools_available(cls) -> bool:
+        return cls._is_pg_dump_available() and cls._is_pg_dumpall_available()
 
     async def _resolve_target_db_name(self) -> str:
         try:
@@ -373,6 +390,14 @@ class MasterBackupEngine:
         backup_mode: str = "full",  # "full" (pg_dump) or "logical"
     ) -> BackupJobProgress:
         """Validates preflight and starts background backup task."""
+        if backup_mode not in {"full", "logical"}:
+            raise ValueError("Invalid backup mode. Choose 'full' or 'logical'.")
+        if backup_mode == "full" and not self._native_backup_tools_available():
+            raise ValueError(
+                "Full backup requires both pg_dump and pg_dumpall in the smriti-db container. "
+                "No logical-export fallback was started."
+            )
+
         preflight = self.get_preflight_check()
         if not preflight.passed:
             raise ValueError(f"Backup rejected by preflight: {preflight.message}")
@@ -426,7 +451,12 @@ class MasterBackupEngine:
             target_db_name = await self._resolve_target_db_name()
             backup_uuid = uuid.uuid4().hex[:8]
             timestamp_str = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-            use_native_pg_dump = (backup_mode == "full") and self._is_pg_dump_available()
+            use_native_pg_dump = backup_mode == "full"
+            if use_native_pg_dump and not self._native_backup_tools_available():
+                raise ValueError(
+                    "Full backup requires both pg_dump and pg_dumpall in the smriti-db container. "
+                    "No logical-export fallback was started."
+                )
 
             entities_count: Dict[str, int] = {}
             omitted_tables: List[str] = []
@@ -440,6 +470,9 @@ class MasterBackupEngine:
             has_schema: bool = False
             has_indexes: bool = False
             has_sequences: bool = False
+            has_globals: bool = False
+            globals_filename: Optional[str] = None
+            globals_sha256_hash: Optional[str] = None
             backup_type: str = "FULL_DATABASE_BACKUP" if use_native_pg_dump else "LOGICAL_EXPORT"
 
             if use_native_pg_dump:
@@ -452,24 +485,81 @@ class MasterBackupEngine:
                 self.append_log(job_id, "database_backup", f"Executing native pg_dump -Fc for target database '{target_db_name}'.", level="INFO")
 
                 container_dump = f"/tmp/{target_db_name}_{timestamp_str}_{backup_uuid}.dump"
+                container_globals = f"/tmp/{target_db_name}_{timestamp_str}_{backup_uuid}_globals.sql"
                 final_filename = f"smriti_backup_{self.company_id}_{timestamp_str}_{backup_uuid}.dump"
                 final_path = os.path.join(BACKUP_PACKAGES_DIR, final_filename)
+                globals_filename = f"{final_filename}.globals.sql"
+                globals_path = os.path.join(BACKUP_PACKAGES_DIR, globals_filename)
 
-                dump_cmd = f"docker exec smriti-db pg_dump -U postgres -Fc -f {container_dump} {target_db_name}"
-                proc_dump = subprocess.run(dump_cmd, shell=True, capture_output=True, text=True)
+                dump_cmd = [
+                    "docker", "exec", "smriti-db", "pg_dump",
+                    "-U", "postgres", "-Fc", "-f", container_dump, "-d", target_db_name,
+                ]
+                proc_dump = subprocess.run(dump_cmd, capture_output=True, text=True, timeout=600)
                 if proc_dump.returncode != 0:
                     raise ValueError(f"pg_dump failed: {proc_dump.stderr}")
 
                 self.append_log(job_id, "database_backup", f"Native dump completed inside container ({container_dump}).", level="SUCCESS")
 
                 # Verify TOC via pg_restore --list
-                list_cmd = f"docker exec smriti-db pg_restore -l {container_dump}"
-                proc_list = subprocess.run(list_cmd, shell=True, capture_output=True, text=True)
+                list_cmd = [
+                    "docker", "exec", "smriti-db", "pg_restore", "-l", container_dump,
+                ]
+                proc_list = subprocess.run(list_cmd, capture_output=True, text=True, timeout=60)
                 if proc_list.returncode != 0:
                     raise ValueError(f"pg_restore -l TOC verification failed: {proc_list.stderr}")
 
-                toc_entries = len(proc_list.stdout.strip().splitlines())
+                toc_entries = sum(
+                    1 for line in proc_list.stdout.splitlines()
+                    if line and not line.startswith(";")
+                )
+                if toc_entries == 0:
+                    raise ValueError("pg_restore -l returned no database objects.")
                 self.append_log(job_id, "database_backup", f"Verified dump TOC: {toc_entries} database objects cataloged.", level="SUCCESS")
+
+                globals_cmd = [
+                    "docker", "exec", "smriti-db", "pg_dumpall",
+                    "-U", "postgres", "--globals-only", "--file", container_globals,
+                ]
+                proc_globals = subprocess.run(globals_cmd, capture_output=True, text=True, timeout=120)
+                if proc_globals.returncode != 0:
+                    raise ValueError(f"pg_dumpall globals backup failed: {proc_globals.stderr}")
+                try:
+                    copy_dump = subprocess.run(
+                        ["docker", "cp", f"smriti-db:{container_dump}", final_path],
+                        capture_output=True,
+                        text=True,
+                        timeout=120,
+                    )
+                    if copy_dump.returncode != 0:
+                        raise ValueError(f"docker cp database dump failed: {copy_dump.stderr}")
+                    copy_globals = subprocess.run(
+                        ["docker", "cp", f"smriti-db:{container_globals}", globals_path],
+                        capture_output=True,
+                        text=True,
+                        timeout=120,
+                    )
+                    if copy_globals.returncode != 0:
+                        raise ValueError(f"docker cp globals backup failed: {copy_globals.stderr}")
+                finally:
+                    subprocess.run(
+                        ["docker", "exec", "smriti-db", "rm", "-f", container_dump, container_globals],
+                        capture_output=True,
+                        text=True,
+                        timeout=30,
+                    )
+
+                if os.path.getsize(globals_path) == 0:
+                    raise ValueError("pg_dumpall produced an empty globals backup.")
+                with open(globals_path, "rb") as f:
+                    globals_sha256_hash = hashlib.sha256(f.read()).hexdigest()
+                has_globals = True
+                self.append_log(
+                    job_id,
+                    "database_backup",
+                    f"Cluster globals backed up and verified ({os.path.getsize(globals_path)} bytes).",
+                    level="SUCCESS",
+                )
 
                 # Stage 3: Application Config
                 job.stage = "app_config"
@@ -501,15 +591,8 @@ class MasterBackupEngine:
                 job.updated_at = datetime.now(timezone.utc).isoformat()
                 self.save_job(job)
 
-                copy_cmd = f"docker cp smriti-db:{container_dump} \"{final_path}\""
-                proc_cp = subprocess.run(copy_cmd, shell=True, capture_output=True, text=True)
-                # Cleanup container temp dump
-                subprocess.run(f"docker exec smriti-db rm -f {container_dump}", shell=True)
-
-                if proc_cp.returncode != 0:
-                    raise ValueError(f"docker cp failed: {proc_cp.stderr}")
-
                 file_size_bytes = os.path.getsize(final_path)
+                file_size_bytes += os.path.getsize(globals_path)
                 file_size_pretty = format_bytes_pretty(file_size_bytes)
                 job.archive_size_bytes = file_size_bytes
                 job.archive_size_pretty = file_size_pretty
@@ -556,6 +639,7 @@ class MasterBackupEngine:
                 completeness_status = "Complete"
                 verification_status = "Verified"
                 data_included_str = f"Complete PostgreSQL Database ({public_table_count} Tables, Schemas, Constraints, Indexes & Sequences)"
+                data_included_str += " + PostgreSQL cluster globals"
 
                 self.append_log(job_id, "integrity_verification", f"Full database verified with {public_table_count} public tables, schema definitions, constraints and sequences.", level="SUCCESS")
 
@@ -693,15 +777,17 @@ class MasterBackupEngine:
                 data_included_str = ", ".join(included_parts) if included_parts else "No entity records extracted"
 
                 # Check completeness
-                is_complete_business_backup = (len(omitted_tables) == 0) and (len(entities_count) > 0)
-                backup_category = "FULL" if is_complete_business_backup else "PARTIAL"
-                completeness_status = "Complete" if is_complete_business_backup else "Partial"
-                verification_status = "Verified" if is_complete_business_backup else "Partial"
+                is_complete_business_backup = False
+                backup_category = "PARTIAL"
+                completeness_status = "Partial"
+                verification_status = "Partial"
 
-                if is_complete_business_backup:
-                    self.append_log(job_id, "integrity_verification", "Cryptographic SHA-256, Gzip decompression and all table entities verified.", level="SUCCESS")
-                else:
-                    self.append_log(job_id, "integrity_verification", f"NOTICE: Partial data export. {len(omitted_tables)} table(s) omitted: {', '.join(omitted_tables)}.", level="WARN")
+                self.append_log(
+                    job_id,
+                    "integrity_verification",
+                    "Logical export integrity verified, but it contains selected tables only and is not a full database backup.",
+                    level="WARN",
+                )
 
             # Stage 7: Manifest Creation and Finalization
             job.stage = "manifest_finalization"
@@ -725,10 +811,10 @@ class MasterBackupEngine:
                 verification_status=verification_status,
                 sha256_hash=sha256_hash,
                 entities_count=entities_count,
-                is_restorable=(backup_category == "FULL"),
+                is_restorable=(backup_type == "FULL_DATABASE_BACKUP"),
                 backup_type=backup_type,
                 backup_category=backup_category,
-                is_complete_business_backup=(backup_category == "FULL"),
+                is_complete_business_backup=(backup_type == "FULL_DATABASE_BACKUP"),
                 omitted_tables=omitted_tables,
                 extraction_failures=extraction_failures,
                 file_integrity_status="Passed",
@@ -736,6 +822,9 @@ class MasterBackupEngine:
                 has_schema=has_schema,
                 has_indexes=has_indexes,
                 has_sequences=has_sequences,
+                has_globals=has_globals,
+                globals_filename=globals_filename,
+                globals_sha256_hash=globals_sha256_hash,
                 media_included=False,
             )
 
