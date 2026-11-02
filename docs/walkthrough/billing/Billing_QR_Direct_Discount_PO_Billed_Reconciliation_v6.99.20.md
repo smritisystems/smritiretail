@@ -119,3 +119,4 @@ Resolve store operational feedback items from the store punchlist:
 
 ## 13. Related RFCs
 - `RFC-2026-04`: ProPOS Dynamic Checkout & Keyboard Accelerator Standard.
+
