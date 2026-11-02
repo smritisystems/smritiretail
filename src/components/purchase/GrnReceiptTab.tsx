@@ -809,8 +809,8 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
       name: prod.name,
       size: prod.size,
       color: prod.color,
-      quantity_ordered: 0,
-      quantity_received: 1,
+      quantity_ordered: prod.quantity_ordered ?? 0,
+      quantity_received: prod.quantity_received ?? 1,
       quantity_damaged: 0,
       cost_price: prod.cost_price,
       invoice_rate: prod.invoice_rate,
@@ -3384,6 +3384,8 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
         isOpen={isAddProductOpen}
         onClose={() => setIsAddProductOpen(false)}
         onSelectProduct={handleAddProduct}
+        selectedOrder={selectedOrder}
+        existingLines={grnLines}
       />
 
       <GrnCameraScannerModal

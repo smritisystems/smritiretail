@@ -166,6 +166,7 @@ export interface CustomerDeliveryLocationDTO {
   state_code: string;
   state_name: string;
   pin_code: string;
+  country?: string | null;
   gst_registration_id?: string | null;
   delivery_gstin?: string | null;
   contact_person?: string | null;
@@ -187,12 +188,34 @@ export interface CustomerBillingLocationDTO {
   state: string;
   state_code?: string | null;
   pincode: string;
+  country?: string | null;
   gstin?: string | null;
   contact_person?: string | null;
   contact_phone?: string | null;
   contact_email?: string | null;
   is_default: boolean;
   status: string;
+}
+
+export function formatCorporateLocationAddress(parts: Array<string | null | undefined>): string {
+  return parts.map(part => part?.trim()).filter((part): part is string => Boolean(part)).join(", ");
+}
+
+export function resolveBillingPartyIdentity(
+  location: CustomerBillingLocationDTO | null | undefined,
+  registrations: CustomerGSTRegistrationDTO[],
+  fallbackGstin?: string | null,
+): { registrationId: string | null; gstin: string | null } {
+  const linkedRegistration = registrations.find(registration => registration.id === location?.gst_registration_id);
+  const locationGstin = linkedRegistration?.gstin || location?.gstin || null;
+  const matchingRegistration = linkedRegistration
+    || (locationGstin ? registrations.find(registration => registration.gstin === locationGstin) : undefined);
+  const primaryRegistration = registrations.find(registration => registration.is_primary);
+
+  return {
+    registrationId: matchingRegistration?.id || (!locationGstin ? primaryRegistration?.id || null : null),
+    gstin: locationGstin || primaryRegistration?.gstin || fallbackGstin || null,
+  };
 }
 
 export interface BillingHeaderState {

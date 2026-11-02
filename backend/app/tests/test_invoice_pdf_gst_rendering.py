@@ -6,6 +6,7 @@ from fastapi import HTTPException
 from app.services.invoice_pdf_service import (
     _format_delivery_snapshot_address,
     _resolve_delivery_gstin,
+    _resolve_delivery_snapshot,
     _resolve_invoice_supply_context,
     _validate_delivery_gstin_for_reprint,
 )
@@ -74,6 +75,32 @@ def test_store_code_snapshot_address_is_rendered_in_delivery_block():
     assert _format_delivery_snapshot_address(snapshot) == (
         "Bagra Sadan | Near Sadan Thana | Dibrugarh | Assam 786001"
     )
+
+
+def test_current_store_code_address_overrides_stale_snapshot_city_and_pin():
+    invoice = SimpleNamespace(
+        delivery_location_snapshot={
+            "address_line1": "Store address in Visakhapatnam",
+            "city": "Mumbai",
+            "state_name": "Andhra Pradesh",
+            "pincode": "400001",
+        }
+    )
+    meta = {
+        "current_delivery_location_snapshot": {
+            "address_line1": "Store address in Visakhapatnam",
+            "city": "Vizag",
+            "state_name": "Andhra Pradesh",
+            "pincode": "530017",
+        }
+    }
+
+    snapshot = _resolve_delivery_snapshot(invoice, meta)
+
+    assert snapshot["city"] == "Vizag"
+    assert snapshot["pincode"] == "530017"
+    assert "Mumbai" not in _format_delivery_snapshot_address(snapshot)
+    assert "400001" not in _format_delivery_snapshot_address(snapshot)
 
 
 def test_submitted_delivery_invoice_without_historical_gstin_cannot_be_reprinted():

@@ -20,7 +20,15 @@ import pytest
 from sqlalchemy import select
 
 from app.models.tenant import Company, Branch
-from app.models.crm import Customer, CustomerDeliveryLocation
+from app.models.crm import (
+    Customer,
+    CustomerBillingLocation,
+    CustomerDeliveryLocation,
+    CustomerGSTRegistration,
+    CustomerGroup,
+    CustomerPolicy,
+    CustomerRelationship,
+)
 from app.models.psv import PSVParty, PSVStockEvent, PSVStockBalance
 from app.models.inventory import Product, Warehouse
 from app.models.item_master import Item, ItemVariant
@@ -249,6 +257,179 @@ async def test_auto_psv_generation_on_sales_invoice_save(db_session, sales_psv_e
     assert item.vendor_code == "G"
     assert item.color == "BLUE"
     assert item.size == "41"
+
+
+@pytest.mark.asyncio
+async def test_child_account_invoice_uses_child_billing_and_delivery_identity(db_session, sales_psv_env):
+    env = sales_psv_env
+    company = env["company"]
+    branch = env["branch"]
+    warehouse = env["warehouse"]
+    product = env["product"]
+    item = env["item"]
+    variant = env["variant"]
+    item.mrp = Decimal("999.00")
+    item.selling_price = Decimal("599.00")
+    variant.mrp = Decimal("999.00")
+    variant.selling_price = Decimal("599.00")
+    parent = env["customer"]
+    parent.show_child_customers_in_billing = True
+    suffix = uuid.uuid4().hex[:6]
+    child_group = CustomerGroup(
+        id=f"group-child-{suffix}",
+        company_id=company.id,
+        branch_id=branch.id,
+        name=f"Child Credit Group {suffix}",
+        can_purchase_on_credit=True,
+        unlimited_credit=True,
+        is_active=True,
+        is_deleted=False,
+    )
+    child = Customer(
+        id=f"cust-child-{suffix}",
+        company_id=company.id,
+        branch_id=branch.id,
+        customer_group_id=child_group.id,
+        code=f"CHILD-{suffix}".upper(),
+        name=f"Child Account {suffix}",
+        is_dependant=True,
+        is_active=True,
+        is_deleted=False,
+    )
+    child_reg = CustomerGSTRegistration(
+        id=f"gst-child-{suffix}",
+        company_id=company.id,
+        branch_id=branch.id,
+        customer_id=child.id,
+        gstin="27AAAAA1234A1Z5",
+        state_name="Maharashtra",
+        state_code="27",
+        registration_type="REGULAR",
+        is_primary=True,
+        status="ACTIVE",
+        is_active=True,
+        is_deleted=False,
+    )
+    billing_location = CustomerBillingLocation(
+        id=f"bill-child-{suffix}",
+        company_id=company.id,
+        branch_id=branch.id,
+        customer_id=child.id,
+        billing_store_code="CHILD-HQ",
+        location_name="Child Accounts Office",
+        address_line1="12 Child Account Road",
+        address_line2="Accounts Wing",
+        city="Mumbai",
+        state="Maharashtra",
+        state_code="27",
+        pincode="400001",
+        country="India",
+        gst_registration_id=child_reg.id,
+        gstin=child_reg.gstin,
+        is_default=True,
+        status="ACTIVE",
+        is_active=True,
+        is_deleted=False,
+    )
+    delivery_location = CustomerDeliveryLocation(
+        id=f"delivery-child-{suffix}",
+        company_id=company.id,
+        branch_id=branch.id,
+        customer_id=child.id,
+        store_code="CHILD-STORE",
+        location_name="Child Retail Store",
+        address_line1="45 Child Market Road",
+        address_line2="Unit 8",
+        city="Mumbai",
+        state="Maharashtra",
+        state_code="27",
+        pincode="400002",
+        country="India",
+        gst_registration_id=child_reg.id,
+        gstin=child_reg.gstin,
+        is_default=True,
+        status="ACTIVE",
+        is_active=True,
+        is_deleted=False,
+    )
+    relationship = CustomerRelationship(
+        id=f"rel-child-{suffix}",
+        company_id=company.id,
+        branch_id=branch.id,
+        parent_customer_id=parent.id,
+        dependant_customer_id=child.id,
+        relation="CHILD_ACCOUNT",
+        is_active=True,
+        is_deleted=False,
+    )
+    child_policy = CustomerPolicy(
+        id=f"policy-child-{suffix}",
+        company_id=company.id,
+        branch_id=branch.id,
+        customer_id=child.id,
+        payment_category="CREDIT",
+        allow_credit_invoice=True,
+        is_active=True,
+        is_deleted=False,
+    )
+    db_session.add_all([
+        child_group,
+        child,
+        child_reg,
+        billing_location,
+        delivery_location,
+        relationship,
+        child_policy,
+    ])
+    await db_session.flush()
+
+    invoice = await SalesService(db_session, env["tenant_ctx"]).create_sales_invoice(
+        SalesInvoiceCreate(
+            customer_id=child.id,
+            customer_name=child.name,
+            customer_gstin="27AABCT1234A1Z5",
+            billing_location_id=billing_location.id,
+            billing_store_code="PARENT-HQ",
+            billing_address="Parent billing address",
+            delivery_location_id=delivery_location.id,
+            delivery_store_code="PARENT-STORE",
+            delivery_gstin="27AABCT1234A1Z5",
+            delivery_location_snapshot={"address_line1": "Parent shipping address"},
+            shipping_address="Parent shipping address",
+            warehouse_id=warehouse.id,
+            payment_mode="CREDIT",
+            items=[
+                SalesInvoiceItemCreate(
+                    code=product.sku,
+                    name=product.name,
+                    product_id=product.id,
+                    item_id=item.id,
+                    variant_id=variant.id,
+                    quantity=1,
+                    price=Decimal("599.00"),
+                    mrp=Decimal("999.00"),
+                    gst_rate=Decimal("5.00"),
+                    hsn_code="6404",
+                )
+            ],
+        ),
+        idempotency_key=f"KEY-CHILD-{suffix}",
+        commit=True,
+    )
+
+    assert invoice.customer_gstin == child_reg.gstin
+    assert invoice.billed_party_gstin_id == child_reg.id
+    assert invoice.billing_store_code == billing_location.billing_store_code
+    assert invoice.billing_address == (
+        "12 Child Account Road, Accounts Wing, Mumbai, Maharashtra - 400001, India"
+    )
+    assert invoice.delivery_store_code == delivery_location.store_code
+    assert invoice.delivery_gstin == child_reg.gstin
+    assert invoice.shipping_address == (
+        "45 Child Market Road, Unit 8, Mumbai, Maharashtra - 400002, India"
+    )
+    assert invoice.delivery_location_snapshot["address_line1"] == delivery_location.address_line1
+    assert invoice.delivery_location_snapshot["delivery_gstin"] == child_reg.gstin
 
 
 @pytest.mark.asyncio

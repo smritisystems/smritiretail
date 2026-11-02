@@ -74,6 +74,10 @@ Store operators, cashiers, and logistics managers face daily operational frictio
 - `src/components/billing/SmritiBillingStudio.tsx`: Inline editable bill discount.
 - `src/components/sales/SalesOrderFormPremium.tsx`: Instant search lookup.
 - `backend/app/services/purchase.py`: Strict SKU matching + PO fulfillment advancement.
+- `src/components/reports/SmritiReportEngine.tsx`: Multi-type column sorting with numeric, date, and text support.
+- `src/components/ReportDesignerTab.tsx`: Multi-type column sorting across Purchase Inward Register (detailed & summary), Tax Register, and Bill-wise Sales.
+- `src/components/purchase/AddProductToGrnModal.tsx`: Strict PO line scoping with explicit SKU, size, and color parameters.
+- `src/components/purchase/GrnReceiptTab.tsx`: Bound selected PO lines and existing GRN state to inward modal.
 
 ## 10. Dependencies
 - React, TypeScript, Vite, FastAPI, SQLAlchemy, Vitest.
@@ -110,3 +114,4 @@ Completed
 
 ## 19. Related Walkthroughs
 - `docs/walkthrough/operational/Operational_Store_Feedback_Remediations_v1.0.0.md`
+

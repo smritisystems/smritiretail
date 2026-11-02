@@ -20,6 +20,7 @@ import { apiFetchV1, recordAuditAction } from "../lib/apiFetchV1";
 import { isFieldGloballyVisible } from "../services/unifiedFieldCatalog.ts";
 import { GlobalExportService } from "../services/globalExportService.ts";
 import { formatDate, formatCurrency, formatNumber } from "../utils/formatters";
+import { sortTableData } from "../utils/tableSort";
 import { motion, AnimatePresence } from "motion/react";
 import {
   ResponsiveContainer, AreaChart, Area, BarChart, Bar, XAxis, YAxis,
@@ -577,6 +578,44 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
     }
     return Array.from(grnMap.values());
   }, [filteredGrnLines]);
+
+  // Universal Column Sorting for Report Tables
+  const [reportSortKey, setReportSortKey] = useState<string | null>(null);
+  const [reportSortDirection, setReportSortDirection] = useState<"asc" | "desc">("asc");
+
+  const handleReportSort = (key: string) => {
+    setReportSortKey((prev) => {
+      if (prev === key) {
+        setReportSortDirection((prevDir) => (prevDir === "asc" ? "desc" : "asc"));
+        return key;
+      }
+      setReportSortDirection("asc");
+      return key;
+    });
+  };
+
+  const getSortIndicator = (key: string) => {
+    if (reportSortKey !== key) return "↕";
+    return reportSortDirection === "asc" ? "↑" : "↓";
+  };
+
+  const sortedGrnLines = useMemo(() => {
+    return sortTableData(filteredGrnLines, reportSortKey, reportSortDirection);
+  }, [filteredGrnLines, reportSortKey, reportSortDirection]);
+
+  const sortedGrnSummaryList = useMemo(() => {
+    return sortTableData(grnSummaryList, reportSortKey, reportSortDirection);
+  }, [grnSummaryList, reportSortKey, reportSortDirection]);
+
+  const sortedGenericLines = useMemo(() => {
+    const rawList = genericReportData?.lines || genericReportData?.rows || [];
+    return sortTableData(rawList, reportSortKey, reportSortDirection);
+  }, [genericReportData, reportSortKey, reportSortDirection]);
+
+  useEffect(() => {
+    setReportSortKey(null);
+    setReportSortDirection("asc");
+  }, [selectedReport?.id]);
 
   const grnTotals = useMemo(() => {
     let totalQty = 0;
@@ -2722,20 +2761,48 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                     <table className="w-full text-left text-xs">
                       <thead>
                         <tr className="bg-theme-surface-2 text-theme-muted uppercase font-mono border-b border-theme-divider">
-                          <th className="p-3">GRN #</th>
-                          <th className="p-3">Date</th>
-                          <th className="p-3">Supplier</th>
-                          <th className="p-3">PO #</th>
-                          <th className="p-3">Delivery Terms</th>
-                          <th className="p-3">Transporter / LR</th>
-                          <th className="p-3">Article / SKU</th>
-                          <th className="p-3">Item Description</th>
-                          <th className="p-3 text-right">Qty Received</th>
-                          <th className="p-3 text-right">Cost Rate (₹)</th>
-                          <th className="p-3 text-right">GST %</th>
-                          <th className="p-3 text-right">Tax (₹)</th>
-                          <th className="p-3 text-right">Line Total (₹)</th>
-                          <th className="p-3 text-center">Status</th>
+                          <th onClick={() => handleReportSort("receipt_no")} className="p-3 cursor-pointer select-none hover:text-indigo-400">
+                            GRN # <span className="text-[10px]">{getSortIndicator("receipt_no")}</span>
+                          </th>
+                          <th onClick={() => handleReportSort("receipt_date")} className="p-3 cursor-pointer select-none hover:text-indigo-400">
+                            Date <span className="text-[10px]">{getSortIndicator("receipt_date")}</span>
+                          </th>
+                          <th onClick={() => handleReportSort("supplier_name")} className="p-3 cursor-pointer select-none hover:text-indigo-400">
+                            Supplier <span className="text-[10px]">{getSortIndicator("supplier_name")}</span>
+                          </th>
+                          <th onClick={() => handleReportSort("order_no")} className="p-3 cursor-pointer select-none hover:text-indigo-400">
+                            PO # <span className="text-[10px]">{getSortIndicator("order_no")}</span>
+                          </th>
+                          <th onClick={() => handleReportSort("delivery_terms")} className="p-3 cursor-pointer select-none hover:text-indigo-400">
+                            Delivery Terms <span className="text-[10px]">{getSortIndicator("delivery_terms")}</span>
+                          </th>
+                          <th onClick={() => handleReportSort("transporter_name")} className="p-3 cursor-pointer select-none hover:text-indigo-400">
+                            Transporter / LR <span className="text-[10px]">{getSortIndicator("transporter_name")}</span>
+                          </th>
+                          <th onClick={() => handleReportSort("product_code")} className="p-3 cursor-pointer select-none hover:text-indigo-400">
+                            Article / SKU <span className="text-[10px]">{getSortIndicator("product_code")}</span>
+                          </th>
+                          <th onClick={() => handleReportSort("product_name")} className="p-3 cursor-pointer select-none hover:text-indigo-400">
+                            Item Description <span className="text-[10px]">{getSortIndicator("product_name")}</span>
+                          </th>
+                          <th onClick={() => handleReportSort("quantity_received")} className="p-3 text-right cursor-pointer select-none hover:text-indigo-400">
+                            Qty Received <span className="text-[10px]">{getSortIndicator("quantity_received")}</span>
+                          </th>
+                          <th onClick={() => handleReportSort("cost_price")} className="p-3 text-right cursor-pointer select-none hover:text-indigo-400">
+                            Cost Rate (₹) <span className="text-[10px]">{getSortIndicator("cost_price")}</span>
+                          </th>
+                          <th onClick={() => handleReportSort("gst_rate")} className="p-3 text-right cursor-pointer select-none hover:text-indigo-400">
+                            GST % <span className="text-[10px]">{getSortIndicator("gst_rate")}</span>
+                          </th>
+                          <th onClick={() => handleReportSort("tax_amount")} className="p-3 text-right cursor-pointer select-none hover:text-indigo-400">
+                            Tax (₹) <span className="text-[10px]">{getSortIndicator("tax_amount")}</span>
+                          </th>
+                          <th onClick={() => handleReportSort("line_total")} className="p-3 text-right cursor-pointer select-none hover:text-indigo-400">
+                            Line Total (₹) <span className="text-[10px]">{getSortIndicator("line_total")}</span>
+                          </th>
+                          <th onClick={() => handleReportSort("status")} className="p-3 text-center cursor-pointer select-none hover:text-indigo-400">
+                            Status <span className="text-[10px]">{getSortIndicator("status")}</span>
+                          </th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-theme-divider/40">
@@ -2746,7 +2813,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                             </td>
                           </tr>
                         ) : (
-                          filteredGrnLines.map((l: any, idx: number) => (
+                          sortedGrnLines.map((l: any, idx: number) => (
                             <tr key={`${l.receipt_no}-${l.product_code}-${idx}`} className="hover:bg-theme-surface-hover transition-colors">
                               <td className="p-3 font-mono font-bold text-emerald-500 whitespace-nowrap">{l.receipt_no}</td>
                               <td className="p-3 font-mono text-theme-muted whitespace-nowrap">{l.receipt_date}</td>
@@ -2824,17 +2891,39 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                     <table className="w-full text-left text-xs">
                       <thead>
                         <tr className="bg-theme-surface-2 text-theme-muted uppercase font-mono border-b border-theme-divider">
-                          <th className="p-3">GRN #</th>
-                          <th className="p-3">Date</th>
-                          <th className="p-3">Supplier</th>
-                          <th className="p-3">PO #</th>
-                          <th className="p-3">Delivery Terms</th>
-                          <th className="p-3">Transporter</th>
-                          <th className="p-3 text-right">Items Count</th>
-                          <th className="p-3 text-right">Total Qty (Pcs)</th>
-                          <th className="p-3 text-right">Tax (₹)</th>
-                          <th className="p-3 text-right">Landed Total (₹)</th>
-                          <th className="p-3 text-center">Status</th>
+                          <th onClick={() => handleReportSort("receipt_no")} className="p-3 cursor-pointer select-none hover:text-indigo-400">
+                            GRN # <span className="text-[10px]">{getSortIndicator("receipt_no")}</span>
+                          </th>
+                          <th onClick={() => handleReportSort("receipt_date")} className="p-3 cursor-pointer select-none hover:text-indigo-400">
+                            Date <span className="text-[10px]">{getSortIndicator("receipt_date")}</span>
+                          </th>
+                          <th onClick={() => handleReportSort("supplier_name")} className="p-3 cursor-pointer select-none hover:text-indigo-400">
+                            Supplier <span className="text-[10px]">{getSortIndicator("supplier_name")}</span>
+                          </th>
+                          <th onClick={() => handleReportSort("order_no")} className="p-3 cursor-pointer select-none hover:text-indigo-400">
+                            PO # <span className="text-[10px]">{getSortIndicator("order_no")}</span>
+                          </th>
+                          <th onClick={() => handleReportSort("delivery_terms")} className="p-3 cursor-pointer select-none hover:text-indigo-400">
+                            Delivery Terms <span className="text-[10px]">{getSortIndicator("delivery_terms")}</span>
+                          </th>
+                          <th onClick={() => handleReportSort("transporter_name")} className="p-3 cursor-pointer select-none hover:text-indigo-400">
+                            Transporter <span className="text-[10px]">{getSortIndicator("transporter_name")}</span>
+                          </th>
+                          <th onClick={() => handleReportSort("item_count")} className="p-3 text-right cursor-pointer select-none hover:text-indigo-400">
+                            Items Count <span className="text-[10px]">{getSortIndicator("item_count")}</span>
+                          </th>
+                          <th onClick={() => handleReportSort("quantity_received")} className="p-3 text-right cursor-pointer select-none hover:text-indigo-400">
+                            Total Qty (Pcs) <span className="text-[10px]">{getSortIndicator("quantity_received")}</span>
+                          </th>
+                          <th onClick={() => handleReportSort("tax_amount")} className="p-3 text-right cursor-pointer select-none hover:text-indigo-400">
+                            Tax (₹) <span className="text-[10px]">{getSortIndicator("tax_amount")}</span>
+                          </th>
+                          <th onClick={() => handleReportSort("line_total")} className="p-3 text-right cursor-pointer select-none hover:text-indigo-400">
+                            Landed Total (₹) <span className="text-[10px]">{getSortIndicator("line_total")}</span>
+                          </th>
+                          <th onClick={() => handleReportSort("status")} className="p-3 text-center cursor-pointer select-none hover:text-indigo-400">
+                            Status <span className="text-[10px]">{getSortIndicator("status")}</span>
+                          </th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-theme-divider/40">
@@ -2845,7 +2934,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                             </td>
                           </tr>
                         ) : (
-                          grnSummaryList.map((g: any) => (
+                          sortedGrnSummaryList.map((g: any) => (
                             <tr key={g.receipt_no} className="hover:bg-theme-surface-hover transition-colors">
                               <td className="p-3 font-mono font-bold text-emerald-500 whitespace-nowrap">{g.receipt_no}</td>
                               <td className="p-3 font-mono text-theme-muted whitespace-nowrap">{g.receipt_date}</td>
@@ -3083,18 +3172,42 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                   <table className="w-full text-left text-xs border-collapse">
                     <thead className="bg-theme-surface-2/80 text-theme-muted border-b border-theme-divider uppercase text-[10px] font-bold">
                       <tr>
-                        <th className="p-3">Invoice #</th>
-                        <th className="p-3">Date</th>
-                        <th className="p-3">Customer</th>
-                        <th className="p-3 text-right">Taxable (₹)</th>
-                        <th className="p-3 text-right">CGST %</th>
-                        <th className="p-3 text-right">CGST (₹)</th>
-                        <th className="p-3 text-right">SGST %</th>
-                        <th className="p-3 text-right">SGST (₹)</th>
-                        <th className="p-3 text-right">IGST %</th>
-                        <th className="p-3 text-right">IGST (₹)</th>
-                        <th className="p-3 text-right">Total Tax (₹)</th>
-                        <th className="p-3 text-right">Net Amount (₹)</th>
+                        <th onClick={() => handleReportSort("invoice_number")} className="p-3 cursor-pointer select-none hover:text-indigo-400">
+                          Invoice # <span className="text-[10px]">{getSortIndicator("invoice_number")}</span>
+                        </th>
+                        <th onClick={() => handleReportSort("invoice_date")} className="p-3 cursor-pointer select-none hover:text-indigo-400">
+                          Date <span className="text-[10px]">{getSortIndicator("invoice_date")}</span>
+                        </th>
+                        <th onClick={() => handleReportSort("customer_name")} className="p-3 cursor-pointer select-none hover:text-indigo-400">
+                          Customer <span className="text-[10px]">{getSortIndicator("customer_name")}</span>
+                        </th>
+                        <th onClick={() => handleReportSort("taxable_amount")} className="p-3 text-right cursor-pointer select-none hover:text-indigo-400">
+                          Taxable (₹) <span className="text-[10px]">{getSortIndicator("taxable_amount")}</span>
+                        </th>
+                        <th onClick={() => handleReportSort("cgst_rate")} className="p-3 text-right cursor-pointer select-none hover:text-indigo-400">
+                          CGST % <span className="text-[10px]">{getSortIndicator("cgst_rate")}</span>
+                        </th>
+                        <th onClick={() => handleReportSort("cgst_amount")} className="p-3 text-right cursor-pointer select-none hover:text-indigo-400">
+                          CGST (₹) <span className="text-[10px]">{getSortIndicator("cgst_amount")}</span>
+                        </th>
+                        <th onClick={() => handleReportSort("sgst_rate")} className="p-3 text-right cursor-pointer select-none hover:text-indigo-400">
+                          SGST % <span className="text-[10px]">{getSortIndicator("sgst_rate")}</span>
+                        </th>
+                        <th onClick={() => handleReportSort("sgst_amount")} className="p-3 text-right cursor-pointer select-none hover:text-indigo-400">
+                          SGST (₹) <span className="text-[10px]">{getSortIndicator("sgst_amount")}</span>
+                        </th>
+                        <th onClick={() => handleReportSort("igst_rate")} className="p-3 text-right cursor-pointer select-none hover:text-indigo-400">
+                          IGST % <span className="text-[10px]">{getSortIndicator("igst_rate")}</span>
+                        </th>
+                        <th onClick={() => handleReportSort("igst_amount")} className="p-3 text-right cursor-pointer select-none hover:text-indigo-400">
+                          IGST (₹) <span className="text-[10px]">{getSortIndicator("igst_amount")}</span>
+                        </th>
+                        <th onClick={() => handleReportSort("total_tax")} className="p-3 text-right cursor-pointer select-none hover:text-indigo-400">
+                          Total Tax (₹) <span className="text-[10px]">{getSortIndicator("total_tax")}</span>
+                        </th>
+                        <th onClick={() => handleReportSort("net_amount")} className="p-3 text-right cursor-pointer select-none hover:text-indigo-400">
+                          Net Amount (₹) <span className="text-[10px]">{getSortIndicator("net_amount")}</span>
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-theme-divider/40">

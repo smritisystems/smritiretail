@@ -45,6 +45,7 @@ import {
   X
 } from "lucide-react";
 import { formatCurrency, formatNumber, formatDate } from "../../utils/formatters";
+import { sortTableData } from "../../utils/tableSort";
 import { GlobalExportService } from "../../services/globalExportService";
 import { apiFetchV1, getTenantCompanyContext } from "../../lib/apiFetchV1";
 
@@ -283,18 +284,9 @@ export const SmritiReportEngine: React.FC<SmritiReportEngineProps> = ({
       });
     }
 
-    // 4. Column Sorting
+    // 4. Column Sorting via Universal Multi-Type SMRITI Engine
     if (sortColumn) {
-      list.sort((a, b) => {
-        let valA = a[sortColumn];
-        let valB = b[sortColumn];
-        if (typeof valA === "number" && typeof valB === "number") {
-          return sortDirection === "asc" ? valA - valB : valB - valA;
-        }
-        valA = String(valA || "").toLowerCase();
-        valB = String(valB || "").toLowerCase();
-        return sortDirection === "asc" ? valA.localeCompare(valB) : valB.localeCompare(valA);
-      });
+      list = sortTableData(list, sortColumn, sortDirection);
     }
 
     return list;

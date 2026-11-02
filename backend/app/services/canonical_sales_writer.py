@@ -64,6 +64,10 @@ from ..api.deps import TenantContext
 logger = logging.getLogger("smriti.canonical_sales_writer")
 
 
+def _format_invoice_location_address(parts: List[Optional[str]]) -> str:
+    return ", ".join(part.strip() for part in parts if part and part.strip())
+
+
 class CanonicalSalesPostingWriter:
     """
     Sole authoritative transaction writer for all Sales and Billing postings across SMRITI Retail OS.
@@ -664,10 +668,19 @@ class CanonicalSalesPostingWriter:
 
         # 3.5 B2B Customer Registrations & Delivery Locations Validation
         resolved_customer_id = db_customer.id if db_customer else req.customer_id
+        is_child_customer = bool(db_customer and db_customer.is_dependant)
 
         billing_loc_record = None
         snapshot_billing_store_code = getattr(req, "billing_store_code", None)
         snapshot_billing_address = req.billing_address
+        shipping_address_snapshot = req.shipping_address
+        resolved_billed_party_gstin_id = getattr(req, "billed_party_gstin_id", None)
+        child_billing_gstin = None
+        if is_child_customer and not getattr(req, "billing_location_id", None):
+            raise HTTPException(
+                status_code=400,
+                detail="Child-account invoices require an active billing location so the child address and GSTIN can be printed.",
+            )
         if getattr(req, "billing_location_id", None):
             b_stmt = select(CustomerBillingLocation).filter(
                 CustomerBillingLocation.id == req.billing_location_id,
@@ -696,23 +709,59 @@ class CanonicalSalesPostingWriter:
                     status_code=400,
                     detail="Selected billing location is inactive."
                 )
-            if not snapshot_billing_store_code:
+            if not billing_loc_record.is_active:
+                raise HTTPException(status_code=400, detail="Selected billing location is inactive.")
+            if is_child_customer:
+                snapshot_billing_store_code = billing_loc_record.billing_store_code
+                state_postal = " - ".join(
+                    part for part in (billing_loc_record.state, billing_loc_record.pincode) if part
+                )
+                snapshot_billing_address = _format_invoice_location_address([
+                    billing_loc_record.address_line1,
+                    billing_loc_record.address_line2,
+                    billing_loc_record.city,
+                    state_postal,
+                    billing_loc_record.country,
+                ])
+                child_billing_gstin = billing_loc_record.gstin
+                if billing_loc_record.gst_registration_id:
+                    resolved_billed_party_gstin_id = billing_loc_record.gst_registration_id
+                elif child_billing_gstin:
+                    matching_billing_reg = await session.execute(
+                        select(CustomerGSTRegistration.id).filter(
+                            CustomerGSTRegistration.customer_id == resolved_customer_id,
+                            CustomerGSTRegistration.gstin == child_billing_gstin,
+                            CustomerGSTRegistration.is_deleted == False,
+                            CustomerGSTRegistration.is_active == True,
+                            CustomerGSTRegistration.status == "ACTIVE",
+                        ).limit(1)
+                    )
+                    resolved_billed_party_gstin_id = matching_billing_reg.scalar_one_or_none()
+            elif not snapshot_billing_store_code:
                 snapshot_billing_store_code = billing_loc_record.billing_store_code
             if not snapshot_billing_address:
-                parts = [billing_loc_record.address_line1, billing_loc_record.address_line2, billing_loc_record.city, f"{billing_loc_record.state} - {billing_loc_record.pincode}"]
+                state_postal = " - ".join(
+                    part for part in (billing_loc_record.state, billing_loc_record.pincode) if part
+                )
+                parts = [
+                    billing_loc_record.address_line1,
+                    billing_loc_record.address_line2,
+                    billing_loc_record.city,
+                    state_postal,
+                ]
                 snapshot_billing_address = ", ".join(p for p in parts if p)
 
         billed_reg_record = None
-        if getattr(req, "billed_party_gstin_id", None):
+        if resolved_billed_party_gstin_id:
             reg_stmt = select(CustomerGSTRegistration).filter(
-                CustomerGSTRegistration.id == req.billed_party_gstin_id,
+                CustomerGSTRegistration.id == resolved_billed_party_gstin_id,
                 CustomerGSTRegistration.is_deleted == False,
             )
             billed_reg_record = (await session.execute(reg_stmt)).scalars().first()
             if not billed_reg_record:
                 raise HTTPException(
                     status_code=404,
-                    detail=f"Billed GST registration '{req.billed_party_gstin_id}' not found."
+                    detail=f"Billed GST registration '{resolved_billed_party_gstin_id}' not found."
                 )
             if billed_reg_record.company_id != company_id:
                 raise HTTPException(
@@ -732,11 +781,18 @@ class CanonicalSalesPostingWriter:
                     detail="Selected Billed GST registration is inactive."
                 )
             req.customer_gstin = billed_reg_record.gstin
+        elif is_child_customer and child_billing_gstin:
+            req.customer_gstin = child_billing_gstin
 
         delivery_loc_record = None
         delivery_store_code = getattr(req, "delivery_store_code", None)
         delivery_gstin = getattr(req, "delivery_gstin", None)
         delivery_location_snapshot = getattr(req, "delivery_location_snapshot", None)
+        if is_child_customer and not getattr(req, "delivery_location_id", None):
+            raise HTTPException(
+                status_code=400,
+                detail="Child-account invoices require a delivery location so the child ship-to address and GSTIN can be printed.",
+            )
 
         if getattr(req, "delivery_location_id", None):
             loc_stmt = select(CustomerDeliveryLocation).filter(
@@ -767,6 +823,7 @@ class CanonicalSalesPostingWriter:
                     detail="Selected delivery location is inactive."
                 )
 
+            linked_reg = None
             if delivery_loc_record.gst_registration_id:
                 linked_reg_stmt = select(CustomerGSTRegistration).filter(
                     CustomerGSTRegistration.id == delivery_loc_record.gst_registration_id,
@@ -786,8 +843,17 @@ class CanonicalSalesPostingWriter:
                             status_code=400,
                             detail="Delivery location linked GST registration does not belong to the selected customer."
                         )
+                    if not linked_reg.is_active or linked_reg.status != "ACTIVE":
+                        raise HTTPException(
+                            status_code=400,
+                            detail="Delivery location GST registration is inactive."
+                        )
 
-            eff_del_gstin = req.delivery_gstin or delivery_loc_record.gstin
+            eff_del_gstin = (
+                (linked_reg.gstin if linked_reg else delivery_loc_record.gstin)
+                if is_child_customer
+                else req.delivery_gstin or delivery_loc_record.gstin
+            )
             if eff_del_gstin:
                 val_ok, del_st_code, _ = validate_gstin(eff_del_gstin)
                 if not val_ok:
@@ -802,8 +868,18 @@ class CanonicalSalesPostingWriter:
                     )
 
             delivery_store_code = delivery_loc_record.store_code
-            delivery_gstin = req.delivery_gstin or delivery_loc_record.gstin
-            if not delivery_location_snapshot:
+            delivery_gstin = eff_del_gstin if is_child_customer else req.delivery_gstin or delivery_loc_record.gstin
+            state_postal = " - ".join(
+                part for part in (delivery_loc_record.state, delivery_loc_record.pincode) if part
+            )
+            delivery_address = _format_invoice_location_address([
+                delivery_loc_record.address_line1,
+                delivery_loc_record.address_line2,
+                delivery_loc_record.city,
+                state_postal,
+                delivery_loc_record.country,
+            ])
+            if is_child_customer or not delivery_location_snapshot:
                 delivery_location_snapshot = {
                     "id": delivery_loc_record.id,
                     "store_code": delivery_loc_record.store_code,
@@ -814,11 +890,14 @@ class CanonicalSalesPostingWriter:
                     "state_code": delivery_loc_record.state_code,
                     "state_name": delivery_loc_record.state,
                     "pincode": delivery_loc_record.pincode,
+                    "country": delivery_loc_record.country,
                     "delivery_gstin": delivery_gstin,
                     "contact_person": delivery_loc_record.contact_person,
                     "phone": delivery_loc_record.phone,
                     "metadata_json": delivery_loc_record.metadata_json,
                 }
+            if is_child_customer:
+                shipping_address_snapshot = delivery_address
 
         # 3.6 Enforce Modern Trade Store Location Requirement
         effective_channel = (
@@ -1219,9 +1298,9 @@ class CanonicalSalesPostingWriter:
             customer_id=db_customer.id if db_customer else req.customer_id,
             customer_name=req.customer_name or (db_customer.name if db_customer else "Walk-in Customer"),
             customer_gstin=req.customer_gstin or (getattr(db_customer, "gst_number", None) or getattr(db_customer, "gstin", None) if db_customer else None),
-            billed_party_gstin_id=getattr(req, "billed_party_gstin_id", None),
+            billed_party_gstin_id=resolved_billed_party_gstin_id,
             billing_address=snapshot_billing_address or (getattr(db_customer, "address", None) if db_customer else None),
-            shipping_address=req.shipping_address or snapshot_billing_address,
+            shipping_address=shipping_address_snapshot or snapshot_billing_address,
             billing_location_id=req.billing_location_id,
             billing_store_code=snapshot_billing_store_code,
             delivery_location_id=req.delivery_location_id,

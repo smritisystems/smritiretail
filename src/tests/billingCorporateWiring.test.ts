@@ -16,8 +16,11 @@
 import { describe, it, expect } from "vitest";
 import { 
   BillingHeaderState, 
+  CustomerBillingLocationDTO,
   CustomerGSTRegistrationDTO, 
-  CustomerDeliveryLocationDTO 
+  CustomerDeliveryLocationDTO,
+  formatCorporateLocationAddress,
+  resolveBillingPartyIdentity,
 } from "../components/billing/types.ts";
 
 describe("Phase 2C — Corporate B2B Billing Workspace Wiring Tests", () => {
@@ -167,6 +170,38 @@ describe("Phase 2C — Corporate B2B Billing Workspace Wiring Tests", () => {
 
     expect(header.billedPartyGstinId).toBe("gst-reg-dl");
     expect(header.billedGstin).toBe("07AAACR7015K1Z2");
+  });
+
+  it("uses the selected child billing address and its linked GST registration", () => {
+    const childBillingLocation: CustomerBillingLocationDTO = {
+      id: "child-billing-1",
+      customer_id: "cust-child",
+      billing_store_code: "CHILD-HQ",
+      gst_registration_id: "gst-reg-dl",
+      address_line1: "12 Child Account Road",
+      address_line2: "Accounts Wing",
+      city: "Delhi",
+      state: "Delhi",
+      state_code: "07",
+      pincode: "110001",
+      country: "India",
+      gstin: "07AAACR7015K1Z2",
+      is_default: true,
+      status: "ACTIVE",
+    };
+
+    expect(resolveBillingPartyIdentity(childBillingLocation, sampleRegistrations, "27AAACR7015K1Z0")).toEqual({
+      registrationId: "gst-reg-dl",
+      gstin: "07AAACR7015K1Z2",
+    });
+    expect(formatCorporateLocationAddress([
+      childBillingLocation.address_line1,
+      childBillingLocation.address_line2,
+      childBillingLocation.city,
+      childBillingLocation.state,
+      childBillingLocation.pincode,
+      childBillingLocation.country,
+    ])).toBe("12 Child Account Road, Accounts Wing, Delhi, Delhi, 110001, India");
   });
 
   // TEST 3 — Delivery Location selection auto-populates Store Code, Delivery GSTIN, Snapshot, and authoritative POS

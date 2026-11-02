@@ -48,6 +48,8 @@ import {
   CustomerGSTRegistrationDTO,
   CustomerDeliveryLocationDTO,
   CustomerBillingLocationDTO,
+  formatCorporateLocationAddress,
+  resolveBillingPartyIdentity,
   toCanonicalPaymentMode,
   channelRequiresStoreLocation
 } from "./types.ts";
@@ -762,7 +764,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   const [customerBillingLocationNeedsDefault, setCustomerBillingLocationNeedsDefault] = useState(false);
   const activeCustomerFetchIdRef = useRef<string | null>(null);
 
-  const fetchCustomerB2BData = async (customerId: string) => {
+  const fetchCustomerB2BData = async (customerId: string, customerGstin?: string | null) => {
     activeCustomerFetchIdRef.current = customerId;
     setIsLoadingB2BData(true);
     setCustomerB2BDataError(null);
@@ -794,6 +796,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         state_code: raw.state_code ?? raw.stateCode,
         state_name: raw.state_name ?? raw.stateName ?? raw.state,
         pin_code: raw.pin_code ?? raw.pincode,
+        country: raw.country,
         gst_registration_id: raw.gst_registration_id ?? raw.gstRegistrationId,
         delivery_gstin: raw.delivery_gstin ?? raw.gstin,
         contact_person: raw.contact_person ?? raw.contactPerson,
@@ -811,6 +814,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         address_line2: raw.address_line2 ?? raw.addressLine2,
         state_code: raw.state_code ?? raw.stateCode,
         pincode: raw.pincode ?? raw.pinCode,
+        country: raw.country,
         gst_registration_id: raw.gst_registration_id ?? raw.gstRegistrationId,
         contact_person: raw.contact_person ?? raw.contactPerson,
         contact_phone: raw.contact_phone ?? raw.phone,
@@ -825,10 +829,13 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
 
       // 2. Default Billing Location auto-selection (auto-select default or first available):
       const defaultBloc = blocs.find(b => b.is_default) || (blocs.length === 1 ? blocs[0] : null);
+      const billingParty = resolveBillingPartyIdentity(defaultBloc, regs, customerGstin);
       setCustomerBillingLocationNeedsDefault(blocs.length === 0 || (blocs.length > 1 && !defaultBloc));
 
       // 3. Default Shipping / Delivery Location auto-selection (auto-select default, primary, or first available):
       const defaultDelLoc = locs.find(l => l.is_default) || locs.find(l => (l as any).is_primary) || (locs.length === 1 ? locs[0] : null);
+      const deliveryRegistration = regs.find(r => r.id === defaultDelLoc?.gst_registration_id);
+      const deliveryGstin = deliveryRegistration?.gstin || defaultDelLoc?.delivery_gstin || null;
       const locationNotices: string[] = [];
       if (regs.length > 1 && !primaryReg) locationNotices.push("Select a GST registration; this customer has multiple registrations and no primary.");
       if (blocs.length === 0) locationNotices.push("This customer has no configured billing address.");
@@ -845,24 +852,39 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         state_code: defaultDelLoc.state_code,
         state_name: defaultDelLoc.state_name,
         pin_code: defaultDelLoc.pin_code,
-        delivery_gstin: defaultDelLoc.delivery_gstin,
+        country: defaultDelLoc.country,
+        delivery_gstin: deliveryGstin,
         contact_person: defaultDelLoc.contact_person,
         contact_phone: defaultDelLoc.contact_phone
       } : null;
 
       setHeaderState(prev => ({
         ...prev,
-        billedPartyGstinId: primaryReg?.id || null,
-        billedGstin: primaryReg?.gstin || null,
+        billedPartyGstinId: billingParty.registrationId,
+        billedGstin: billingParty.gstin,
         placeOfSupplyCode: defaultDelLoc?.state_code || primaryReg?.state_code || prev.placeOfSupplyCode,
         billingLocationId: defaultBloc?.id || null,
         billingStoreCode: defaultBloc?.billing_store_code || null,
-        billingAddress: defaultBloc ? [defaultBloc.address_line1, defaultBloc.city, defaultBloc.state].filter(Boolean).join(", ") : null,
+        billingAddress: defaultBloc ? formatCorporateLocationAddress([
+          defaultBloc.address_line1,
+          defaultBloc.address_line2,
+          defaultBloc.city,
+          defaultBloc.state,
+          defaultBloc.pincode,
+          defaultBloc.country,
+        ]) : null,
         deliveryLocationId: defaultDelLoc?.id || null,
         deliveryStoreCode: defaultDelLoc?.store_code || null,
-        deliveryGstin: defaultDelLoc?.delivery_gstin || null,
+        deliveryGstin,
         deliveryLocationSnapshot: delSnapshot,
-        shippingAddress: defaultDelLoc ? [defaultDelLoc.address_line1, defaultDelLoc.city, defaultDelLoc.state_name].filter(Boolean).join(", ") : null,
+        shippingAddress: defaultDelLoc ? formatCorporateLocationAddress([
+          defaultDelLoc.address_line1,
+          defaultDelLoc.address_line2,
+          defaultDelLoc.city,
+          defaultDelLoc.state_name,
+          defaultDelLoc.pin_code,
+          defaultDelLoc.country,
+        ]) : null,
       }));
       setCustomerB2BDataError(locationNotices.length > 0 ? locationNotices.join(" ") : null);
 
@@ -929,17 +951,27 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       state_code: loc.state_code,
       state_name: loc.state_name,
       pin_code: loc.pin_code,
-      delivery_gstin: loc.delivery_gstin,
+      country: loc.country,
+      delivery_gstin: customerGstRegistrations.find(r => r.id === loc.gst_registration_id)?.gstin || loc.delivery_gstin || null,
       contact_person: loc.contact_person,
       contact_phone: loc.contact_phone
     };
+    const deliveryGstin = snapshot.delivery_gstin;
     setHeaderState(prev => ({
       ...prev,
       deliveryLocationId: loc.id,
       deliveryStoreCode: loc.store_code,
-      deliveryGstin: loc.delivery_gstin || null,
+      deliveryGstin,
       deliveryLocationSnapshot: snapshot,
-      placeOfSupplyCode: loc.state_code
+      placeOfSupplyCode: loc.state_code,
+      shippingAddress: formatCorporateLocationAddress([
+        loc.address_line1,
+        loc.address_line2,
+        loc.city,
+        loc.state_name,
+        loc.pin_code,
+        loc.country,
+      ]),
     }));
 
     // Auto-resolve PSV party for chosen delivery location
@@ -1861,7 +1893,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     setIsLoadingCustomerPOs(false);
     if (c) {
       setCustomerSearchInput(c.name);
-      fetchCustomerB2BData(c.id);
+      fetchCustomerB2BData(c.id, c.gstNumber);
       void loadBillingTransactionPolicy(c.id);
       setItems(prev => recomputeCartForCustomer(prev, c));
     } else {
@@ -1930,7 +1962,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     setIsLoadingCustomerPOs(false);
     setShowCustomerDropdown(false);
     if (custObj.id) {
-      fetchCustomerB2BData(custObj.id);
+      fetchCustomerB2BData(custObj.id, custObj.gstNumber);
       void loadBillingTransactionPolicy(custObj.id);
       setItems(prev => recomputeCartForCustomer(prev, custObj));
     } else {

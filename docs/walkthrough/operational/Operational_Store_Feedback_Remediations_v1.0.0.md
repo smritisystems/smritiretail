@@ -41,6 +41,10 @@ This walkthrough documents the full remediation of the 9 key operational store b
 - `src/components/billing/SmritiBillingStudio.tsx`: Inline editable bill discount.
 - `src/components/sales/SalesOrderFormPremium.tsx`: Instant search lookup.
 - `backend/app/services/purchase.py`: Strict SKU matching and PO fulfillment status advancement.
+- `src/components/reports/SmritiReportEngine.tsx`: Multi-type column sorting with numeric, date, and text support.
+- `src/components/ReportDesignerTab.tsx`: Integrated multi-type sorting across Purchase Inward Register (detailed & summary), Tax Register, and Bill-wise Sales.
+- `src/components/purchase/AddProductToGrnModal.tsx`: Strict PO line scoping with explicit SKU, size, and color parameters.
+- `src/components/purchase/GrnReceiptTab.tsx`: Bound selected PO lines and existing GRN state to inward modal.
 - `docs/implementation/README.md`: Appended plan entry to master index.
 - `docs/walkthrough/README.md`: Appended walkthrough entry to master index.
 
@@ -71,15 +75,17 @@ Terminal Output:
       Tests  4 passed (4)
 ```
 
-Executed Vitest test suite `src/tests/businessLedgerTab.test.tsx`:
+Executed Vitest test suites `src/tests/tableSort.test.ts` and `src/tests/businessLedgerTab.test.tsx`:
 ```bash
-npx vitest run src/tests/businessLedgerTab.test.tsx
+npx vitest run src/tests/tableSort.test.ts src/tests/businessLedgerTab.test.tsx
 ```
 Terminal Output:
 ```
- ✓ src/tests/businessLedgerTab.test.tsx (13 tests) 60ms
- Test Files  1 passed (1)
-      Tests  13 passed (13)
+ ✓ src/tests/tableSort.test.ts (4 tests) 6ms
+ ✓ src/tests/businessLedgerTab.test.tsx (13 tests) 71ms
+
+ Test Files  2 passed (2)
+      Tests  17 passed (17)
 ```
 
 Executed TypeScript Static Analysis:
@@ -87,6 +93,12 @@ Executed TypeScript Static Analysis:
 npx tsc --noEmit
 ```
 Terminal Output: `exit 0` (0 errors).
+
+Executed Vite Production Build:
+```bash
+npm run build
+```
+Terminal Output: `✓ built in 2m 8s` (exit 0).
 
 ## 9. Verification Results
 - All unit test suites passed green.
@@ -107,3 +119,4 @@ Terminal Output: `exit 0` (0 errors).
 ## 13. Related RFCs
 - `RFC-089`: High-Density Enterprise Sales & Statutory Ledger Canvas Standard
 - `RFC-095`: Purchase Order Fulfillment & Size Curve Reconciliation Standard
+
