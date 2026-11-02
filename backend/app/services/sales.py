@@ -19,7 +19,7 @@ from decimal import Decimal, InvalidOperation
 from datetime import datetime, timezone, date
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import delete, func
+from sqlalchemy import delete, func, or_, String
 from sqlalchemy.orm import selectinload
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException
@@ -830,6 +830,7 @@ class SalesService:
         self,
         customer_id: Optional[str] = None,
         status: Optional[str] = None,
+        search_term: Optional[str] = None,
         fulfillment_status: Optional[str] = None,
         from_date: Optional[date] = None,
         to_date: Optional[date] = None,
@@ -863,6 +864,15 @@ class SalesService:
             stmt = stmt.where(SalesOrder.customer_id == exact_customer_id)
         if status:
             stmt = stmt.where(SalesOrder.status == status)
+        if search_term:
+            term = f"%{search_term.strip()}%"
+            stmt = stmt.where(or_(
+                SalesOrder.order_no.ilike(term),
+                SalesOrder.customer_name.ilike(term),
+                SalesOrder.site_code.ilike(term),
+                SalesOrder.site_name.ilike(term),
+                func.cast(SalesOrder.date, String).ilike(term),
+            ))
         if fulfillment_status:
             stmt = stmt.where(SalesOrder.fulfillment_status == fulfillment_status)
         if from_date:
@@ -1729,8 +1739,14 @@ class SalesService:
         return result.scalars().first()
 
 
-    async def list_sales_returns(self) -> List[SalesReturn]:
-        res = await self.db.execute(
+    async def list_sales_returns(
+        self,
+        customer_id: Optional[str] = None,
+        search_term: Optional[str] = None,
+        skip: int = 0,
+        limit: int = 100,
+    ) -> List[SalesReturn]:
+        stmt = (
             select(SalesReturn)
             .options(selectinload(SalesReturn.items))
             .where(
@@ -1739,7 +1755,20 @@ class SalesService:
                 SalesReturn.is_deleted == False
             )
         )
-        return res.scalars().all()
+        if customer_id:
+            stmt = stmt.where(SalesReturn.customer_id == customer_id)
+        if search_term:
+            term = f"%{search_term.strip()}%"
+            stmt = stmt.outerjoin(SalesInvoice, SalesReturn.original_invoice_id == SalesInvoice.id).where(or_(
+                SalesReturn.return_no.ilike(term),
+                SalesReturn.credit_note_number.ilike(term),
+                SalesInvoice.invoice_no.ilike(term),
+                SalesInvoice.customer_name.ilike(term),
+                func.cast(SalesReturn.date, String).ilike(term),
+            ))
+        stmt = stmt.order_by(SalesReturn.date.desc(), SalesReturn.created_at.desc()).offset(skip).limit(limit)
+        res = await self.db.execute(stmt)
+        return list(res.scalars().unique().all())
 
     async def get_sales_return(self, sr_id: str) -> tuple[SalesReturn, List[SalesReturnItem]]:
         res = await self.db.execute(

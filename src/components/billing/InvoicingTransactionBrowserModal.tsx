@@ -13,7 +13,7 @@
  * Source Module: Invoicing & Commercial Transaction Browser (Read-Only Terminal Integration)
  */
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { 
   X, 
   Search, 
@@ -64,10 +64,16 @@ const InvoicingTransactionBrowserModalBase: React.FC<InvoicingTransactionBrowser
   invoiceStatus,
   initialTab = "INVOICES"
 }) => {
+  const PAGE_SIZE = 50;
   const [activeTab, setActiveTab] = useState<InvoicingBrowserTab>(initialTab);
   const [searchTerm, setSearchTerm] = useState<string>("");
+  const [debouncedSearch, setDebouncedSearch] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [refreshVersion, setRefreshVersion] = useState(0);
+  const requestId = useRef(0);
 
   // Loaded Data Pools
   const [invoices, setInvoices] = useState<any[]>([]);
@@ -75,50 +81,92 @@ const InvoicingTransactionBrowserModalBase: React.FC<InvoicingTransactionBrowser
   const [returns, setReturns] = useState<any[]>([]);
   const [suspended, setSuspended] = useState<any[]>([]);
 
-  // Fetch Live Data
-  const fetchData = async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      if (activeTab === "INVOICES" || activeTab === "CANCELLED") {
-        const params = new URLSearchParams({ page_size: "100" });
-        if (customerId) params.set("customer_id", customerId);
-        if (invoiceStatus) params.set("status", invoiceStatus);
-        const res = await apiFetchV1<any>(`/sales/invoices?${params.toString()}`);
-        const list = Array.isArray(res) ? res : (res?.items || res?.data || []);
-        setInvoices(list);
-      } else if (activeTab === "ORDERS") {
-        const [ordersRes, posRes] = await Promise.allSettled([
-          apiFetchV1<any[]>(customerId ? `/sales/orders?customer_id=${encodeURIComponent(customerId)}&limit=1000` : "/sales/orders"),
-          apiFetchV1<any[]>(customerId ? `/sales/customer-pos?customer_id=${encodeURIComponent(customerId)}&status=ALL` : "/sales/customer-pos?status=ALL")
-        ]);
-        const orderList = ordersRes.status === "fulfilled" && Array.isArray(ordersRes.value) ? ordersRes.value : [];
-        const poList = posRes.status === "fulfilled" && Array.isArray(posRes.value) ? posRes.value : [];
-        setOrders([...orderList, ...poList]);
-      } else if (activeTab === "RETURNS") {
-        const res = await apiFetchV1<any>("/sales/returns");
-        const list = Array.isArray(res) ? res : (res?.items || []);
-        setReturns(list);
-      } else if (activeTab === "SUSPENDED") {
-        const query = customerId ? `?customer_id=${encodeURIComponent(customerId)}` : "";
-        const res = await apiFetchV1<any>(`/sales/invoices/suspended${query}`);
-        const list = Array.isArray(res) ? res : (res?.items || []);
-        setSuspended(list);
-      }
-    } catch (err: any) {
-      console.error("[InvoicingBrowser] Failed to fetch documents:", err);
-      setError(err?.message || "Failed to load transactions.");
-      onNotification?.("Error", "Unable to load transactions from backend.", "error");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(searchTerm.trim()), 300);
+    return () => window.clearTimeout(timer);
+  }, [searchTerm]);
 
   useEffect(() => {
-    if (isOpen) {
-      void fetchData();
+    if (!isOpen) return;
+    const currentRequestId = ++requestId.current;
+    const append = page > 0;
+    const skip = page * PAGE_SIZE;
+    const params = new URLSearchParams({
+      skip: String(skip),
+      limit: String(PAGE_SIZE + 1),
+    });
+    if (customerId) params.set("customer_id", customerId);
+    if (debouncedSearch) params.set("q", debouncedSearch);
+
+    setIsLoading(true);
+    setError(null);
+    if (!append) {
+      setHasMore(false);
+      if (activeTab === "INVOICES" || activeTab === "CANCELLED") setInvoices([]);
+      if (activeTab === "ORDERS") setOrders([]);
+      if (activeTab === "RETURNS") setReturns([]);
+      if (activeTab === "SUSPENDED") setSuspended([]);
     }
-  }, [isOpen, activeTab, customerId, invoiceStatus]);
+
+    const applyPage = (list: any[], setter: React.Dispatch<React.SetStateAction<any[]>>, more: boolean) => {
+      const visible = list.slice(0, PAGE_SIZE);
+      setter(previous => append ? [...previous, ...visible] : visible);
+      setHasMore(more);
+    };
+
+    const fetchData = async () => {
+      try {
+        if (activeTab === "INVOICES" || activeTab === "CANCELLED") {
+          const status = activeTab === "CANCELLED" ? "Cancelled" : invoiceStatus;
+          if (status) params.set("status", status);
+          const res = await apiFetchV1<any>(`/sales/invoices?${params.toString()}`);
+          const list = Array.isArray(res) ? res : (res?.items || res?.data || []);
+          if (currentRequestId === requestId.current) applyPage(list, setInvoices, list.length > PAGE_SIZE);
+        } else if (activeTab === "ORDERS") {
+          const [ordersRes, posRes] = await Promise.all([
+            apiFetchV1<any>(`/sales/orders?${params.toString()}`),
+            apiFetchV1<any>(`/sales/customer-pos?${new URLSearchParams({
+              skip: String(skip),
+              limit: String(PAGE_SIZE + 1),
+              status: "ALL",
+              ...(customerId ? { customer_id: customerId } : {}),
+              ...(debouncedSearch ? { q: debouncedSearch } : {}),
+            }).toString()}`),
+          ]);
+          const orderList = Array.isArray(ordersRes) ? ordersRes : (ordersRes?.items || []);
+          const poList = Array.isArray(posRes) ? posRes : (posRes?.items || []);
+          const more = orderList.length > PAGE_SIZE || poList.length > PAGE_SIZE;
+          const visible = [...orderList.slice(0, PAGE_SIZE), ...poList.slice(0, PAGE_SIZE)]
+            .sort((left, right) => String(right.date || right.po_date || "").localeCompare(String(left.date || left.po_date || "")));
+          if (currentRequestId === requestId.current) {
+            setOrders(previous => append ? [...previous, ...visible] : visible);
+            setHasMore(more);
+          }
+        } else if (activeTab === "RETURNS") {
+          const res = await apiFetchV1<any>(`/sales/returns?${params.toString()}`);
+          const list = Array.isArray(res) ? res : (res?.items || []);
+          if (currentRequestId === requestId.current) applyPage(list, setReturns, list.length > PAGE_SIZE);
+        } else if (activeTab === "SUSPENDED") {
+          const res = await apiFetchV1<any>(`/sales/invoices/suspended?${params.toString()}`);
+          const list = Array.isArray(res) ? res : (res?.items || []);
+          if (currentRequestId === requestId.current) applyPage(list, setSuspended, list.length > PAGE_SIZE);
+        }
+      } catch (err: any) {
+        if (currentRequestId !== requestId.current) return;
+        console.error("[InvoicingBrowser] Failed to fetch documents:", err);
+        setError(err?.message || "Failed to load transactions.");
+        onNotification?.("Error", "Unable to load transactions from backend.", "error");
+      } finally {
+        if (currentRequestId === requestId.current) setIsLoading(false);
+      }
+    };
+
+    void fetchData();
+  }, [isOpen, activeTab, customerId, invoiceStatus, debouncedSearch, page, refreshVersion]);
+
+  useEffect(() => {
+    setPage(0);
+  }, [activeTab, customerId, invoiceStatus, debouncedSearch]);
 
   // Filtered rows
   const filteredRows = useMemo(() => {
@@ -205,7 +253,7 @@ const InvoicingTransactionBrowserModalBase: React.FC<InvoicingTransactionBrowser
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={fetchData}
+              onClick={() => { setPage(0); setRefreshVersion(version => version + 1); }}
               disabled={isLoading}
               className="p-2 hover:bg-surface-container-high rounded-lg text-on-surface-variant transition disabled:opacity-50"
               title="Refresh Transactions"
@@ -227,7 +275,7 @@ const InvoicingTransactionBrowserModalBase: React.FC<InvoicingTransactionBrowser
         <div className="bg-surface-container-low dark:bg-[#15191c] px-6 pt-3 border-b border-outline-variant dark:border-[#33383f] flex items-center gap-2 shrink-0 overflow-x-auto">
           <button
             type="button"
-            onClick={() => setActiveTab("INVOICES")}
+            onClick={() => { setActiveTab("INVOICES"); setPage(0); }}
             className={`px-4 py-2.5 rounded-t-xl text-xs font-bold transition flex items-center gap-2 border-b-2 ${
               activeTab === "INVOICES"
                 ? "border-primary text-primary bg-surface dark:bg-[#191c1e]"
@@ -237,13 +285,13 @@ const InvoicingTransactionBrowserModalBase: React.FC<InvoicingTransactionBrowser
             <FileText size={14} />
             <span>Tax Invoices</span>
             <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-primary/10 text-primary">
-              {invoices.filter(i => String(i.status || "").toUpperCase() !== "CANCELLED").length}
+              {invoices.filter(i => String(i.status || "").toUpperCase() !== "CANCELLED").length}{hasMore && (activeTab === "INVOICES" || activeTab === "CANCELLED") ? "+" : ""}
             </span>
           </button>
 
           <button
             type="button"
-            onClick={() => setActiveTab("ORDERS")}
+            onClick={() => { setActiveTab("ORDERS"); setPage(0); }}
             className={`px-4 py-2.5 rounded-t-xl text-xs font-bold transition flex items-center gap-2 border-b-2 ${
               activeTab === "ORDERS"
                 ? "border-primary text-primary bg-surface dark:bg-[#191c1e]"
@@ -253,13 +301,13 @@ const InvoicingTransactionBrowserModalBase: React.FC<InvoicingTransactionBrowser
             <ShoppingBag size={14} />
             <span>Customer POs & Orders</span>
             <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-primary/10 text-primary">
-              {orders.length}
+              {orders.length}{hasMore && activeTab === "ORDERS" ? "+" : ""}
             </span>
           </button>
 
           <button
             type="button"
-            onClick={() => setActiveTab("RETURNS")}
+            onClick={() => { setActiveTab("RETURNS"); setPage(0); }}
             className={`px-4 py-2.5 rounded-t-xl text-xs font-bold transition flex items-center gap-2 border-b-2 ${
               activeTab === "RETURNS"
                 ? "border-primary text-primary bg-surface dark:bg-[#191c1e]"
@@ -269,13 +317,13 @@ const InvoicingTransactionBrowserModalBase: React.FC<InvoicingTransactionBrowser
             <RotateCcw size={14} />
             <span>Returns & Credit Notes</span>
             <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-primary/10 text-primary">
-              {returns.length}
+              {returns.length}{hasMore && activeTab === "RETURNS" ? "+" : ""}
             </span>
           </button>
 
           <button
             type="button"
-            onClick={() => setActiveTab("CANCELLED")}
+            onClick={() => { setActiveTab("CANCELLED"); setPage(0); }}
             className={`px-4 py-2.5 rounded-t-xl text-xs font-bold transition flex items-center gap-2 border-b-2 ${
               activeTab === "CANCELLED"
                 ? "border-primary text-primary bg-surface dark:bg-[#191c1e]"
@@ -285,13 +333,13 @@ const InvoicingTransactionBrowserModalBase: React.FC<InvoicingTransactionBrowser
             <AlertTriangle size={14} className="text-error" />
             <span>Cancelled Invoices</span>
             <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-error/10 text-error">
-              {invoices.filter(i => String(i.status || "").toUpperCase() === "CANCELLED").length}
+              {invoices.filter(i => String(i.status || "").toUpperCase() === "CANCELLED").length}{hasMore && activeTab === "CANCELLED" ? "+" : ""}
             </span>
           </button>
 
           <button
             type="button"
-            onClick={() => setActiveTab("SUSPENDED")}
+            onClick={() => { setActiveTab("SUSPENDED"); setPage(0); }}
             className={`px-4 py-2.5 rounded-t-xl text-xs font-bold transition flex items-center gap-2 border-b-2 ${
               activeTab === "SUSPENDED"
                 ? "border-primary text-primary bg-surface dark:bg-[#191c1e]"
@@ -301,7 +349,7 @@ const InvoicingTransactionBrowserModalBase: React.FC<InvoicingTransactionBrowser
             <PauseCircle size={14} />
             <span>Held Bills</span>
             <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-500/10 text-amber-700">
-              {suspended.length}
+              {suspended.length}{hasMore && activeTab === "SUSPENDED" ? "+" : ""}
             </span>
           </button>
         </div>
@@ -313,25 +361,26 @@ const InvoicingTransactionBrowserModalBase: React.FC<InvoicingTransactionBrowser
             <input
               type="text"
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => { setSearchTerm(e.target.value); setPage(0); }}
               placeholder="Search by Document No, Customer, Store Code, or Date..."
               className="w-full pl-9 pr-4 py-2 bg-surface-container-low dark:bg-[#25292e] border border-outline-variant dark:border-[#444653] rounded-xl text-xs focus:ring-2 focus:ring-primary focus:border-transparent outline-hidden font-sans"
               autoFocus
             />
           </div>
           <div className="text-xs text-on-surface-variant font-medium">
-            Showing <strong className="text-on-surface font-mono">{filteredRows.length}</strong> transactions
+            Loaded <strong className="text-on-surface font-mono">{filteredRows.length}</strong> matching transactions
+            {hasMore ? " · more available" : " · end of results"}
           </div>
         </div>
 
         {/* Data Grid Body */}
         <div className="flex-1 overflow-y-auto p-6">
-          {isLoading ? (
+          {isLoading && filteredRows.length === 0 ? (
             <div className="py-20 flex flex-col items-center justify-center gap-3 text-on-surface-variant">
               <RefreshCw size={24} className="animate-spin text-primary" />
               <span className="text-xs font-semibold">Loading commercial transactions from database...</span>
             </div>
-          ) : error ? (
+          ) : error && filteredRows.length === 0 ? (
             <div className="p-4 bg-error/10 text-error border border-error/20 rounded-xl text-xs text-center">
               {error}
             </div>
@@ -454,6 +503,29 @@ const InvoicingTransactionBrowserModalBase: React.FC<InvoicingTransactionBrowser
                   })}
                 </tbody>
               </table>
+            </div>
+          )}
+          {filteredRows.length > 0 && (
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div aria-live="polite">
+                {isLoading && <span className="text-on-surface-variant">Loading more transactions…</span>}
+                {error && <span role="alert" className="text-error">{error}</span>}
+                {!isLoading && !error && (
+                  <span className="text-on-surface-variant">
+                    {hasMore ? "More matching transactions are available." : "You’ve reached the end of the results."}
+                  </span>
+                )}
+              </div>
+              {hasMore && (
+                <button
+                  type="button"
+                  onClick={() => setPage(currentPage => currentPage + 1)}
+                  disabled={isLoading}
+                  className="rounded-lg border border-primary/30 bg-primary/10 px-4 py-2 font-semibold text-primary transition hover:bg-primary/15 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {isLoading ? "Loading…" : "Load more results"}
+                </button>
+              )}
             </div>
           )}
         </div>

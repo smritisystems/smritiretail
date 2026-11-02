@@ -5,7 +5,7 @@ from decimal import Decimal
 from typing import Any, Optional
 
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import select, or_, func, String
 from sqlalchemy.orm import selectinload
 
 from ..models.company_policy import CompanyPolicySetting
@@ -252,15 +252,31 @@ class CustomerPOService:
         await self.db.commit()
         return await self.get(po_id)
 
-    async def list(self, customer_id: Optional[str] = None, q: Optional[str] = None, status: Optional[str] = None):
+    async def list(
+        self,
+        customer_id: Optional[str] = None,
+        q: Optional[str] = None,
+        status: Optional[str] = None,
+        skip: int = 0,
+        limit: int = 100,
+    ):
         query = self._scope(select(CustomerPurchaseOrder).options(selectinload(CustomerPurchaseOrder.lines)), CustomerPurchaseOrder)
         if customer_id:
             query = query.where(CustomerPurchaseOrder.customer_id == customer_id)
         if q:
-            query = query.where(CustomerPurchaseOrder.po_number.ilike(f"%{q}%"))
-        if status:
+            term = f"%{q.strip()}%"
+            query = query.outerjoin(Customer, Customer.id == CustomerPurchaseOrder.customer_id).where(or_(
+                CustomerPurchaseOrder.po_number.ilike(term),
+                Customer.name.ilike(term),
+                func.cast(CustomerPurchaseOrder.po_date, String).ilike(term),
+            ))
+        if status and status.upper() != "ALL":
             query = query.where(CustomerPurchaseOrder.status == status)
-        result = await self.db.execute(query.order_by(CustomerPurchaseOrder.po_date.desc(), CustomerPurchaseOrder.po_number))
+        result = await self.db.execute(
+            query.order_by(CustomerPurchaseOrder.po_date.desc(), CustomerPurchaseOrder.po_number)
+            .offset(skip)
+            .limit(limit)
+        )
         return list(result.scalars().unique().all())
 
     async def utilization(self, po_id: str):

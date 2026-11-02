@@ -15,7 +15,7 @@ from typing import List, Optional
 from datetime import date
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import or_, and_, func
+from sqlalchemy import or_, and_, func, String
 from ..models.sales import SalesInvoice
 from .base import BaseRepository
 from ..api.deps import TenantContext
@@ -51,6 +51,7 @@ class SalesInvoiceRepository(BaseRepository[SalesInvoice]):
         status: Optional[str] = None,
         date_from: Optional[date] = None,
         date_to: Optional[date] = None,
+        search_term: Optional[str] = None,
         skip: int = 0,
         limit: int = 50,
     ) -> List[SalesInvoice]:
@@ -89,6 +90,14 @@ class SalesInvoiceRepository(BaseRepository[SalesInvoice]):
 
         if invoice_no:
             stmt = stmt.filter(SalesInvoice.invoice_no.ilike(f"%{invoice_no}%"))
+        if search_term:
+            term = f"%{search_term.strip()}%"
+            stmt = stmt.filter(or_(
+                SalesInvoice.invoice_no.ilike(term),
+                SalesInvoice.customer_name.ilike(term),
+                SalesInvoice.delivery_store_code.ilike(term),
+                func.cast(SalesInvoice.date, String).ilike(term),
+            ))
         if customer_id:
             stmt = stmt.filter(SalesInvoice.customer_id == customer_id)
         if date_from:

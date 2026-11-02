@@ -62,12 +62,16 @@ async def list_customer_pos(
     customer_id: Optional[str] = Query(None),
     q: Optional[str] = Query(None),
     status: Optional[str] = Query(None),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(1000, ge=1, le=5000),
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
     if customer_id:
         await _require_billing_visible_customer(customer_id, db, tenant_ctx)
-    return await CustomerPOService(db, tenant_ctx).list(customer_id=customer_id, q=q, status=status)
+    return await CustomerPOService(db, tenant_ctx).list(
+        customer_id=customer_id, q=q, status=status, skip=skip, limit=limit
+    )
 
 
 @router.get("/customer-pos/{po_id}", response_model=CustomerPOResponse, summary="Get Customer PO")
@@ -272,13 +276,16 @@ async def list_sales_invoices_contract(
     if customer_id:
         await _require_billing_visible_customer(customer_id, db, tenant_ctx)
     if status or customer_id or q:
-        return await repo.search(invoice_no=q, customer_id=customer_id, status=status, skip=skip, limit=limit)
+        return await repo.search(customer_id=customer_id, status=status, search_term=q, skip=skip, limit=limit)
     return await repo.get_all(skip=skip, limit=limit)
 
 
 @router.get("/invoices/suspended", response_model=List[SalesInvoiceResponse], summary="List Suspended Invoices")
 async def list_suspended_sales_invoices(
     customer_id: Optional[str] = Query(None, min_length=1),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
+    q: Optional[str] = Query(None, min_length=1, max_length=200),
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
@@ -286,7 +293,13 @@ async def list_suspended_sales_invoices(
     if customer_id:
         await _require_billing_visible_customer(customer_id, db, tenant_ctx)
     repo = SalesInvoiceRepository(db, tenant_ctx)
-    return await repo.search(status="Suspended", customer_id=customer_id, limit=100)
+    return await repo.search(
+        status="Suspended",
+        customer_id=customer_id,
+        search_term=q,
+        skip=skip,
+        limit=limit,
+    )
 
 
 @router.get(
@@ -597,6 +610,7 @@ async def list_sales_orders(
     customer: Optional[str] = Query(default=None, description="Filter by customer ID or name"),
     customer_id: Optional[str] = Query(default=None, min_length=1, description="Filter by exact customer ID"),
     status: Optional[str] = Query(default=None, description="Filter by status"),
+    q: Optional[str] = Query(default=None, min_length=1, max_length=200, description="Search order number, customer, or date"),
     fulfillment_status: Optional[str] = Query(default=None, description="Filter by fulfillment status"),
     from_date: Optional[date] = Query(default=None, description="Start date YYYY-MM-DD"),
     to_date: Optional[date] = Query(default=None, description="End date YYYY-MM-DD"),
@@ -612,6 +626,7 @@ async def list_sales_orders(
         customer_id=customer,
         exact_customer_id=customer_id,
         status=status,
+        search_term=q,
         fulfillment_status=fulfillment_status,
         from_date=from_date,
         to_date=to_date,
@@ -836,10 +851,18 @@ async def create_sales_return(
 @router.get("/returns", response_model=List[SalesReturnResponse])
 @router.get("/returns/", response_model=List[SalesReturnResponse])
 async def list_sales_returns(
+    customer_id: Optional[str] = Query(default=None, min_length=1),
+    q: Optional[str] = Query(default=None, min_length=1, max_length=200),
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, ge=1, le=500),
     db: AsyncSession = Depends(get_company_db),
     tenant_ctx: TenantContext = Depends(get_tenant_context),
 ):
-    return await SalesService(db, tenant_ctx).list_sales_returns()
+    if customer_id:
+        await _require_billing_visible_customer(customer_id, db, tenant_ctx)
+    return await SalesService(db, tenant_ctx).list_sales_returns(
+        customer_id=customer_id, search_term=q, skip=skip, limit=limit
+    )
 
 
 @router.get("/returns/{return_id}", response_model=SalesReturnResponse)

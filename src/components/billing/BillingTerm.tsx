@@ -4697,13 +4697,17 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
 
       {/* Audit Read-Only Mode & Statutory Amendment Banner */}
       {isReadOnlyView && (
-        <div className="bg-amber-500/15 border-b border-amber-500/30 px-margin-page py-2.5 flex items-center justify-between animate-in fade-in shrink-0">
-          <div className="flex items-center gap-3">
-            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-600 text-white font-mono uppercase tracking-wider">
-              Audit Read-Only Mode
+        <div role="status" className="bg-orange-100 border-b-2 border-orange-500 px-margin-page py-2.5 flex flex-wrap items-center justify-between gap-2 animate-in fade-in shrink-0 dark:bg-[#3b1b1b] dark:border-rose-800">
+          <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
+            <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-[#7f1d1d] text-white font-mono uppercase tracking-wider">
+              Read-only
             </span>
-            <div className="text-xs text-amber-950 dark:text-amber-200">
-              Viewing finalized document <strong className="font-mono font-bold">{loadedDocMetadata?.docNo}</strong> • Status: <span className="font-bold uppercase">{loadedDocMetadata?.status}</span> • All modifications locked
+            <div className="text-xs font-medium text-[#7f1d1d] dark:text-rose-100">
+              Bill <strong className="font-mono font-bold">{loadedDocMetadata?.docNo}</strong>
+              <span className="mx-1.5 text-orange-800 dark:text-rose-300">·</span>
+              Status: <span className="font-bold uppercase">{loadedDocMetadata?.status}</span>
+              <span className="mx-1.5 text-orange-800 dark:text-rose-300">·</span>
+              You can view or print this bill, but you cannot edit it here.
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -5321,17 +5325,46 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
               {!billingPolicyLoading && !billingPolicyError && permittedTransactions.length === 0 && (
                 <span role="status" className="font-semibold text-amber-700 dark:text-amber-300">Billing is blocked by customer or company policy.</span>
               )}
-              {!billingPolicyLoading && !billingPolicyError && (
-                transactionCustomerPolicy?.channel_conflict ||
-                transactionCustomerPolicy?.configuration_warning ||
-                billingTransactionPolicy?.configuration_warning ||
-                transactionModeConflict ||
-                (!configuredTransactionIsPermitted && permittedTransactions.length > 0) ||
-                (transactionCustomerPolicy?.require_po_number && !headerState.poReference?.trim() && !headerState.customerPoId) ||
-                requiresCreditOverride
-              ) && (
+              {billingPolicyLoading && (
+                <span role="status" className="font-semibold text-blue-700 dark:text-blue-300">
+                  Checking billing policy; settlement is paused until validation completes.
+                </span>
+              )}
+              {!billingPolicyLoading && !billingPolicyError && transactionCustomerPolicy?.channel_conflict && (
                 <span role="status" className="font-semibold text-amber-700 dark:text-amber-300">
-                  Billing setup requires attention. Expand setup to review.
+                  Customer billing channel conflicts with company or branch policy.
+                </span>
+              )}
+              {!billingPolicyLoading && !billingPolicyError && transactionCustomerPolicy?.configuration_warning && (
+                <span role="status" className="font-semibold text-amber-700 dark:text-amber-300">
+                  {transactionCustomerPolicy.configuration_warning}
+                </span>
+              )}
+              {!billingPolicyLoading && !billingPolicyError && billingTransactionPolicy?.configuration_warning && (
+                <span role="status" className="font-semibold text-amber-700 dark:text-amber-300">
+                  {billingTransactionPolicy.configuration_warning}
+                </span>
+              )}
+              {!billingPolicyLoading && !billingPolicyError && transactionModeConflict && (
+                <span role="status" className="font-semibold text-amber-700 dark:text-amber-300">
+                  Customer billing mode conflicts with current eligibility.
+                </span>
+              )}
+              {!billingPolicyLoading && !billingPolicyError && !configuredTransactionIsPermitted && permittedTransactions.length > 0 && !transactionCustomerPolicy?.configuration_warning && (
+                <span role="status" className="font-semibold text-amber-700 dark:text-amber-300">
+                  Configured billing mode is not permitted by the active policy.
+                </span>
+              )}
+              {!billingPolicyLoading && !billingPolicyError && transactionCustomerPolicy?.require_po_number && !headerState.poReference?.trim() && !headerState.customerPoId && (
+                <span role="status" className="font-semibold text-amber-700 dark:text-amber-300">
+                  Customer purchase-order reference is required.
+                </span>
+              )}
+              {!billingPolicyLoading && !billingPolicyError && requiresCreditOverride && (
+                <span role="status" className="font-semibold text-amber-700 dark:text-amber-300">
+                  {transactionCustomerPolicy?.can_override_credit && transactionCustomerPolicy.allow_credit_override
+                    ? "Credit limit exceeded; an authorized override and business justification are required."
+                    : "Credit limit exceeded; an authorized override is unavailable."}
                 </span>
               )}
             </div>
@@ -5339,7 +5372,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         </section>
 
         {/* ZONES C & D: ITEM GRID (~74%) & BILL SUMMARY (~26%) SIDE-BY-SIDE */}
-        <div className="flex-1 flex flex-col lg:flex-row gap-2.5 min-h-[360px] overflow-visible">
+        <div className="flex-1 flex flex-col xl:flex-row gap-2.5 min-h-[360px] overflow-visible">
           
           {/* ZONE C: LINE ITEMS GRID & DIRECT ENTRY (~74% width) */}
           <section className="relative flex-1 min-w-0 bg-white dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-xl flex flex-col overflow-hidden shadow-xs min-h-0">
@@ -5739,15 +5772,15 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
             )}
 
             {/* Direct Entry Row (F11) at Bottom of Item Card */}
-            <div className="bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 p-2 flex flex-wrap gap-2 items-center shrink-0">
+            <div className="bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 p-2 flex flex-wrap md:flex-nowrap gap-2 items-center shrink-0">
               <span className="text-[10px] font-mono font-bold text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-950/80 px-2 py-1 rounded shrink-0">
                 F11
               </span>
 
               {/* Inputs aligned with table columns */}
-              <div className="flex-1 min-w-0 flex gap-1.5 items-center flex-wrap">
+              <div className="flex-1 min-w-0 flex gap-1 md:gap-1.5 items-center flex-wrap md:flex-nowrap">
                 {/* Stock / Barcode Search */}
-                <div className="w-[min(100%,180px)] relative shrink-0">
+                <div className="w-[min(100%,180px)] md:w-[96px] xl:w-[115px] relative shrink-0">
                   <input
                     ref={directStockNoRef}
                     type="text"
@@ -5801,7 +5834,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                   onChange={e => setDirectEntry({ ...directEntry, itemDescription: e.target.value })}
                   onKeyDown={e => e.key === "Enter" && void handleCommitDirectEntry()}
                   placeholder="Item Description"
-                  className="flex-1 min-w-[120px] bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 h-8 text-xs rounded-lg px-2 font-medium text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500 truncate"
+                  className="flex-1 min-w-[120px] md:min-w-0 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 h-8 text-xs rounded-lg px-2 font-medium text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500 truncate"
                 />
 
                 {/* Rate */}
@@ -5814,7 +5847,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                   onChange={e => setDirectEntry({ ...directEntry, rate: e.target.value })}
                   onKeyDown={e => e.key === "Enter" && void handleCommitDirectEntry()}
                   placeholder="Rate"
-                  className="w-[85px] border border-slate-300 dark:border-slate-700 h-8 font-mono text-xs rounded-lg px-2 text-right bg-white dark:bg-slate-800 font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500 shrink-0"
+                  className="w-[85px] md:w-[54px] xl:w-[70px] border border-slate-300 dark:border-slate-700 h-8 font-mono text-xs rounded-lg px-1.5 md:px-1 xl:px-2 text-right bg-white dark:bg-slate-800 font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500 shrink-0"
                 />
 
                 {/* Qty with Retail Barcode Scanner Guard */}
@@ -5838,7 +5871,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                   }}
                   onKeyDown={e => e.key === "Enter" && void handleCommitDirectEntry()}
                   placeholder="Qty"
-                  className="w-[65px] border border-slate-300 dark:border-slate-700 h-8 font-mono text-xs rounded-lg px-2 text-right bg-white dark:bg-slate-800 font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500 shrink-0"
+                  className="w-[65px] md:w-[44px] xl:w-[55px] border border-slate-300 dark:border-slate-700 h-8 font-mono text-xs rounded-lg px-1.5 md:px-1 xl:px-2 text-right bg-white dark:bg-slate-800 font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500 shrink-0"
                 />
 
                 {/* Gross Value */}
@@ -5847,7 +5880,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                   value={directGrossValue > 0 ? directGrossValue.toFixed(2) : ""}
                   readOnly
                   placeholder="Value"
-                  className="w-[85px] bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 h-8 font-mono text-xs rounded-lg px-2 text-right font-bold text-slate-700 dark:text-slate-300 shrink-0"
+                  className="w-[85px] md:w-[60px] xl:w-[75px] bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 h-8 font-mono text-xs rounded-lg px-1.5 md:px-1 xl:px-2 text-right font-bold text-slate-700 dark:text-slate-300 shrink-0"
                 />
 
                 {/* Recommended discount can be accepted or explicitly declined. */}
@@ -5875,7 +5908,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                     }));
                   }}
                   title={`Recommended discount: ${recommendedDirectDiscountCode}${recommendedDirectDiscountPercent ? ` (${recommendedDirectDiscountPercent.toFixed(2)}%)` : ""}`}
-                  className="w-[180px] max-w-full border border-slate-300 dark:border-slate-700 h-8 font-mono text-[10px] rounded-lg px-1.5 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500 shrink-0"
+                  className="w-[180px] max-w-full md:w-[120px] xl:w-[150px] border border-slate-300 dark:border-slate-700 h-8 font-mono text-[10px] rounded-lg px-1 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500 shrink-0"
                 >
                   <option value="AUTO">
                     {directEntry.discountSelection === "NONE"
@@ -5895,7 +5928,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                   value={directEntry.discPercent}
                   onChange={e => setDirectEntry({ ...directEntry, discPercent: e.target.value })}
                   placeholder="Disc %"
-                  className="w-[70px] border border-slate-300 dark:border-slate-700 h-8 font-mono text-xs rounded-lg px-2 text-right bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500 shrink-0"
+                  className="w-[70px] md:w-[50px] xl:w-[58px] border border-slate-300 dark:border-slate-700 h-8 font-mono text-xs rounded-lg px-1 md:px-2 text-right bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500 shrink-0"
                 />
 
                 <select
@@ -5903,7 +5936,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                   data-testid="item-salesperson-select"
                   value={directEntry.staff}
                   onChange={event => setDirectEntry(prev => ({ ...prev, staff: event.target.value }))}
-                  className="w-[130px] border border-slate-300 dark:border-slate-700 h-8 rounded-lg px-1.5 text-[10px] bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 shrink-0"
+                  className="w-[130px] md:w-[88px] xl:w-[110px] border border-slate-300 dark:border-slate-700 h-8 rounded-lg px-1 text-[10px] bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 shrink-0"
                 >
                   <option value="">Unassigned</option>
                   {salesStaffOptions.map(option => (
@@ -5917,7 +5950,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                   value={directLineTotal > 0 ? directLineTotal.toFixed(2) : ""}
                   readOnly
                   placeholder="Total"
-                  className="w-[95px] bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 h-8 font-mono text-xs rounded-lg px-2 text-right font-bold text-blue-700 dark:text-blue-300 shrink-0"
+                  className="w-[95px] md:w-[70px] xl:w-[82px] bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 h-8 font-mono text-xs rounded-lg px-1 md:px-2 text-right font-bold text-blue-700 dark:text-blue-300 shrink-0"
                 />
 
                 {/* Add Button */}
@@ -5925,7 +5958,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                   type="button"
                   onClick={() => void handleCommitDirectEntry()}
                   disabled={isResolvingProduct}
-                  className="h-8 w-8 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center justify-center shadow-xs shrink-0 cursor-pointer disabled:opacity-50 transition"
+                  className="h-8 w-8 md:w-7 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center justify-center shadow-xs shrink-0 cursor-pointer disabled:opacity-50 transition"
                   title="Add Item (Enter)"
                 >
                   <Plus size={16} />
@@ -5936,7 +5969,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
           </section>
 
           {/* ZONE D: BILL SUMMARY & NET PAYABLE CARD (~26% width / w-80 to w-96) */}
-          <aside className="w-full lg:w-[300px] xl:w-[320px] bg-white dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-xl flex flex-col p-2.5 shadow-xs shrink-0 justify-between gap-2">
+          <aside className="w-full xl:w-[320px] bg-white dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-xl flex flex-col p-2.5 shadow-xs shrink-0 justify-between gap-2">
             
             {/* Header & Stats */}
             <div className="flex flex-col gap-1.5">
