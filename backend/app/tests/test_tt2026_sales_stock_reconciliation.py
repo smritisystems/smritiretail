@@ -244,7 +244,7 @@ async def test_tt2026_reconciliation_posts_stock_only_with_business_date_and_rea
 
 
 @pytest.mark.asyncio
-async def test_tt2026_default_batch_reconciles_as_unbatched_for_negative_stock(db_session):
+async def test_tt2026_default_batch_without_batch_records_reconciles_as_unbatched(db_session):
     suffix = uuid.uuid4().hex[:8]
     company, branch, product, invoice = await _seed_invoice(db_session, suffix)
     warehouse = Warehouse(
@@ -302,7 +302,7 @@ async def test_tt2026_default_batch_reconciles_as_unbatched_for_negative_stock(d
 
 
 @pytest.mark.asyncio
-async def test_tt2026_default_batch_is_blocked_when_real_batch_records_exist(db_session):
+async def test_tt2026_default_batch_reconciliation_is_idempotent_with_real_batches(db_session):
     suffix = uuid.uuid4().hex[:8]
     company, branch, product, invoice = await _seed_invoice(db_session, suffix)
     warehouse = Warehouse(
@@ -340,19 +340,24 @@ async def test_tt2026_default_batch_is_blocked_when_real_batch_records_exist(db_
     invoice.warehouse_id = warehouse.id
     await db_session.commit()
 
-    with pytest.raises(HTTPException) as exc_info:
-        await reconcile_tt2026_sales_stock(
-            session=db_session,
-            tenant_ctx=TenantContext(company_id=company.id, branch_id=branch.id),
-            invoice_ids=[invoice.id],
-            user_id="sysadmin",
-            reason="Authorized negative stock reconciliation",
-            dry_run=False,
-            authorize_negative_stock=True,
-        )
-
-    assert exc_info.value.status_code == 409
-    assert "active physical batch records" in exc_info.value.detail
+    first = await reconcile_tt2026_sales_stock(
+        session=db_session,
+        tenant_ctx=TenantContext(company_id=company.id, branch_id=branch.id),
+        invoice_ids=[invoice.id],
+        user_id="sysadmin",
+        reason="Authorized negative stock reconciliation",
+        dry_run=False,
+        authorize_negative_stock=True,
+    )
+    second = await reconcile_tt2026_sales_stock(
+        session=db_session,
+        tenant_ctx=TenantContext(company_id=company.id, branch_id=branch.id),
+        invoice_ids=[invoice.id],
+        user_id="sysadmin",
+        reason="Authorized negative stock reconciliation",
+        dry_run=False,
+        authorize_negative_stock=True,
+    )
     movements = (
         await db_session.execute(
             select(StockMovement).where(
@@ -362,7 +367,25 @@ async def test_tt2026_default_batch_is_blocked_when_real_batch_records_exist(db_
             )
         )
     ).scalars().all()
-    assert movements == []
+    assert first["posted_invoice_count"] == 1
+    assert second["posted_invoice_count"] == 0
+    assert second["already_reconciled_invoice_products"] == 1
+    assert len(movements) == 1
+    assert movements[0].batch == "DEFAULT"
+    assert product.stock == -3
+    batch_rows = (
+        await db_session.execute(
+            select(ProductBatchStock).where(
+                ProductBatchStock.company_id == company.id,
+                ProductBatchStock.product_id == product.id,
+                ProductBatchStock.is_deleted.is_(False),
+            )
+        )
+    ).scalars().all()
+    assert {row.batch_no: row.quantity for row in batch_rows} == {
+        "DEFAULT": Decimal("-6.0000"),
+        "REAL-BATCH": Decimal("3.0000"),
+    }
 
 
 @pytest.mark.asyncio

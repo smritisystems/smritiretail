@@ -19,11 +19,6 @@ _SALE_REFERENCE_TYPES = ("SALES_INVOICE", "Sales Invoice", "SALES INVOICE")
 _ZERO = Decimal("0")
 
 
-def _reconciliation_batch_no(batch_no: str | None) -> str | None:
-    normalized = (batch_no or "").strip()
-    return None if not normalized or normalized.casefold() == "default" else normalized
-
-
 async def reconcile_tt2026_sales_stock(
     session: AsyncSession,
     tenant_ctx: TenantContext,
@@ -148,7 +143,25 @@ async def reconcile_tt2026_sales_stock(
     movement_groups: dict[tuple[str, str, str | None], Decimal] = defaultdict(lambda: _ZERO)
     movement_group_counts: dict[tuple[str, str], int] = defaultdict(int)
     movement_groups_by_invoice: dict[str, list[tuple[str, str, str | None]]] = defaultdict(list)
-    default_batch_product_ids: set[str] = set()
+    default_batch_product_ids = {
+        resolved_product_by_line[line.id].id
+        for line in lines
+        if line.batch_no and line.batch_no.strip().casefold() == "default"
+    }
+    products_with_batch_records = set(
+        (
+            await session.execute(
+                select(ProductBatchStock.product_id)
+                .where(
+                    ProductBatchStock.company_id == tenant_ctx.company_id,
+                    ProductBatchStock.product_id.in_(default_batch_product_ids),
+                    ProductBatchStock.is_deleted.is_(False),
+                )
+                .distinct()
+            )
+        ).scalars().all()
+    ) if default_batch_product_ids else set()
+
     for line in lines:
         quantity = Decimal(str(line.quantity or 0))
         if quantity < _ZERO:
@@ -156,38 +169,15 @@ async def reconcile_tt2026_sales_stock(
         product = resolved_product_by_line[line.id]
         if quantity > _ZERO and (product.tracking_mode or "").casefold() != "no-stock":
             expected[(line.invoice_id, product.id)] += quantity
-            batch_no = _reconciliation_batch_no(line.batch_no)
-            if line.batch_no and batch_no is None:
-                default_batch_product_ids.add(product.id)
+            batch_no = line.batch_no.strip() if line.batch_no else None
+            if batch_no and batch_no.casefold() == "default":
+                batch_no = "DEFAULT" if product.id in products_with_batch_records else None
             group_key = (line.invoice_id, product.id, batch_no)
             if group_key not in movement_groups:
                 movement_group_counts[(line.invoice_id, product.id)] += 1
                 movement_groups_by_invoice[line.invoice_id].append(group_key)
             movement_groups[group_key] += quantity
             product_by_id[product.id] = product
-
-    if default_batch_product_ids:
-        active_batch_products = set(
-            (
-                await session.execute(
-                    select(ProductBatchStock.product_id)
-                    .where(
-                        ProductBatchStock.company_id == tenant_ctx.company_id,
-                        ProductBatchStock.product_id.in_(default_batch_product_ids),
-                        ProductBatchStock.is_deleted.is_(False),
-                    )
-                    .distinct()
-                )
-            ).scalars().all()
-        )
-        if active_batch_products:
-            raise HTTPException(
-                status_code=409,
-                detail=(
-                    "Cannot safely reconcile synthetic DEFAULT batches for products with active physical batch "
-                    f"records: {sorted(active_batch_products)}. Resolve their batch allocation first."
-                ),
-            )
 
     posted_stmt = (
         select(
