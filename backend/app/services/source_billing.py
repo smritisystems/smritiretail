@@ -29,6 +29,7 @@ from ..schemas.source_billing import (
     SourceBillingPrepareRequest,
     SourceBillingPrepareResponse,
 )
+from .stock_ledger_query import get_authoritative_stock_by_product
 from .sales import SalesService
 
 
@@ -228,6 +229,8 @@ class SourceBillingService:
         ))
         return SourceBillingPrepareLine(
             source_line_id=source_line_id,
+            source_document_id=order.id,
+            source_document_number=order.order_no,
             order_line_id=str(item.id),
             product_id=item.product_id or "",
             item_id=item.item_id,
@@ -251,10 +254,79 @@ class SourceBillingService:
             reason=reason,
         )
 
+    async def _attach_stock_levels(self, lines: list[SourceBillingPrepareLine]) -> None:
+        if not lines:
+            return
+        balances = await get_authoritative_stock_by_product(
+            self.session,
+            self.tenant_ctx.company_id or "",
+            self.tenant_ctx.branch_id,
+        )
+        for line in lines:
+            line.stock_on_hand = balances.get(line.product_id, Decimal("0"))
+
+    async def _prepare_multiple_sales_orders(
+        self,
+        request: SourceBillingPrepareRequest,
+    ) -> SourceBillingPrepareResponse:
+        identifiers = request.source_document_ids
+        orders = [await self._load_order(identifier) for identifier in identifiers]
+        if len({order.customer_id for order in orders}) != 1:
+            raise HTTPException(status_code=409, detail="Consolidated billing requires Sales Orders for the same customer.")
+
+        terminal_statuses = {"CANCELLED", "CLOSED", "REJECTED", "DRAFT", "COMPLETED"}
+        lines: list[SourceBillingPrepareLine] = []
+        summaries = []
+        for order in orders:
+            order_status = str(order.status or "").strip().upper()
+            if order_status in terminal_statuses:
+                raise HTTPException(status_code=409, detail=f"Sales Order {order.order_no} is {order_status.lower()} and cannot be billed.")
+            slips = await self.session.execute(
+                select(PackingSlip.id).where(
+                    PackingSlip.company_id == self.tenant_ctx.company_id,
+                    PackingSlip.branch_id == self.tenant_ctx.branch_id,
+                    PackingSlip.order_id == order.id,
+                    PackingSlip.is_deleted.is_(False),
+                ).limit(1)
+            )
+            if slips.scalar_one_or_none():
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Sales Order {order.order_no} has Packing Slips. Bill through its eligible Packing Slip source.",
+                )
+            order_lines = [
+                await self._line_for_order_item(order, item, source_line_id=str(item.id))
+                for item in order.items
+            ]
+            if not any(line.eligible for line in order_lines):
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Sales Order {order.order_no} has no remaining billable quantity.",
+                )
+            lines.extend(order_lines)
+            summaries.append({"id": order.id, "number": order.order_no})
+
+        customer = await self._require_visible_customer(orders[0].customer_id)
+        await self._attach_stock_levels(lines)
+        return SourceBillingPrepareResponse(
+            source_type="SALES_ORDER",
+            source_document_id=None,
+            source_document_number=None,
+            source_documents=summaries,
+            customer_id=customer.id,
+            customer_name=customer.name,
+            company_id=self.tenant_ctx.company_id or "",
+            branch_id=self.tenant_ctx.branch_id or "",
+            lines=lines,
+        )
+
     async def prepare(self, request: SourceBillingPrepareRequest) -> SourceBillingPrepareResponse:
+        if request.source_document_ids:
+            return await self._prepare_multiple_sales_orders(request)
+
         slip: Optional[PackingSlip] = None
         if request.source_type == "SALES_ORDER":
-            order = await self._load_order(request.source_document_id)
+            order = await self._load_order(request.source_document_id or "")
             existing_slips = await self.session.execute(
                 select(PackingSlip.id).where(
                     PackingSlip.company_id == self.tenant_ctx.company_id,
@@ -269,7 +341,7 @@ class SourceBillingService:
                     detail="This Sales Order has Packing Slips. Bill through the eligible Packing Slip source to avoid duplicate stock movement.",
                 )
         else:
-            slip = await self._load_packing_slip(request.source_document_id)
+            slip = await self._load_packing_slip(request.source_document_id or "")
             order = await self._load_order(slip.order_id)
             if slip.customer_id != order.customer_id:
                 raise HTTPException(status_code=409, detail="Packing Slip customer does not match its Sales Order customer.")
@@ -322,10 +394,19 @@ class SourceBillingService:
                     order, item, source_line_id=str(item.id),
                 ))
 
+        for line in lines:
+            line.source_document_id = slip.id if slip else order.id
+            line.source_document_number = slip.packing_slip_number if slip else order.order_no
+        await self._attach_stock_levels(lines)
+
         return SourceBillingPrepareResponse(
             source_type=request.source_type,
             source_document_id=slip.id if slip else order.id,
             source_document_number=slip.packing_slip_number if slip else order.order_no,
+            source_documents=[{
+                "id": slip.id if slip else order.id,
+                "number": slip.packing_slip_number if slip else order.order_no,
+            }],
             sales_order_id=order.id,
             sales_order_number=order.order_no,
             po_reference=order.po_number,
@@ -396,6 +477,430 @@ class SourceBillingService:
         await self.session.commit()
         return invoice
 
+    async def _commit_multiple_sales_orders(
+        self,
+        request: SourceBillingCommitRequest,
+        idempotency_key: str,
+        *,
+        authorized_credit_override: bool,
+        credit_override_actor: Optional[str],
+        authorized_transaction_mode_change: bool,
+        authorized_price_override: bool,
+        authorized_discount_override: bool,
+        authorized_adjustment_override: bool,
+    ) -> SourceBillingCommitResponse:
+        if not source_billing_commit_enabled():
+            raise HTTPException(
+                status_code=503,
+                detail="Source billing is not enabled. Complete migration, reconciliation, and rollout validation first.",
+            )
+        if not idempotency_key or len(idempotency_key) > 50:
+            raise HTTPException(status_code=400, detail="A source-billing Idempotency-Key of 1-50 characters is required.")
+
+        try:
+            resolved_orders = [
+                await self._load_order(identifier)
+                for identifier in request.source_document_ids
+            ]
+            selected_ids = {order.id for order in resolved_orders}
+            if len(selected_ids) != len(request.source_document_ids):
+                raise HTTPException(status_code=422, detail="The same Sales Order cannot be selected more than once.")
+
+            locked_result = await self.session.execute(
+                select(SalesOrder)
+                .where(
+                    SalesOrder.id.in_(sorted(selected_ids)),
+                    SalesOrder.company_id == self.tenant_ctx.company_id,
+                    SalesOrder.branch_id == self.tenant_ctx.branch_id,
+                    SalesOrder.is_deleted.is_(False),
+                )
+                .order_by(SalesOrder.id)
+                .with_for_update()
+            )
+            orders = locked_result.scalars().all()
+            if len(orders) != len(selected_ids):
+                raise HTTPException(status_code=404, detail="One or more Sales Orders are no longer available in the active company and branch.")
+            order_by_id = {order.id: order for order in orders}
+            order_by_identifier = {
+                identifier: order
+                for identifier, order in zip(request.source_document_ids, resolved_orders)
+            }
+            order_by_identifier.update({order.id: order for order in orders})
+
+            if len({order.customer_id for order in orders}) != 1:
+                raise HTTPException(status_code=409, detail="Consolidated billing requires Sales Orders for the same customer.")
+            customer_gstins = {
+                str(order.customer_gstin or "").strip().upper()
+                for order in orders
+                if str(order.customer_gstin or "").strip()
+            }
+            if len(customer_gstins) > 1:
+                raise HTTPException(status_code=409, detail="Selected Sales Orders have different billing GSTINs and cannot share one invoice.")
+            customer = await self._require_visible_customer(orders[0].customer_id)
+
+            items_result = await self.session.execute(
+                select(SalesOrderItem)
+                .where(
+                    SalesOrderItem.order_id.in_(sorted(selected_ids)),
+                    SalesOrderItem.company_id == self.tenant_ctx.company_id,
+                    SalesOrderItem.branch_id == self.tenant_ctx.branch_id,
+                    SalesOrderItem.is_deleted.is_(False),
+                )
+                .order_by(SalesOrderItem.id)
+                .with_for_update()
+            )
+            items_by_source_id = {
+                str(item.id): item
+                for item in items_result.scalars().all()
+            }
+            items_by_order: dict[str, list[SalesOrderItem]] = {order_id: [] for order_id in selected_ids}
+            for item in items_by_source_id.values():
+                items_by_order[item.order_id].append(item)
+
+            slip_result = await self.session.execute(
+                select(PackingSlip.id, PackingSlip.order_id)
+                .where(
+                    PackingSlip.company_id == self.tenant_ctx.company_id,
+                    PackingSlip.branch_id == self.tenant_ctx.branch_id,
+                    PackingSlip.order_id.in_(sorted(selected_ids)),
+                    PackingSlip.is_deleted.is_(False),
+                )
+                .order_by(PackingSlip.id)
+                .with_for_update()
+            )
+            if slip_result.first():
+                raise HTTPException(
+                    status_code=409,
+                    detail="A selected Sales Order has Packing Slips. Bill it through the eligible Packing Slip source.",
+                )
+
+            requested: dict[tuple[str, str], Decimal] = {}
+            source_rows: list[tuple[str, SalesOrder, SalesOrderItem, Decimal]] = []
+            seen_lines: set[tuple[str, str]] = set()
+            for line in request.lines:
+                order = order_by_identifier.get(line.source_document_id or "")
+                if not order:
+                    raise HTTPException(status_code=422, detail="Every consolidated billing line must reference a selected Sales Order.")
+                key = (order.id, line.source_line_id)
+                if key in seen_lines:
+                    raise HTTPException(status_code=422, detail="Duplicate Sales Order line in billing request.")
+                seen_lines.add(key)
+                order_item = items_by_source_id.get(line.source_line_id)
+                if not order_item or order_item.order_id != order.id:
+                    raise HTTPException(status_code=404, detail=f"Sales Order line {line.source_line_id} was not found on {order.order_no}.")
+                requested[key] = line.quantity
+                source_rows.append((line.source_line_id, order, order_item, line.quantity))
+
+            if request.invoice.customer_id and request.invoice.customer_id != customer.id:
+                raise HTTPException(status_code=422, detail="Invoice customer must match the source Sales Orders.")
+
+            if {order.id for _, order, _, _ in source_rows} != selected_ids:
+                raise HTTPException(
+                    status_code=422,
+                    detail="Allocate a positive quantity from every selected Sales Order, or remove unused orders before posting.",
+                )
+
+            invoice_lines: list[dict[str, Any]] = []
+            billed_quantity_by_order_line: dict[int, Decimal] = {}
+            for source_line_id, order, order_item, quantity in source_rows:
+                ordered_quantity = Decimal(str(order_item.quantity or 0))
+                allocated_quantity = billed_quantity_by_order_line.get(order_item.id)
+                if allocated_quantity is None:
+                    allocated_quantity = max(
+                        await self._allocated_order_quantity(order_item.id),
+                        Decimal(str(order_item.billed_quantity or 0)),
+                    )
+                discount_percent = Decimal(str(order_item.discount_percent or 0))
+                discount_amount = Decimal("0.00") if discount_percent > 0 else _allocate_fixed_line_discount(
+                    Decimal(str(order_item.discount_amount or 0)),
+                    ordered_quantity,
+                    allocated_quantity,
+                    quantity,
+                )
+                invoice_lines.append({
+                    "product_id": order_item.product_id,
+                    "item_id": order_item.item_id,
+                    "variant_id": order_item.variant_id,
+                    "code": order_item.code,
+                    "name": order_item.name,
+                    "quantity": quantity,
+                    "price": order_item.price,
+                    "mrp": order_item.mrp,
+                    "hsn_code": order_item.hsn_code,
+                    "gst_rate": order_item.gst_rate,
+                    "disc_pct": discount_percent,
+                    "disc_amt": discount_amount,
+                    "is_tax_inclusive": False,
+                    "source_line_type": "SALES_ORDER",
+                    "source_line_id": source_line_id,
+                })
+                billed_quantity_by_order_line[order_item.id] = allocated_quantity + quantity
+
+            invoice_header = request.invoice.model_dump(exclude_unset=True)
+            invoice_header.update({
+                "customer_id": customer.id,
+                "customer_name": customer.name,
+                "customer_gstin": request.invoice.customer_gstin or next(iter(customer_gstins), None) or orders[0].customer_gstin,
+                "source_document_type": "SALES_ORDER_CONSOLIDATED",
+                "source_document_id": None,
+                "so_reference_no": None,
+                "po_reference": request.invoice.po_reference,
+                "status": "Submitted",
+                "is_draft": False,
+                "items": invoice_lines,
+            })
+            snapshots = dict(invoice_header.get("rule_snapshots") or {})
+            snapshots["source_sales_orders"] = [
+                {
+                    "id": order.id,
+                    "order_no": order.order_no,
+                    "po_number": order.po_number,
+                }
+                for order in orders
+            ]
+            invoice_header["rule_snapshots"] = snapshots
+            invoice_input = SalesInvoiceCreate.model_validate(invoice_header)
+
+            invoice = await SalesService(self.session, self.tenant_ctx).create_sales_invoice(
+                invoice_input,
+                idempotency_key=idempotency_key,
+                commit=False,
+                authorized_credit_override=authorized_credit_override,
+                credit_override_actor=credit_override_actor,
+                authorized_transaction_mode_change=authorized_transaction_mode_change,
+                authorized_price_override=authorized_price_override,
+                authorized_discount_override=authorized_discount_override,
+                authorized_adjustment_override=authorized_adjustment_override,
+                source_billing_authorized=True,
+            )
+            if not invoice:
+                raise HTTPException(status_code=500, detail="Canonical consolidated invoice posting returned no invoice.")
+
+            existing_allocations = (await self.session.execute(
+                select(SalesSourceInvoiceAllocation).where(
+                    SalesSourceInvoiceAllocation.company_id == self.tenant_ctx.company_id,
+                    SalesSourceInvoiceAllocation.branch_id == self.tenant_ctx.branch_id,
+                    SalesSourceInvoiceAllocation.idempotency_key == idempotency_key,
+                    SalesSourceInvoiceAllocation.is_deleted.is_(False),
+                )
+            )).scalars().all()
+            if existing_allocations:
+                actual: dict[tuple[str, str], Decimal] = {}
+                invoice_ids = {allocation.invoice_id for allocation in existing_allocations}
+                for allocation in existing_allocations:
+                    if (
+                        allocation.packing_slip_id
+                        or not allocation.sales_order_id
+                        or not allocation.sales_order_item_id
+                        or allocation.status != "COMMITTED"
+                    ):
+                        raise HTTPException(status_code=409, detail="Idempotency-Key was already used for a different source billing request.")
+                    key = (allocation.sales_order_id, str(allocation.sales_order_item_id))
+                    actual[key] = Decimal(str(allocation.allocated_quantity))
+                if actual != requested or len(invoice_ids) != 1 or next(iter(invoice_ids)) != invoice.id:
+                    raise HTTPException(status_code=409, detail="Idempotency-Key was already used with a different source or quantity.")
+                await self.session.commit()
+                return SourceBillingCommitResponse(
+                    success=True,
+                    idempotent_replay=True,
+                    invoice_id=invoice.id,
+                    invoice_no=invoice.invoice_no,
+                    source_type="SALES_ORDER",
+                    source_document_ids=sorted(selected_ids),
+                    allocated_lines=len(existing_allocations),
+                    allocated_quantity=sum(
+                        (Decimal(str(allocation.allocated_quantity)) for allocation in existing_allocations),
+                        Decimal("0"),
+                    ),
+                )
+
+            invalid_statuses = {"CANCELLED", "CLOSED", "REJECTED", "DRAFT", "COMPLETED"}
+            for order in orders:
+                order_status = str(order.status or "").strip().upper()
+                if order_status in invalid_statuses:
+                    raise HTTPException(status_code=409, detail=f"Sales Order {order.order_no} is {order_status.lower()} and cannot be billed.")
+                if not items_by_order[order.id]:
+                    raise HTTPException(status_code=409, detail=f"Sales Order {order.order_no} has no billable lines.")
+                has_remaining_quantity = False
+                for item in items_by_order[order.id]:
+                    allocated = max(
+                        await self._allocated_order_quantity(item.id),
+                        Decimal(str(item.billed_quantity or 0)),
+                    )
+                    if (
+                        Decimal(str(item.quantity or 0)) > allocated
+                        and str(item.line_status or "OPEN").upper() not in {"CANCELLED", "CLOSED", "BILLED"}
+                    ):
+                        has_remaining_quantity = True
+                        break
+                if not has_remaining_quantity:
+                    raise HTTPException(status_code=409, detail=f"Sales Order {order.order_no} has no remaining billable quantity.")
+
+            for source_line_id, order, order_item, quantity in source_rows:
+                line_preview = await self._line_for_order_item(
+                    order,
+                    order_item,
+                    source_line_id=source_line_id,
+                )
+                if not line_preview.eligible or quantity > line_preview.remaining_quantity:
+                    raise HTTPException(
+                        status_code=409,
+                        detail=f"Requested quantity exceeds remaining billable quantity for source line {source_line_id}.",
+                    )
+
+            invoice_line_by_source = {
+                (str(item.source_line_type or ""), str(item.source_line_id or "")): item
+                for item in invoice.items
+                if item.source_line_id
+            }
+            if len(invoice_line_by_source) != len(source_rows):
+                raise HTTPException(status_code=409, detail="Canonical invoice lines do not map one-to-one to selected source lines.")
+
+            allocated_quantity_total = Decimal("0")
+            value_by_order: dict[str, Decimal] = {order_id: Decimal("0") for order_id in selected_ids}
+            quantity_by_order: dict[str, Decimal] = {order_id: Decimal("0") for order_id in selected_ids}
+            for source_line_id, order, order_item, quantity in source_rows:
+                invoice_line = invoice_line_by_source.get(("SALES_ORDER", source_line_id))
+                if not invoice_line:
+                    raise HTTPException(status_code=409, detail="Canonical invoice line is missing its source reference.")
+                line_value = Decimal(str(invoice_line.total_amount or 0))
+                self.session.add(SalesSourceInvoiceAllocation(
+                    id=f"sia-{uuid.uuid4().hex[:16]}",
+                    company_id=self.tenant_ctx.company_id,
+                    branch_id=self.tenant_ctx.branch_id,
+                    created_by=getattr(self.tenant_ctx, "user_id", None),
+                    sales_order_id=order.id,
+                    sales_order_item_id=order_item.id,
+                    invoice_id=invoice.id,
+                    invoice_item_id=invoice_line.id,
+                    allocated_quantity=quantity,
+                    allocated_value=line_value,
+                    reversed_quantity=Decimal("0"),
+                    reversed_value=Decimal("0"),
+                    status="COMMITTED",
+                    idempotency_key=idempotency_key,
+                ))
+                order_item.billed_quantity = billed_quantity_by_order_line[order_item.id]
+                order_item.pending_quantity = max(
+                    Decimal("0"),
+                    Decimal(str(order_item.quantity or 0)) - order_item.billed_quantity,
+                )
+                order_item.line_status = "BILLED" if order_item.pending_quantity <= 0 else "PARTIALLY_BILLED"
+                order_item.updated_by = getattr(self.tenant_ctx, "user_id", None)
+                reservation_result = await self.session.execute(
+                    select(SalesOrderReservation)
+                    .where(
+                        SalesOrderReservation.order_item_id == order_item.id,
+                        SalesOrderReservation.company_id == self.tenant_ctx.company_id,
+                        SalesOrderReservation.status.in_(("ACTIVE", "PARTIAL")),
+                        SalesOrderReservation.is_deleted.is_(False),
+                    )
+                    .with_for_update()
+                )
+                remaining_to_consume = quantity
+                for reservation in reservation_result.scalars().all():
+                    available_reserved = max(
+                        Decimal("0"),
+                        Decimal(str(reservation.reserved_quantity or 0))
+                        - Decimal(str(reservation.released_quantity or 0))
+                        - Decimal(str(reservation.consumed_quantity or 0)),
+                    )
+                    consumed = min(available_reserved, remaining_to_consume)
+                    reservation.consumed_quantity = Decimal(str(reservation.consumed_quantity or 0)) + consumed
+                    remaining_to_consume -= consumed
+                    reservation.status = "CONSUMED" if (
+                        Decimal(str(reservation.consumed_quantity or 0))
+                        + Decimal(str(reservation.released_quantity or 0))
+                        >= Decimal(str(reservation.reserved_quantity or 0))
+                    ) else "PARTIAL"
+                    if remaining_to_consume <= 0:
+                        break
+                value_by_order[order.id] += line_value
+                quantity_by_order[order.id] += quantity
+                allocated_quantity_total += quantity
+
+            for order in orders:
+                order_lines = items_by_order[order.id]
+                order.billed_qty = sum(
+                    (Decimal(str(item.billed_quantity or 0)) for item in order_lines),
+                    Decimal("0"),
+                )
+                order.pending_qty = max(
+                    Decimal("0"),
+                    Decimal(str(order.total_qty or 0)) - order.billed_qty,
+                )
+                order.billed_value = Decimal(str(order.billed_value or 0)) + value_by_order[order.id]
+                order.pending_value = max(
+                    Decimal("0"),
+                    Decimal(str(order.grand_total or 0)) - order.billed_value,
+                )
+                if order.pending_qty <= 0:
+                    order.fulfillment_status = "FULLY_BILLED"
+                    order.status = "Completed"
+                else:
+                    order.fulfillment_status = "PARTIALLY_BILLED"
+                    order.status = "In Progress"
+                self.session.add(SalesOrderInvoiceAllocation(
+                    id=f"alloc-{uuid.uuid4().hex[:16]}",
+                    company_id=self.tenant_ctx.company_id,
+                    branch_id=self.tenant_ctx.branch_id,
+                    created_by=getattr(self.tenant_ctx, "user_id", None),
+                    order_id=order.id,
+                    order_no=order.order_no,
+                    po_number=order.po_number or order.order_no,
+                    invoice_id=invoice.id,
+                    invoice_no=invoice.invoice_no,
+                    invoice_date=invoice.date,
+                    po_quantity=order.total_qty or quantity_by_order[order.id],
+                    po_value=order.grand_total or value_by_order[order.id],
+                    billed_quantity=quantity_by_order[order.id],
+                    billed_value=value_by_order[order.id],
+                    pending_quantity=order.pending_qty,
+                    pending_value=order.pending_value,
+                    status="FULLY_BILLED" if order.pending_qty <= 0 else "PARTIAL",
+                    allocation_metadata={
+                        "source_type": "SALES_ORDER_CONSOLIDATED",
+                        "source_document_ids": sorted(selected_ids),
+                    },
+                ))
+
+            await self.session.flush()
+            from .outbox_service import OutboxService
+            await OutboxService.record_event(
+                session=self.session,
+                target_channel="SALES_POSTING",
+                payload={
+                    "event_type": "SalesSourceBillingCommittedEvent",
+                    "source_type": "SALES_ORDER_CONSOLIDATED",
+                    "source_document_ids": sorted(selected_ids),
+                    "sales_order_ids": sorted(selected_ids),
+                    "invoice_id": invoice.id,
+                    "invoice_no": invoice.invoice_no,
+                    "allocated_quantity": str(allocated_quantity_total),
+                    "company_id": self.tenant_ctx.company_id,
+                    "branch_id": self.tenant_ctx.branch_id,
+                },
+                correlation_id=idempotency_key,
+                event_type="SALES_SOURCE_BILLING_COMMITTED",
+                aggregate_type="SALES_SOURCE_INVOICE",
+                aggregate_id=invoice.id,
+                company_id=self.tenant_ctx.company_id,
+                branch_id=self.tenant_ctx.branch_id,
+            )
+            await self.session.commit()
+            return SourceBillingCommitResponse(
+                success=True,
+                invoice_id=invoice.id,
+                invoice_no=invoice.invoice_no,
+                source_type="SALES_ORDER",
+                source_document_ids=sorted(selected_ids),
+                allocated_lines=len(source_rows),
+                allocated_quantity=allocated_quantity_total,
+            )
+        except Exception:
+            await self.session.rollback()
+            raise
+
     async def commit(
         self,
         request: SourceBillingCommitRequest,
@@ -408,6 +913,17 @@ class SourceBillingService:
         authorized_discount_override: bool = False,
         authorized_adjustment_override: bool = False,
     ) -> SourceBillingCommitResponse:
+        if request.source_document_ids:
+            return await self._commit_multiple_sales_orders(
+                request,
+                idempotency_key,
+                authorized_credit_override=authorized_credit_override,
+                credit_override_actor=credit_override_actor,
+                authorized_transaction_mode_change=authorized_transaction_mode_change,
+                authorized_price_override=authorized_price_override,
+                authorized_discount_override=authorized_discount_override,
+                authorized_adjustment_override=authorized_adjustment_override,
+            )
         if not source_billing_commit_enabled():
             raise HTTPException(
                 status_code=503,
@@ -655,7 +1171,7 @@ class SourceBillingService:
                     idempotency_key=idempotency_key,
                 )
                 self.session.add(allocation)
-                order_item.billed_quantity = Decimal(str(order_item.billed_quantity or 0)) + quantity
+                order_item.billed_quantity = billed_quantity_by_order_line[order_item.id]
                 order_item.pending_quantity = max(
                     Decimal("0"),
                     Decimal(str(order_item.quantity or 0)) - order_item.billed_quantity,

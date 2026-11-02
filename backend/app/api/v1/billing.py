@@ -50,9 +50,22 @@ from ...schemas.source_billing import (
     SourceBillingPrepareRequest,
     SourceBillingPrepareResponse,
 )
-from ...services.source_billing import SourceBillingService
+from ...services.source_billing import SourceBillingService, source_billing_commit_enabled
 
 router = APIRouter()
+
+
+@router.get(
+    "/sources/capabilities",
+    summary="Get source-billing rollout capabilities",
+    dependencies=[Depends(require_permission("sales_billing", "VIEW"))],
+)
+async def source_billing_capabilities():
+    enabled = source_billing_commit_enabled()
+    return {
+        "commit_enabled": enabled,
+        "consolidated_sales_orders_enabled": enabled,
+    }
 
 
 @router.post(

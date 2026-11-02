@@ -18,6 +18,8 @@ interface SourceDocumentOption {
 
 interface PreparedLine {
   source_line_id: string;
+  source_document_id?: string | null;
+  source_document_number?: string | null;
   product_id: string;
   code: string;
   name: string;
@@ -27,6 +29,7 @@ interface PreparedLine {
   po_quantity?: number | string;
   document_quantity?: number | string | null;
   previously_billed_quantity?: number | string;
+  stock_on_hand?: number | string | null;
   unit_price: number | string;
   discount_percent?: number | string;
   discount_amount?: number | string;
@@ -40,8 +43,9 @@ interface PreparedLine {
 
 interface PreparedSource {
   source_type: SourceType;
-  source_document_id: string;
-  source_document_number: string;
+  source_document_id?: string | null;
+  source_document_number?: string | null;
+  source_documents?: SourceDocumentOption[];
   customer_id: string;
   customer_name: string;
   sales_order_number?: string | null;
@@ -52,9 +56,11 @@ interface PreparedSource {
 export interface SelectedSourceBilling {
   sourceType: SourceType;
   documentId: string;
+  documentIds: string[];
   documentNumber: string;
-  lines: Array<{ sourceLineId: string; quantity: number }>;
+  lines: Array<{ sourceLineId: string; sourceDocumentId: string; quantity: number }>;
   prepared: PreparedSource;
+  commitEnabled: boolean;
 }
 
 interface Props {
@@ -66,6 +72,7 @@ interface Props {
 }
 
 const asList = (value: any): any[] => Array.isArray(value) ? value : value?.items || value?.data || [];
+const SALES_ORDER_PAGE_SIZE = 100;
 
 export function SourceBillingSelectionModal({
   sourceType,
@@ -76,7 +83,13 @@ export function SourceBillingSelectionModal({
 }: Props) {
   const [documents, setDocuments] = useState<SourceDocumentOption[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMoreDocuments, setHasMoreDocuments] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [capabilityError, setCapabilityError] = useState<string | null>(null);
+  const [capabilityLoading, setCapabilityLoading] = useState(true);
+  const [commitEnabled, setCommitEnabled] = useState(false);
+  const [selectedDocumentIds, setSelectedDocumentIds] = useState<string[]>([]);
   const [prepared, setPrepared] = useState<PreparedSource | null>(null);
   const [preparingId, setPreparingId] = useState<string | null>(null);
   const [quantities, setQuantities] = useState<Record<string, string>>({});
@@ -86,28 +99,51 @@ export function SourceBillingSelectionModal({
 
   useEffect(() => {
     let active = true;
-    const path = sourceType === "SALES_ORDER"
-      ? `/sales/orders?customer_id=${encodeURIComponent(customerId)}&limit=1000`
-      : `/fulfillment/packing-slips?customer_id=${encodeURIComponent(customerId)}&status=PACKED&limit=200`;
-    void apiFetchV1<any>(path).then(result => {
-      if (!active) return;
-      const options = asList(result).map((record: any) => ({
-        id: String(record.id || ""),
-        number: String(
-          sourceType === "SALES_ORDER"
-            ? record.order_no || record.order_number || record.id
-            : record.packing_slip_number || record.id
-        ),
-        status: record.status,
-        customer_id: record.customer_id ? String(record.customer_id) : undefined,
-      })).filter((record: SourceDocumentOption) => record.id && record.customer_id === customerId);
-      setDocuments(options);
-      setError(null);
-    }).catch(reason => {
-      if (active) setError(reason instanceof Error ? reason.message : "Source documents could not be loaded.");
-    }).finally(() => {
-      if (active) setLoading(false);
-    });
+    setDocuments([]);
+    setSelectedDocumentIds([]);
+    setPrepared(null);
+    setError(null);
+    setCapabilityError(null);
+    setCapabilityLoading(true);
+    setCommitEnabled(false);
+    const load = async () => {
+      try {
+        const path = sourceType === "SALES_ORDER"
+          ? `/sales/orders?customer_id=${encodeURIComponent(customerId)}&skip=0&limit=${SALES_ORDER_PAGE_SIZE}`
+          : `/fulfillment/packing-slips?customer_id=${encodeURIComponent(customerId)}&status=PACKED&limit=200`;
+        const result = await apiFetchV1<any>(path);
+        if (!active) return;
+        const records = asList(result);
+        const options = records.map((record: any) => ({
+          id: String(record.id || ""),
+          number: String(
+            sourceType === "SALES_ORDER"
+              ? record.order_no || record.order_number || record.id
+              : record.packing_slip_number || record.id
+          ),
+          status: record.status,
+          customer_id: record.customer_id ? String(record.customer_id) : undefined,
+        })).filter((record: SourceDocumentOption) => record.id && record.customer_id === customerId);
+        setDocuments(options);
+        setHasMoreDocuments(sourceType === "SALES_ORDER" && records.length === SALES_ORDER_PAGE_SIZE);
+        setError(null);
+      } catch (reason) {
+        if (active) setError(reason instanceof Error ? reason.message : "Source documents could not be loaded.");
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+    void load();
+    void apiFetchV1<{ commit_enabled: boolean }>("/billing/sources/capabilities")
+      .then(result => {
+        if (active) setCommitEnabled(Boolean(result.commit_enabled));
+      })
+      .catch(reason => {
+        if (active) setCapabilityError(reason instanceof Error ? reason.message : "Billing capabilities could not be checked.");
+      })
+      .finally(() => {
+        if (active) setCapabilityLoading(false);
+      });
     return () => { active = false; };
   }, [customerId, sourceType]);
 
@@ -115,6 +151,24 @@ export function SourceBillingSelectionModal({
     () => (prepared?.lines || []).filter(line => line.eligible && Number(line.remaining_quantity) > 0),
     [prepared],
   );
+  const stockWarnings = useMemo(() => {
+    if (!prepared) return [];
+    const byProduct = new Map<string, { code: string; required: number; onHand: number }>();
+    for (const line of eligibleLines) {
+      const quantity = Number(quantities[line.source_line_id] || 0);
+      if (quantity <= 0 || line.stock_on_hand == null) continue;
+      const current = byProduct.get(line.product_id) || {
+        code: line.code,
+        required: 0,
+        onHand: Number(line.stock_on_hand),
+      };
+      current.required += quantity;
+      byProduct.set(line.product_id, current);
+    }
+    return [...byProduct.values()]
+      .filter(stock => stock.required > stock.onHand)
+      .map(stock => `${stock.code}: selected ${stock.required}, current stock ${stock.onHand}.`);
+  }, [eligibleLines, prepared, quantities]);
 
   useEffect(() => {
     if (prepared && eligibleLines.length > 0) scanInputRef.current?.focus();
@@ -134,11 +188,77 @@ export function SourceBillingSelectionModal({
         throw new Error("The selected source belongs to a different customer account.");
       }
       setPrepared(result);
+      setSelectedDocumentIds([document.id]);
       setQuantities(initialSourceBillingQuantities(sourceType, result.lines));
       setBarcodeImport("");
       setScanValue("");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Source document could not be prepared.");
+    } finally {
+      setPreparingId(null);
+    }
+  };
+
+  const toggleOrderSelection = (documentId: string) => {
+    if (!selectedDocumentIds.includes(documentId) && selectedDocumentIds.length >= 20) {
+      setError("Select no more than 20 Sales Orders per consolidated invoice.");
+      return;
+    }
+    setSelectedDocumentIds(previous => previous.includes(documentId)
+      ? previous.filter(id => id !== documentId)
+      : [...previous, documentId]);
+    setPrepared(null);
+    setQuantities({});
+    setError(null);
+  };
+
+  const loadMoreOrders = async () => {
+    setLoadingMore(true);
+    try {
+      const result = await apiFetchV1<any>(
+        `/sales/orders?customer_id=${encodeURIComponent(customerId)}&skip=${documents.length}&limit=${SALES_ORDER_PAGE_SIZE}`,
+      );
+      const records = asList(result);
+      const options = records.map((record: any) => ({
+        id: String(record.id || ""),
+        number: String(record.order_no || record.order_number || record.id),
+        status: record.status,
+        customer_id: record.customer_id ? String(record.customer_id) : undefined,
+      })).filter((record: SourceDocumentOption) => record.id && record.customer_id === customerId);
+      setDocuments(previous => {
+        const known = new Set(previous.map(document => document.id));
+        return [...previous, ...options.filter((document: SourceDocumentOption) => !known.has(document.id))];
+      });
+      setHasMoreDocuments(records.length === SALES_ORDER_PAGE_SIZE);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "More Sales Orders could not be loaded.");
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  const prepareSelectedOrders = async () => {
+    if (selectedDocumentIds.length < 2) {
+      const selected = documents.find(document => document.id === selectedDocumentIds[0]);
+      if (selected) await prepareDocument(selected);
+      return;
+    }
+    setPreparingId("selected-orders");
+    setPrepared(null);
+    setQuantities({});
+    setError(null);
+    try {
+      const result = await apiFetchV1<PreparedSource>("/billing/sources/prepare", {
+        method: "POST",
+        body: JSON.stringify({ source_type: "SALES_ORDER", source_document_ids: selectedDocumentIds }),
+      });
+      if (result.customer_id !== customerId) throw new Error("The selected Sales Orders do not belong to this customer.");
+      setPrepared(result);
+      setQuantities(initialSourceBillingQuantities("SALES_ORDER", result.lines));
+      setBarcodeImport("");
+      setScanValue("");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Selected Sales Orders could not be prepared.");
     } finally {
       setPreparingId(null);
     }
@@ -188,22 +308,45 @@ export function SourceBillingSelectionModal({
       setError(`${invalidLine.code}: quantity must be between zero and the remaining quantity, with at most four decimal places.`);
       return;
     }
+    const preparedDocuments = prepared.source_documents?.length
+      ? prepared.source_documents
+      : [{
+        id: prepared.source_document_id || "",
+        number: prepared.source_document_number || "",
+      }];
+    const documentIds = preparedDocuments.map(document => document.id).filter(Boolean);
     const lines = eligibleLines.flatMap(line => {
       const quantity = Number(quantities[line.source_line_id] || 0);
       return Number.isFinite(quantity) && quantity > 0 && quantity <= Number(line.remaining_quantity)
-        ? [{ sourceLineId: line.source_line_id, quantity }]
+        ? [{
+          sourceLineId: line.source_line_id,
+          sourceDocumentId: line.source_document_id || documentIds[0] || "",
+          quantity,
+        }]
         : [];
     });
     if (!lines.length) {
       setError("Enter a positive quantity for at least one eligible line, within its remaining quantity.");
       return;
     }
+    if (documentIds.length > 1) {
+      const allocatedOrderIds = new Set(lines.map(line => line.sourceDocumentId));
+      const unallocatedOrder = preparedDocuments.find(document => !allocatedOrderIds.has(document.id));
+      if (unallocatedOrder) {
+        setError(`Enter a positive bill quantity for at least one line from ${unallocatedOrder.number}, or unselect that Sales Order.`);
+        return;
+      }
+    }
     onUseSource({
       sourceType,
-      documentId: prepared.source_document_id,
-      documentNumber: prepared.source_document_number,
+      documentId: documentIds[0] || prepared.source_document_id || "",
+      documentIds,
+      documentNumber: documentIds.length > 1
+        ? `${documentIds.length} Sales Orders`
+        : prepared.source_document_number || preparedDocuments[0]?.number || "",
       lines,
       prepared,
+      commitEnabled,
     });
   };
 
@@ -218,11 +361,11 @@ export function SourceBillingSelectionModal({
         <header className="flex items-start justify-between gap-3 border-b border-slate-200 px-4 py-3 dark:border-slate-700">
           <div>
             <h2 id="source-billing-title" className="text-base font-semibold text-slate-900 dark:text-slate-100">
-              {sourceType === "SALES_ORDER" ? "Select Sales Order" : "Select Packing Slip"}
+              {sourceType === "SALES_ORDER" ? "Select Sales Orders" : "Select Packing Slip"}
             </h2>
             <p className="text-xs text-slate-600 dark:text-slate-300">
               Customer: {customerName}. {sourceType === "SALES_ORDER"
-                ? "Enter the actual quantities to bill; PO quantities start at zero."
+                ? "Select one or more orders for this customer; enter the actual quantities to bill."
                 : "Bill quantities start at the remaining packed quantity and can be reduced."}
             </p>
           </div>
@@ -234,15 +377,30 @@ export function SourceBillingSelectionModal({
             <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Available records</h3>
             {loading ? <p className="text-sm text-slate-500">Loading records…</p> : null}
             {!loading && documents.length === 0 ? <p className="text-sm text-slate-500">No matching records found.</p> : null}
+            {sourceType === "SALES_ORDER" && (
+              <div className="mb-2">
+                <p className="mb-2 text-xs text-slate-500">{selectedDocumentIds.length} order(s) selected</p>
+                <button
+                  type="button"
+                  onClick={() => void prepareSelectedOrders()}
+                  disabled={selectedDocumentIds.length === 0 || preparingId !== null}
+                  className="w-full rounded-md bg-blue-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
+                >
+                  Prepare selected orders
+                </button>
+              </div>
+            )}
             <ul className="space-y-2">
               {documents.map(document => (
                 <li key={document.id}>
                   <button
                     type="button"
                     disabled={preparingId !== null}
-                    onClick={() => void prepareDocument(document)}
+                    onClick={() => sourceType === "SALES_ORDER"
+                      ? toggleOrderSelection(document.id)
+                      : void prepareDocument(document)}
                     className={`w-full rounded-md border px-3 py-2 text-left text-sm disabled:opacity-50 ${
-                      prepared?.source_document_id === document.id
+                      selectedDocumentIds.includes(document.id)
                         ? "border-blue-500 bg-blue-50 text-blue-900 dark:bg-blue-950/40 dark:text-blue-100"
                         : "border-slate-200 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
                     }`}
@@ -253,14 +411,50 @@ export function SourceBillingSelectionModal({
                 </li>
               ))}
             </ul>
+            {sourceType === "SALES_ORDER" && hasMoreDocuments && (
+              <button
+                type="button"
+                onClick={() => void loadMoreOrders()}
+                disabled={loadingMore}
+                className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-xs font-semibold disabled:opacity-50 dark:border-slate-600"
+              >
+                {loadingMore ? "Loading…" : "Load more Sales Orders"}
+              </button>
+            )}
           </div>
 
           <div className="min-w-0">
             <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Review source quantities</h3>
             {preparingId ? <p className="text-sm text-slate-500">Preparing source…</p> : null}
-            {!prepared && !preparingId ? <p className="text-sm text-slate-500">Select a record to review ownership and billable quantities.</p> : null}
+            {!prepared && !preparingId ? <p className="text-sm text-slate-500">Select orders, then prepare them to review eligibility and billable quantities.</p> : null}
             {prepared && eligibleLines.length === 0 ? <p className="text-sm text-slate-500">No eligible quantity remains on this source.</p> : null}
-            {prepared && eligibleLines.length > 0 && (
+            {prepared && eligibleLines.length > 0 && prepared.source_documents?.length !== 1 && prepared.source_type === "SALES_ORDER" && (
+              <p className="mb-2 rounded border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-100">
+                Order lines remain separate so each invoice line keeps its source Sales Order and order-line allocation.
+              </p>
+            )}
+            {prepared && eligibleLines.length > 0 && prepared.source_documents?.length !== 1 && prepared.source_type === "SALES_ORDER" && !commitEnabled && (
+              <p role="status" className="mb-2 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
+                Consolidated posting is currently disabled by the server rollout setting. You can review this selection, but cannot finalize it yet.
+              </p>
+            )}
+            {capabilityError && (
+              <p role="status" className="mb-2 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
+                Posting capability could not be verified: {capabilityError}
+              </p>
+            )}
+            {capabilityLoading && sourceType === "SALES_ORDER" && selectedDocumentIds.length > 1 && (
+              <p role="status" className="mb-2 text-xs text-slate-500">Checking consolidated posting capability…</p>
+            )}
+            {stockWarnings.length > 0 && (
+              <div role="status" className="mb-3 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
+                <strong>Stock warning — this does not change order eligibility:</strong>
+                <ul className="mt-1 list-disc pl-4">
+                  {stockWarnings.map(warning => <li key={warning}>{warning}</li>)}
+                </ul>
+              </div>
+            )}
+            {prepared && eligibleLines.length > 0 && !(prepared.source_type === "SALES_ORDER" && (prepared.source_documents?.length || 0) > 1) && (
               <div className="mb-3 grid gap-2 rounded-md border border-slate-200 p-3 dark:border-slate-700 sm:grid-cols-2">
                 <form onSubmit={handleScanSubmit} className="flex items-end gap-2">
                   <label className="min-w-0 flex-1 text-[11px] font-medium text-slate-600 dark:text-slate-300">
@@ -305,12 +499,14 @@ export function SourceBillingSelectionModal({
                   <thead className="bg-slate-50 dark:bg-slate-800">
                     <tr>
                       <th className="p-2">Item</th>
+                      {prepared?.source_documents && prepared.source_documents.length > 1 && <th className="p-2">Sales Order</th>}
                       <th className="p-2 text-right">Rate</th>
                       <th className="p-2 text-right">SO Disc.</th>
                       <th className="p-2 text-right">PO Qty</th>
                       {sourceType === "PACKING_SLIP" && <th className="p-2 text-right">Doc Qty</th>}
                       <th className="p-2 text-right">Previously Billed</th>
                       <th className="p-2 text-right">Remaining</th>
+                      <th className="p-2 text-right">Stock</th>
                       <th className="p-2 text-right">Bill Qty</th>
                     </tr>
                   </thead>
@@ -318,6 +514,9 @@ export function SourceBillingSelectionModal({
                     {eligibleLines.map(line => (
                       <tr key={line.source_line_id} className="border-t border-slate-100 dark:border-slate-800">
                         <td className="p-2"><span className="font-medium">{line.name}</span><span className="block text-slate-500">{line.code}</span></td>
+                        {prepared?.source_documents && prepared.source_documents.length > 1 && (
+                          <td className="p-2">{line.source_document_number || line.source_document_id}</td>
+                        )}
                         <td className="p-2 text-right">{Number(line.unit_price).toFixed(2)}</td>
                         <td className="p-2 text-right">
                           {Number(line.discount_percent || 0) > 0
@@ -336,6 +535,7 @@ export function SourceBillingSelectionModal({
                         )}
                         <td className="p-2 text-right">{Number(line.previously_billed_quantity || 0)}</td>
                         <td className="p-2 text-right">{Number(line.remaining_quantity)}</td>
+                        <td className="p-2 text-right">{line.stock_on_hand == null ? "—" : Number(line.stock_on_hand)}</td>
                         <td className="p-2 text-right">
                           <input
                             aria-label={`Bill quantity for ${line.code}`}
@@ -369,12 +569,17 @@ export function SourceBillingSelectionModal({
 
         {(error || preparingId) && (
           <p role="alert" className="px-4 pb-2 text-sm text-rose-700 dark:text-rose-300">
-            {error || `Preparing ${preparingId}…`}
+            {error || (preparingId === "selected-orders" ? "Preparing selected Sales Orders…" : `Preparing ${preparingId}…`)}
           </p>
         )}
         <footer className="flex justify-end gap-2 border-t border-slate-200 px-4 py-3 dark:border-slate-700">
           <button type="button" onClick={onClose} className="rounded-md border border-slate-300 px-3 py-2 text-sm">Cancel</button>
-          <button type="button" onClick={usePreparedSource} disabled={!prepared || eligibleLines.length === 0} className="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">
+          <button
+            type="button"
+            onClick={usePreparedSource}
+            disabled={!prepared || eligibleLines.length === 0 || (prepared.source_documents?.length || 0) > 1 && capabilityLoading}
+            className="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
+          >
             Use selected lines
           </button>
         </footer>

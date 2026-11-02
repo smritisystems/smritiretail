@@ -71,7 +71,25 @@ Terminal commands executed:
 1. `npx vitest run src/tests/b2bPackingConsolidatedBilling.test.ts`
 2. `npx vitest run src/tests/smritiBillingStudio.test.ts`
 
-## 9. Verification Results
+## 9. Multi-Sales-Order Consolidated Billing Addendum
+
+This is a separate source-billing workflow from the multi-Packing-Slip compiler described above. In Billing Workspace, select a customer, choose **Sales Order**, select two or more eligible orders, prepare them, and enter a positive invoice quantity for at least one line from each selected order. A line stays tied to its source order and order-line allocation; matching SKUs are not merged across orders.
+
+The backend rechecks customer/company/branch ownership, order status, remaining quantities, and Packing Slip conflicts while locking the selected orders and lines. It posts one invoice through the canonical sales writer and records each source allocation in the same transaction. The source preview also shows current stock and warns when selected quantities exceed it; canonical inventory validation remains the final posting guard.
+
+Consolidated posting is controlled by `SMRITI_SOURCE_BILLING_ENABLED` and remains disabled unless the deployment has completed its migration, reconciliation, and rollout validation. The capability endpoint reports whether posting is available; the UI preserves the selection for review when it is off. No live invoice is created by this implementation.
+
+## 10. Verification Results
+
+The multi-Sales-Order addendum was validated with focused backend tests for preparation, same-customer checks, request validation, atomic commit/allocation, and the disabled-by-default rollout gate. The consolidated-commit test also covers reconciling an order line's billed quantity with its committed allocation balance.
+
+- Focused source-billing backend tests: 8 passed; consolidated commit regression rerun: 1 passed.
+- Source-billing discount frontend tests: 5 passed.
+- Frontend production build: passed.
+- TypeScript check remains blocked only by existing errors in `ReportDesignerTab.tsx` and `DistTaxInvoice.tsx`.
+
+The earlier Packing-Slip verification results follow:
+
 ```
 ✓ src/tests/b2bPackingConsolidatedBilling.test.ts (16 tests) 10ms
   - TEST 1: ensures B2C Counter POS rejects packing slip scanning and requires B2B mode
@@ -95,15 +113,15 @@ Terminal commands executed:
   - All 26/26 core Billing Studio tests passed.
 ```
 
-## 10. Known Limitations
+## 11. Known Limitations
 - When operating in full offline/standalone mode without a running PostgreSQL database, packing slips and consolidated compile actions operate against local state and offline sync queue.
 
-## 11. Future Work
+## 12. Future Work
 - Integration with mobile Android / Zebra warehouse handheld scanners for live barcode pick-and-pack warehouse verification.
 
-## 12. Related ADRs
+## 13. Related ADRs
 - `ADR-0089: Canonical Billing Profile & Configuration Architecture`
 - `ADR-0094: SMRITI Authoritative Fulfillment & Dispatch Lifecycle`
 
-## 13. Related RFCs
+## 14. Related RFCs
 - `RFC-0072: Consolidated Invoicing & Modern Trade Store Dispatch Manifests`

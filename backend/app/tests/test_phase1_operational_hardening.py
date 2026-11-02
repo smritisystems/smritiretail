@@ -129,6 +129,8 @@ async def test_source_order_prepare_is_read_only_and_uses_committed_balance():
         code="SKU-1",
         name="Sample item",
         price=Decimal("12.50"),
+        discount_percent=Decimal("0"),
+        discount_amount=Decimal("0"),
         gst_rate=Decimal("5"),
         hsn_code="6109",
     )
@@ -136,6 +138,7 @@ async def test_source_order_prepare_is_read_only_and_uses_committed_balance():
         id="order-1",
         order_no="SO-1",
         customer_id="customer-1",
+        po_number=None,
         customer_gstin=None,
         status="OPEN",
         items=[order_line],
@@ -150,6 +153,7 @@ async def test_source_order_prepare_is_read_only_and_uses_committed_balance():
         name="Customer",
     ))
     service._allocated_order_quantity = AsyncMock(return_value=Decimal("3"))
+    service._attach_stock_levels = AsyncMock()
     result = MagicMock()
     result.scalar_one_or_none.return_value = None
     session.execute.return_value = result
@@ -166,6 +170,297 @@ async def test_source_order_prepare_is_read_only_and_uses_committed_balance():
     session.commit.assert_not_awaited()
     session.add.assert_not_called()
     session.flush.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_consolidated_prepare_preserves_order_identity_for_each_line():
+    from types import SimpleNamespace
+
+    from app.schemas.source_billing import SourceBillingPrepareLine, SourceBillingPrepareRequest
+    from app.services.source_billing import SourceBillingService
+
+    first_item = SimpleNamespace(id=71)
+    second_item = SimpleNamespace(id=72)
+    orders = [
+        SimpleNamespace(
+            id="order-1",
+            order_no="SO-1",
+            customer_id="customer-1",
+            status="Approved",
+            items=[first_item],
+        ),
+        SimpleNamespace(
+            id="order-2",
+            order_no="SO-2",
+            customer_id="customer-1",
+            status="Confirmed",
+            items=[second_item],
+        ),
+    ]
+    session = AsyncMock()
+    no_slips = MagicMock()
+    no_slips.scalar_one_or_none.return_value = None
+    session.execute.return_value = no_slips
+    service = SourceBillingService(
+        session,
+        TenantContext(company_id="COMP-XYZ", branch_id="BR-01"),
+    )
+    service._load_order = AsyncMock(side_effect=orders)
+    service._require_visible_customer = AsyncMock(return_value=SimpleNamespace(
+        id="customer-1",
+        name="Customer",
+    ))
+    service._line_for_order_item = AsyncMock(side_effect=lambda order, item, **_: SourceBillingPrepareLine(
+        source_line_id=str(item.id),
+        source_document_id=order.id,
+        source_document_number=order.order_no,
+        product_id=f"product-{item.id}",
+        code=f"SKU-{item.id}",
+        name=f"Item {item.id}",
+        ordered_quantity=Decimal("5"),
+        previously_billed_quantity=Decimal("0"),
+        remaining_quantity=Decimal("5"),
+        unit_price=Decimal("10"),
+        eligible=True,
+    ))
+    service._attach_stock_levels = AsyncMock()
+
+    response = await service.prepare(SourceBillingPrepareRequest(
+        source_type="SALES_ORDER",
+        source_document_ids=["order-1", "order-2"],
+    ))
+
+    assert response.source_document_id is None
+    assert [(source.id, source.number) for source in response.source_documents] == [
+        ("order-1", "SO-1"),
+        ("order-2", "SO-2"),
+    ]
+    assert [(line.source_document_id, line.source_document_number, line.source_line_id) for line in response.lines] == [
+        ("order-1", "SO-1", "71"),
+        ("order-2", "SO-2", "72"),
+    ]
+    session.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_consolidated_prepare_rejects_mixed_customer_orders():
+    from fastapi import HTTPException
+    from types import SimpleNamespace
+
+    from app.schemas.source_billing import SourceBillingPrepareRequest
+    from app.services.source_billing import SourceBillingService
+
+    service = SourceBillingService(
+        AsyncMock(),
+        TenantContext(company_id="COMP-XYZ", branch_id="BR-01"),
+    )
+    service._load_order = AsyncMock(side_effect=[
+        SimpleNamespace(id="order-1", customer_id="customer-1"),
+        SimpleNamespace(id="order-2", customer_id="customer-2"),
+    ])
+
+    with pytest.raises(HTTPException) as error:
+        await service.prepare(SourceBillingPrepareRequest(
+            source_type="SALES_ORDER",
+            source_document_ids=["order-1", "order-2"],
+        ))
+
+    assert error.value.status_code == 409
+    assert "same customer" in error.value.detail
+
+
+def test_consolidated_source_requests_reject_duplicate_and_incomplete_document_sets():
+    from pydantic import ValidationError
+
+    from app.schemas.source_billing import SourceBillingPrepareRequest
+
+    with pytest.raises(ValidationError):
+        SourceBillingPrepareRequest(
+            source_type="SALES_ORDER",
+            source_document_ids=["order-1", "order-1"],
+        )
+    with pytest.raises(ValidationError):
+        SourceBillingPrepareRequest(
+            source_type="SALES_ORDER",
+            source_document_ids=["order-1"],
+        )
+    with pytest.raises(ValidationError):
+        SourceBillingPrepareRequest(
+            source_type="PACKING_SLIP",
+            source_document_ids=["slip-1", "slip-2"],
+        )
+
+
+@pytest.mark.asyncio
+async def test_consolidated_commit_posts_one_invoice_and_allocates_each_order_line(monkeypatch):
+    from datetime import date
+    from types import SimpleNamespace
+
+    from app.schemas.sales import SalesInvoiceBase
+    from app.schemas.source_billing import SourceBillingCommitRequest, SourceBillingLineRequest, SourceBillingPrepareLine
+    from app.services.source_billing import SourceBillingService
+
+    orders = [
+        SimpleNamespace(
+            id="order-1",
+            order_no="SO-1",
+            customer_id="customer-1",
+            customer_gstin="27AAAAA0000A1Z5",
+            status="Approved",
+            po_number="PO-1",
+            total_qty=Decimal("4"),
+            grand_total=Decimal("100"),
+            billed_qty=Decimal("0"),
+            billed_value=Decimal("0"),
+            pending_qty=Decimal("4"),
+            pending_value=Decimal("100"),
+        ),
+        SimpleNamespace(
+            id="order-2",
+            order_no="SO-2",
+            customer_id="customer-1",
+            customer_gstin="27AAAAA0000A1Z5",
+            status="Approved",
+            po_number="PO-2",
+            total_qty=Decimal("4"),
+            grand_total=Decimal("100"),
+            billed_qty=Decimal("0"),
+            billed_value=Decimal("0"),
+            pending_qty=Decimal("4"),
+            pending_value=Decimal("100"),
+        ),
+    ]
+    order_items = [
+        SimpleNamespace(
+            id=71,
+            order_id="order-1",
+            product_id="product-1",
+            item_id="item-1",
+            variant_id=None,
+            code="SKU-1",
+            name="Item 1",
+            quantity=Decimal("4"),
+            billed_quantity=Decimal("0"),
+            pending_quantity=Decimal("4"),
+            line_status="OPEN",
+            price=Decimal("10"),
+            mrp=Decimal("10"),
+            discount_percent=Decimal("0"),
+            discount_amount=Decimal("0"),
+            gst_rate=Decimal("5"),
+            hsn_code="6109",
+        ),
+        SimpleNamespace(
+            id=72,
+            order_id="order-2",
+            product_id="product-2",
+            item_id="item-2",
+            variant_id=None,
+            code="SKU-2",
+            name="Item 2",
+            quantity=Decimal("4"),
+            billed_quantity=Decimal("0"),
+            pending_quantity=Decimal("4"),
+            line_status="OPEN",
+            price=Decimal("10"),
+            mrp=Decimal("10"),
+            discount_percent=Decimal("0"),
+            discount_amount=Decimal("0"),
+            gst_rate=Decimal("5"),
+            hsn_code="6109",
+        ),
+    ]
+    invoice = SimpleNamespace(
+        id="invoice-1",
+        invoice_no="INV-1",
+        date=date(2026, 10, 17),
+        items=[
+            SimpleNamespace(
+                id=101,
+                source_line_type="SALES_ORDER",
+                source_line_id="71",
+                total_amount=Decimal("10"),
+            ),
+            SimpleNamespace(
+                id=102,
+                source_line_type="SALES_ORDER",
+                source_line_id="72",
+                total_amount=Decimal("20"),
+            ),
+        ],
+    )
+    locked_orders = MagicMock()
+    locked_orders.scalars.return_value.all.return_value = orders
+    locked_items = MagicMock()
+    locked_items.scalars.return_value.all.return_value = order_items
+    no_slips = MagicMock()
+    no_slips.first.return_value = None
+    empty_rows = MagicMock()
+    empty_rows.scalars.return_value.all.return_value = []
+    session = AsyncMock()
+    session.execute.side_effect = [locked_orders, locked_items, no_slips, empty_rows, empty_rows, empty_rows]
+    session.add = MagicMock()
+    service = SourceBillingService(session, TenantContext(company_id="COMP-XYZ", branch_id="BR-01"))
+    service._load_order = AsyncMock(side_effect=orders)
+    service._require_visible_customer = AsyncMock(return_value=SimpleNamespace(
+        id="customer-1",
+        name="Customer",
+    ))
+    service._allocated_order_quantity = AsyncMock(
+        side_effect=lambda item_id: Decimal("2") if item_id == 71 else Decimal("0")
+    )
+    service._line_for_order_item = AsyncMock(side_effect=lambda order, item, **_: SourceBillingPrepareLine(
+        source_line_id=str(item.id),
+        source_document_id=order.id,
+        source_document_number=order.order_no,
+        product_id=item.product_id,
+        code=item.code,
+        name=item.name,
+        ordered_quantity=Decimal("4"),
+        previously_billed_quantity=Decimal("2") if item.id == 71 else Decimal("0"),
+        remaining_quantity=Decimal("2") if item.id == 71 else Decimal("4"),
+        unit_price=Decimal("10"),
+        eligible=True,
+    ))
+    monkeypatch.setattr("app.services.source_billing.source_billing_commit_enabled", lambda: True)
+    create_invoice = AsyncMock(return_value=invoice)
+    monkeypatch.setattr("app.services.source_billing.SalesService.create_sales_invoice", create_invoice)
+    monkeypatch.setattr("app.services.outbox_service.OutboxService.record_event", AsyncMock())
+
+    response = await service.commit(
+        SourceBillingCommitRequest(
+            source_type="SALES_ORDER",
+            source_document_ids=["order-1", "order-2"],
+            lines=[
+                SourceBillingLineRequest(source_document_id="order-1", source_line_id="71", quantity=Decimal("1")),
+                SourceBillingLineRequest(source_document_id="order-2", source_line_id="72", quantity=Decimal("2")),
+            ],
+            invoice=SalesInvoiceBase(customer_id="customer-1"),
+        ),
+        "consolidated-test-key",
+    )
+
+    assert response.success is True
+    assert response.invoice_id == "invoice-1"
+    assert response.source_document_ids == ["order-1", "order-2"]
+    assert response.allocated_quantity == Decimal("3")
+    assert [(item.billed_quantity, item.line_status) for item in order_items] == [
+        (Decimal("3"), "PARTIALLY_BILLED"),
+        (Decimal("2"), "PARTIALLY_BILLED"),
+    ]
+    assert [(order.billed_qty, order.status) for order in orders] == [
+        (Decimal("3"), "In Progress"),
+        (Decimal("2"), "In Progress"),
+    ]
+    source_allocations = [
+        row for row in session.add.call_args_list
+        if getattr(row.args[0], "sales_order_item_id", None) is not None
+    ]
+    assert len(source_allocations) == 2
+    assert {row.args[0].sales_order_id for row in source_allocations} == {"order-1", "order-2"}
+    assert create_invoice.await_args.args[0].source_document_type == "SALES_ORDER_CONSOLIDATED"
+    session.commit.assert_awaited_once()
+    session.rollback.assert_not_awaited()
 
 
 @pytest.mark.asyncio

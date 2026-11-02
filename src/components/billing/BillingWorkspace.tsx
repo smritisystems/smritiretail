@@ -224,13 +224,20 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
 
           <button
             type="button"
-            disabled
-            title="Consolidated billing is unavailable until packing-slip quantities are loaded from the fulfillment service."
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 border border-slate-300 text-slate-500 rounded-lg text-xs font-bold cursor-not-allowed shadow-2xs"
+            onClick={() => {
+              setAuxView("WORKSPACE");
+              showToast(
+                "Consolidated Billing",
+                "Select a customer, choose Sales Order in Bill from, then select two or more eligible orders for one invoice.",
+                "info",
+              );
+            }}
+            title="Select one customer and bill eligible Sales Orders together."
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-bold transition cursor-pointer shadow-2xs"
             data-field-key="nav-consolidated-billing-btn"
           >
             <FileText size={14} />
-            <span>Consolidated Billing (Unavailable)</span>
+            <span>Consolidated Billing</span>
           </button>
         </div>
 

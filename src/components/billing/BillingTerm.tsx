@@ -317,6 +317,29 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   }>({ loading: false, counts: { salesOrders: 0, packingSlips: 0, parkedCarts: 0, drafts: 0 }, errors: [] });
   const [sourceBillingModalType, setSourceBillingModalType] = useState<"SALES_ORDER" | "PACKING_SLIP" | null>(null);
   const [sourceBillingSelection, setSourceBillingSelection] = useState<SelectedSourceBilling | null>(null);
+  const isConsolidatedSalesOrderBilling = Boolean(
+    sourceBillingSelection?.sourceType === "SALES_ORDER"
+    && sourceBillingSelection.documentIds.length > 1
+  );
+  const selectedSourceStockWarnings = useMemo(() => {
+    if (!sourceBillingSelection) return [];
+    const preparedLines = new Map(sourceBillingSelection.prepared.lines.map(line => [line.source_line_id, line]));
+    const totals = new Map<string, { code: string; required: number; onHand: number }>();
+    for (const selected of sourceBillingSelection.lines) {
+      const line = preparedLines.get(selected.sourceLineId);
+      if (!line || line.stock_on_hand == null) continue;
+      const total = totals.get(line.product_id) || {
+        code: line.code,
+        required: 0,
+        onHand: Number(line.stock_on_hand),
+      };
+      total.required += selected.quantity;
+      totals.set(line.product_id, total);
+    }
+    return [...totals.values()]
+      .filter(stock => stock.required > stock.onHand)
+      .map(stock => `${stock.code}: selected ${stock.required}, current stock ${stock.onHand}.`);
+  }, [sourceBillingSelection]);
   const [transactionBrowserTab, setTransactionBrowserTab] = useState<InvoicingBrowserTab>("INVOICES");
   const [transactionBrowserInvoiceStatus, setTransactionBrowserInvoiceStatus] = useState<string | undefined>();
   const [transactionBrowserOpenVersion, setTransactionBrowserOpenVersion] = useState(0);
@@ -1350,8 +1373,12 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   );
 
   const openSettlement = () => {
-    if (sourceBillingSelection) {
+    if (sourceBillingSelection && !isConsolidatedSalesOrderBilling) {
       onNotification?.("Source Billing Is Draft-Only", "Save this source-backed invoice as a draft. Posting is not available from this workflow.", "info");
+      return;
+    }
+    if (isConsolidatedSalesOrderBilling && !sourceBillingSelection?.commitEnabled) {
+      onNotification?.("Consolidated Posting Disabled", "The server rollout setting has not enabled consolidated Sales Order posting. Your reviewed cart is preserved.", "info");
       return;
     }
     if (items.length === 0) {
@@ -3439,6 +3466,14 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
 
   // Save as Draft Sales Invoice (persisted SalesInvoice, status="Draft", zero stock/GL mutations)
   const handleSaveDraftInvoice = async () => {
+    if (isConsolidatedSalesOrderBilling) {
+      onNotification?.(
+        "Consolidated Invoice Must Be Posted",
+        "A multi-order invoice must use the atomic settlement flow so all Sales Order allocations are committed together.",
+        "info",
+      );
+      return;
+    }
     if (activeDraftId && sourceBillingSelection) {
       onNotification?.(
         "Source Draft Already Saved",
@@ -3471,10 +3506,14 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       place_of_supply_code: headerState.placeOfSupplyCode || null,
       po_reference: headerState.poReference || null,
       customer_po_id: headerState.customerPoId || null,
-      source_document_type: sourceBillingSelection?.sourceType === "PACKING_SLIP"
+      source_document_type: isConsolidatedSalesOrderBilling
+        ? "SALES_ORDER_CONSOLIDATED"
+        : sourceBillingSelection?.sourceType === "PACKING_SLIP"
         ? "PACKING_SLIP_CONSOLIDATED"
         : sourceBillingSelection?.sourceType || headerState.billingSource || "DIRECT",
-      source_document_id: sourceBillingSelection?.documentId || headerState.customerPoId || null,
+      source_document_id: isConsolidatedSalesOrderBilling
+        ? null
+        : sourceBillingSelection?.documentId || headerState.customerPoId || null,
       sales_channel: headerState.salesChannel || "B2B_WHOLESALE",
       psv_party_id: headerState.psvPartyId || null,
       status: "Draft",
@@ -3533,6 +3572,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
             source_type: sourceBillingSelection.sourceType,
             source_document_id: sourceBillingSelection.documentId,
             lines: sourceBillingSelection.lines.map(line => ({
+              source_document_id: line.sourceDocumentId,
               source_line_id: line.sourceLineId,
               quantity: line.quantity,
             })),
@@ -3854,9 +3894,13 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     denominations?: any
   ) => {
     const isCreditTx = headerState.transaction === "Credit" || payments.some(p => (p.mode || "").toUpperCase() === "CREDIT");
-    if (sourceBillingSelection) {
+    if (sourceBillingSelection && !isConsolidatedSalesOrderBilling) {
       setShowSettlementModal(false);
       await handleSaveDraftInvoice();
+      return;
+    }
+    if (isConsolidatedSalesOrderBilling && !sourceBillingSelection?.commitEnabled) {
+      onNotification?.("Consolidated Posting Disabled", "The server rollout setting has not enabled consolidated Sales Order posting. Your invoice is preserved for review.", "error");
       return;
     }
     console.error("[SETTLEMENT CHECK] handleCompleteSettlement invoked", {
@@ -4023,8 +4067,12 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       place_of_supply_code: headerState.placeOfSupplyCode || null,
       po_reference: headerState.poReference || null,
       customer_po_id: headerState.customerPoId || null,
-      source_document_type: headerState.billingSource || "DIRECT",
-      source_document_id: headerState.customerPoId || null,
+      source_document_type: isConsolidatedSalesOrderBilling
+        ? "SALES_ORDER_CONSOLIDATED"
+        : headerState.billingSource || "DIRECT",
+      source_document_id: isConsolidatedSalesOrderBilling
+        ? null
+        : headerState.customerPoId || null,
       sales_channel: headerState.salesChannel || "B2B_WHOLESALE",
       psv_party_id: headerState.psvPartyId || null,
       status: "Completed",
@@ -4077,6 +4125,9 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
           ? [{ mode: "On Account", amount: summaryTotals.netAmount }]
           : effectiveTenderRows,
         denominations: isCreditTx ? undefined : denominations,
+        source_sales_orders: isConsolidatedSalesOrderBilling
+          ? sourceBillingSelection?.documentIds
+          : undefined,
         transporterRows,
         addonRows
       }
@@ -4096,12 +4147,27 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         });
         setActiveDraftId(null);
       } else {
-        const saveUrl = headerState.billingSource === "CUSTOMER_PO" && headerState.customerPoId
-          ? `/sales/customer-pos/${headerState.customerPoId}/bill`
-          : "/sales/invoices";
-        const saveBody = headerState.billingSource === "CUSTOMER_PO" && headerState.customerPoId
-          ? { invoice: invoicePayload, lines: items.map(item => ({ customer_po_line_id: item.customerPoLineId, quantity: item.qty })) }
-          : invoicePayload;
+        const consolidatedSourceBody = isConsolidatedSalesOrderBilling && sourceBillingSelection
+          ? {
+            source_type: sourceBillingSelection.sourceType,
+            source_document_ids: sourceBillingSelection.documentIds,
+            lines: sourceBillingSelection.lines.map(line => ({
+              source_document_id: line.sourceDocumentId,
+              source_line_id: line.sourceLineId,
+              quantity: line.quantity,
+            })),
+            invoice: invoicePayload,
+          }
+          : null;
+        const saveUrl = consolidatedSourceBody
+          ? "/billing/sources/commit"
+          : headerState.billingSource === "CUSTOMER_PO" && headerState.customerPoId
+            ? `/sales/customer-pos/${headerState.customerPoId}/bill`
+            : "/sales/invoices";
+        const saveBody = consolidatedSourceBody
+          || (headerState.billingSource === "CUSTOMER_PO" && headerState.customerPoId
+            ? { invoice: invoicePayload, lines: items.map(item => ({ customer_po_line_id: item.customerPoLineId, quantity: item.qty })) }
+            : invoicePayload);
         const requestFingerprint = JSON.stringify(saveBody);
         if (settlementIdempotencyKeyRef.current?.fingerprint !== requestFingerprint) {
           settlementIdempotencyKeyRef.current = {
@@ -4109,11 +4175,18 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
             fingerprint: requestFingerprint,
           };
         }
-        saved = await apiFetchV1(saveUrl, {
+        const result = await apiFetchV1<any>(saveUrl, {
           method: "POST",
           headers: { "Idempotency-Key": settlementIdempotencyKeyRef.current.key },
           body: JSON.stringify(saveBody)
         });
+        saved = consolidatedSourceBody
+          ? {
+            id: result.invoice_id,
+            invoice_no: result.invoice_no,
+            date: invoicePayload.date,
+          }
+          : result;
       }
 
       const completedInvoice = {
@@ -4224,8 +4297,12 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
 
   // Enterprise Retail: F7 Exact Cash Instant Checkout
   const handleExactCashSettlement = async () => {
-    if (sourceBillingSelection) {
+    if (sourceBillingSelection && !isConsolidatedSalesOrderBilling) {
       await handleSaveDraftInvoice();
+      return;
+    }
+    if (isConsolidatedSalesOrderBilling && !sourceBillingSelection?.commitEnabled) {
+      onNotification?.("Consolidated Posting Disabled", "The server rollout setting has not enabled consolidated Sales Order posting.", "error");
       return;
     }
     if (items.length === 0) {
@@ -5012,7 +5089,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                     </p>
                   )}
                   <p className="mt-1 text-[9px] text-slate-600 dark:text-slate-400">
-                    Sales Orders and Packing Slips are prepared read-only and invoiced through the atomic source billing service.
+                    Single-source bills remain draft-only. Consolidated Sales Order invoices are finalized atomically after review.
                   </p>
                 </section>
               )}
@@ -5028,19 +5105,32 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                     <span className="text-[11px] text-slate-500 dark:text-slate-400">Choose the source document</span>
                   </div>
                   {sourceBillingSelection && (
-                    <div className="mb-2 flex items-center justify-between gap-2 rounded-md border border-blue-200 bg-blue-50 px-2.5 py-2 text-xs text-blue-900 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-100">
-                      <span>
-                        Reviewed source: <strong>{sourceBillingSelection.documentNumber}</strong>
-                        {" · "}{sourceBillingSelection.lines.length} line(s)
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => handleBillingSourceChoice("DIRECT")}
-                        className="rounded border border-blue-300 px-2 py-1 font-semibold hover:bg-white dark:border-blue-700 dark:hover:bg-slate-900"
-                      >
-                        Clear source
-                      </button>
-                    </div>
+                    <>
+                      <div className="mb-2 flex items-center justify-between gap-2 rounded-md border border-blue-200 bg-blue-50 px-2.5 py-2 text-xs text-blue-900 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-100">
+                        <span>
+                          Reviewed source: <strong>{sourceBillingSelection.prepared.source_documents?.map(source => source.number).join(", ") || sourceBillingSelection.documentNumber}</strong>
+                          {" · "}{sourceBillingSelection.lines.length} line(s)
+                          {isConsolidatedSalesOrderBilling && ` · ${sourceBillingSelection.documentIds.length} orders`}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleBillingSourceChoice("DIRECT")}
+                          className="rounded border border-blue-300 px-2 py-1 font-semibold hover:bg-white dark:border-blue-700 dark:hover:bg-slate-900"
+                        >
+                          Clear source
+                        </button>
+                      </div>
+                      {isConsolidatedSalesOrderBilling && !sourceBillingSelection.commitEnabled && (
+                        <p role="status" className="mb-2 rounded border border-amber-300 bg-amber-50 px-2.5 py-2 text-[11px] font-medium text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
+                          Consolidated posting is disabled by the server rollout setting. Review only; finalization is unavailable.
+                        </p>
+                      )}
+                      {selectedSourceStockWarnings.length > 0 && (
+                        <p role="status" className="mb-2 rounded border border-amber-300 bg-amber-50 px-2.5 py-2 text-[11px] font-medium text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
+                          Stock warning (separate from billing eligibility): {selectedSourceStockWarnings.join(" ")}
+                        </p>
+                      )}
+                    </>
                   )}
                   <div className="grid grid-cols-2 gap-1.5 sm:flex sm:flex-wrap">
                     {permittedSources.includes("DIRECT") && (
@@ -5079,7 +5169,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                         onClick={() => handleBillingSourceChoice("SALES_ORDER")}
                         disabled={isReadOnlyView || Boolean(sourceBillingSelection)}
                         className="min-h-9 rounded-md border border-slate-300 bg-white px-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
-                        title="Enter actual bill quantities from this Sales Order, then save an unposted draft"
+                        title="Choose one order for a source draft, or select multiple eligible orders for one atomic consolidated invoice"
                       >
                         Sales Order
                       </button>
@@ -6410,10 +6500,12 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
             <button
               type="button"
               onClick={handleSaveDraftInvoice}
-              disabled={isReadOnlyView || items.length === 0 || (Boolean(activeDraftId) && Boolean(sourceBillingSelection))}
+              disabled={isReadOnlyView || items.length === 0 || isConsolidatedSalesOrderBilling || (Boolean(activeDraftId) && Boolean(sourceBillingSelection))}
               className="px-3 py-1.5 bg-white hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-100 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs"
               title={sourceBillingSelection
-                ? activeDraftId ? "Source draft already saved; cancel and re-prepare to create another" : "Save source-backed invoice as a draft (no stock/GL impact)"
+                ? isConsolidatedSalesOrderBilling
+                  ? "Consolidated Sales Order billing must be finalized atomically, not saved as a draft"
+                  : activeDraftId ? "Source draft already saved; cancel and re-prepare to create another" : "Save source-backed invoice as a draft (no stock/GL impact)"
                 : "Save as Draft Invoice (No stock deduction / No GL impact)"}
             >
               <Edit2 size={14} className="text-indigo-600" />
@@ -6456,13 +6548,19 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
             )}
             <button
               type="button"
-              onClick={sourceBillingSelection ? handleSaveDraftInvoice : openSettlement}
-              disabled={isReadOnlyView || items.length === 0 || (Boolean(activeDraftId) && Boolean(sourceBillingSelection))}
+              onClick={sourceBillingSelection && !isConsolidatedSalesOrderBilling ? handleSaveDraftInvoice : openSettlement}
+              disabled={isReadOnlyView || items.length === 0 || (Boolean(activeDraftId) && Boolean(sourceBillingSelection)) || (isConsolidatedSalesOrderBilling && !sourceBillingSelection?.commitEnabled)}
               className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-2 cursor-pointer shadow-md hover:shadow-lg disabled:opacity-40 disabled:cursor-not-allowed"
-              title={sourceBillingSelection ? "Save source-backed invoice as a draft (no posting)" : "Settle & Save Invoice (F8)"}
+              title={isConsolidatedSalesOrderBilling
+                ? sourceBillingSelection?.commitEnabled
+                  ? "Settle and atomically post one invoice across the selected Sales Orders"
+                  : "Consolidated posting is disabled by the server rollout setting"
+                : sourceBillingSelection ? "Save source-backed invoice as a draft (no posting)" : "Settle & Save Invoice (F8)"}
             >
               <Check size={16} />
-              <span>{sourceBillingSelection
+              <span>{isConsolidatedSalesOrderBilling
+                ? "Settle & Post Consolidated Invoice"
+                : sourceBillingSelection
                 ? activeDraftId ? "Source Draft Saved" : "Save Source Draft"
                 : <>Settle &amp; Save (F8)</>}</span>
             </button>
