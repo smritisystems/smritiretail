@@ -2004,89 +2004,76 @@ class SalesService:
             for item in invoice.items:
                 if item.product_id and item.quantity > 0:
                     batch = item.batch_no or "BATCH-OPENING"
-                    try:
-                        await wms_service.atomic_mutate_batch_stock(
-                            product_id=item.product_id,
-                            warehouse_id=wh_id,
-                            batch_no=batch,
-                            qty_delta=Decimal(str(item.quantity)),
-                            movement_type="SALES_CANCEL",
-                            reference_doc_type="Sales Invoice",
-                            reference_doc_id=invoice.invoice_no,
-                            remarks=f"Stock restored for cancelled sales invoice: {invoice.invoice_no}",
-                            item_id=item.item_id,
-                            variant_id=item.variant_id,
-                        )
-                    except Exception:
-                        pass
+                    await wms_service.atomic_mutate_batch_stock(
+                        product_id=item.product_id,
+                        warehouse_id=wh_id,
+                        batch_no=batch,
+                        qty_delta=Decimal(str(item.quantity)),
+                        movement_type="SALES_CANCEL",
+                        reference_doc_type="Sales Invoice",
+                        reference_doc_id=invoice.invoice_no,
+                        remarks=f"Stock restored for cancelled sales invoice: {invoice.invoice_no}",
+                        item_id=item.item_id,
+                        variant_id=item.variant_id,
+                    )
 
             # Revert customer outstanding if credit sale
             if invoice.customer_id and invoice.customer_id != "CUST-WALKIN":
-                try:
-                    cust = await self.crm_service.get_customer(invoice.customer_id)
-                    if cust and invoice.grand_total:
-                        cust.outstanding = max(Decimal("0.00"), Decimal(str(cust.outstanding or "0.00")) - Decimal(str(invoice.grand_total)))
-                        cust.modified_at = datetime.now(timezone.utc)
-                        self.db.add(cust)
+                cust = await self.crm_service.get_customer(invoice.customer_id)
+                if cust and invoice.grand_total:
+                    cust.outstanding = max(Decimal("0.00"), Decimal(str(cust.outstanding or "0.00")) - Decimal(str(invoice.grand_total)))
+                    cust.modified_at = datetime.now(timezone.utc)
+                    self.db.add(cust)
 
-                        credit_entry = CustomerCreditLedgerEntry(
-                            id=f"ccle-{uuid.uuid4().hex[:12]}",
-                            company_id=self.tenant_ctx.company_id,
-                            branch_id=self.tenant_ctx.branch_id,
-                            customer_id=cust.id,
-                            entry_date=datetime.now(timezone.utc),
-                            entry_type="CREDIT",
-                            amount=Decimal(str(invoice.grand_total)),
-                            balance_after=cust.outstanding,
-                            reference_type="SALES_INVOICE_CANCEL",
-                            reference_id=invoice.id,
-                            notes=f"Reversal for cancelled sales invoice {invoice.invoice_no}",
-                        )
-                        self.db.add(credit_entry)
-                except Exception as e:
-                    logger.warning("Error reverting customer outstanding on invoice cancellation: %s", e)
+                    credit_entry = CustomerCreditLedgerEntry(
+                        id=f"ccle-{uuid.uuid4().hex[:12]}",
+                        company_id=self.tenant_ctx.company_id,
+                        branch_id=self.tenant_ctx.branch_id,
+                        customer_id=cust.id,
+                        entry_date=datetime.now(timezone.utc),
+                        entry_type="CREDIT",
+                        amount=Decimal(str(invoice.grand_total)),
+                        balance_after=cust.outstanding,
+                        reference_type="SALES_INVOICE_CANCEL",
+                        reference_id=invoice.id,
+                        notes=f"Reversal for cancelled sales invoice {invoice.invoice_no}",
+                    )
+                    self.db.add(credit_entry)
 
             # Authoritative GL Reversal Posting (Phase 1 Canonical Integrity)
             from .unified_ledger import UnifiedAccountingLedgerService
-            try:
-                async with self.db.begin_nested():
-                    await UnifiedAccountingLedgerService.post_sales_cancellation_to_gl(
-                        session=self.db,
-                        company_id=self.tenant_ctx.company_id,
-                        invoice_id=invoice.id,
-                        branch_id=self.tenant_ctx.branch_id,
-                        reason="Sales invoice cancellation",
-                        cancelled_by=getattr(self.tenant_ctx, "user_id", None) or "SYSTEM",
-                    )
-            except Exception as e:
-                logger.warning("Notice during GL cancellation posting: %s", e)
+            await UnifiedAccountingLedgerService.post_sales_cancellation_to_gl(
+                session=self.db,
+                company_id=self.tenant_ctx.company_id,
+                invoice_id=invoice.id,
+                branch_id=self.tenant_ctx.branch_id,
+                reason="Sales invoice cancellation",
+                cancelled_by=getattr(self.tenant_ctx, "user_id", None) or "SYSTEM",
+            )
 
 
         # Stage Transactional Outbox Event
-        try:
-            from .outbox_service import OutboxService
-            await OutboxService.record_event(
-                session=self.db,
-                target_channel="SALES_POSTING",
-                payload={
-                    "event_type": "SalesInvoiceCancelledEvent",
-                    "invoice_id": invoice.id,
-                    "invoice_no": invoice.invoice_no,
-                    "company_id": self.tenant_ctx.company_id,
-                    "branch_id": self.tenant_ctx.branch_id,
-                    "grand_total": str(invoice.grand_total),
-                    "customer_id": invoice.customer_id,
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                },
-                correlation_id=f"cancel_{invoice.id}",
-                event_type="SALES_INVOICE_CANCELLED",
-                aggregate_type="SALES_INVOICE",
-                aggregate_id=invoice.id,
-                company_id=self.tenant_ctx.company_id,
-                branch_id=self.tenant_ctx.branch_id,
-            )
-        except Exception as e:
-            logger.warning("Notice recording cancellation outbox event: %s", e)
+        from .outbox_service import OutboxService
+        await OutboxService.record_event(
+            session=self.db,
+            target_channel="SALES_POSTING",
+            payload={
+                "event_type": "SalesInvoiceCancelledEvent",
+                "invoice_id": invoice.id,
+                "invoice_no": invoice.invoice_no,
+                "company_id": self.tenant_ctx.company_id,
+                "branch_id": self.tenant_ctx.branch_id,
+                "grand_total": str(invoice.grand_total),
+                "customer_id": invoice.customer_id,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            },
+            correlation_id=f"cancel_{invoice.id}",
+            event_type="SALES_INVOICE_CANCELLED",
+            aggregate_type="SALES_INVOICE",
+            aggregate_id=invoice.id,
+            company_id=self.tenant_ctx.company_id,
+            branch_id=self.tenant_ctx.branch_id,
+        )
 
         # Suffix invoice_no with _VOID so the unique (company_id, invoice_no)
         # constraint slot is freed, allowing the same number to be reissued
@@ -2099,15 +2086,12 @@ class SalesService:
         self.db.add(invoice)
 
         # Synchronize PSV cancellation
-        try:
-            from .psv_projection import PSVProjectionService
-            await PSVProjectionService.cancel_posted_invoice(
-                session=self.db,
-                invoice_id=invoice.id,
-                company_id=self.tenant_ctx.company_id,
-            )
-        except Exception as e:
-            logger.warning("PSV synchronization notice on invoice cancellation: %s", e)
+        from .psv_projection import PSVProjectionService
+        await PSVProjectionService.cancel_posted_invoice(
+            session=self.db,
+            invoice_id=invoice.id,
+            company_id=self.tenant_ctx.company_id,
+        )
 
         await self.db.commit()
         await self.db.refresh(invoice)

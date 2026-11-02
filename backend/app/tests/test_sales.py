@@ -1033,6 +1033,71 @@ async def test_cancel_sales_invoice(db_session):
     assert updated.status == "Cancelled"
 
 
+async def test_cancel_posted_invoice_propagates_stock_reversal_failure(db_session, monkeypatch):
+    from app.services.inventory_wms import InventoryWmsService
+    from app.services.sales import SalesService
+
+    s = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, s)
+    product = await _make_product(db_session, s, comp.id, br.id)
+    customer = await _make_customer(db_session, s, comp.id, br.id)
+    invoice = await _make_invoice(db_session, s, comp.id, br.id, product.id, customer.id)
+    invoice.status = "Submitted"
+    invoice.warehouse_id = f"wh-central-{s}"
+    await db_session.commit()
+
+    async def fail_stock_reversal(*args, **kwargs):
+        raise RuntimeError("stock reversal failed")
+
+    monkeypatch.setattr(InventoryWmsService, "atomic_mutate_batch_stock", fail_stock_reversal)
+    sales_svc = SalesService(db_session, TenantContext(company_id=comp.id, branch_id=br.id))
+
+    with pytest.raises(RuntimeError, match="stock reversal failed"):
+        await sales_svc.cancel_sales_invoice(invoice.id)
+
+    await db_session.rollback()
+    await db_session.refresh(invoice)
+    assert invoice.status == "Submitted"
+    assert invoice.is_deleted is False
+
+
+async def test_cancel_posted_invoice_propagates_gl_reversal_failure(db_session, monkeypatch):
+    from app.services.inventory_wms import InventoryWmsService
+    from app.services.sales import SalesService
+    from app.services.unified_ledger import UnifiedAccountingLedgerService
+
+    s = uuid.uuid4().hex[:6]
+    comp, br = await _make_tenant(db_session, s)
+    product = await _make_product(db_session, s, comp.id, br.id)
+    customer = await _make_customer(db_session, s, comp.id, br.id)
+    invoice = await _make_invoice(db_session, s, comp.id, br.id, product.id, customer.id)
+    invoice.status = "Submitted"
+    invoice.warehouse_id = f"wh-central-{s}"
+    await db_session.commit()
+
+    async def skip_stock_reversal(*args, **kwargs):
+        return None
+
+    async def fail_gl_reversal(*args, **kwargs):
+        raise RuntimeError("GL reversal failed")
+
+    monkeypatch.setattr(InventoryWmsService, "atomic_mutate_batch_stock", skip_stock_reversal)
+    monkeypatch.setattr(
+        UnifiedAccountingLedgerService,
+        "post_sales_cancellation_to_gl",
+        fail_gl_reversal,
+    )
+    sales_svc = SalesService(db_session, TenantContext(company_id=comp.id, branch_id=br.id))
+
+    with pytest.raises(RuntimeError, match="GL reversal failed"):
+        await sales_svc.cancel_sales_invoice(invoice.id)
+
+    await db_session.rollback()
+    await db_session.refresh(invoice)
+    assert invoice.status == "Submitted"
+    assert invoice.is_deleted is False
+
+
 async def test_cancel_nonexistent_invoice_returns_404(db_session):
     import uuid
     from httpx import AsyncClient, ASGITransport
