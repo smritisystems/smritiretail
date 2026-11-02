@@ -6,7 +6,7 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 6.10.0
  * Created      : 2026-08-22
- * Modified     : 2026-08-25
+ * Modified     : 2026-11-03
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -108,7 +108,17 @@ export async function searchBackendCustomers(
 ): Promise<AutoPopulateCustomerResult[]> {
   const cleanQ = query.trim();
   if (!cleanQ) {
-    if (options.billingOnly) return [];
+    try {
+      const params = new URLSearchParams({ limit: "15" });
+      if (options.billingOnly) params.set("billing_only", "true");
+      const res = await apiFetchV1(`/crm/customers/search?${params.toString()}`);
+      const rawList = Array.isArray(res) ? res : (res?.items || []);
+      if (rawList.length > 0) {
+        return enrichCustomersWithPriceGroups(rawList);
+      }
+    } catch {
+      // Fall through to local cache
+    }
     const local = getCustomers();
     return enrichCustomersWithPriceGroups(local.slice(0, 10));
   }

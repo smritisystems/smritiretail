@@ -6,7 +6,7 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 6.89.0
  * Created      : 2026-08-21
- * Modified     : 2026-10-30
+ * Modified     : 2026-11-03
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Canonical Billing Engine
@@ -1172,6 +1172,58 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     remarks: ""
   });
   const [isManualBillPromoOverride, setIsManualBillPromoOverride] = useState<boolean>(false);
+  const [manualBillDiscountMode, setManualBillDiscountMode] = useState<"FLAT" | "PERCENT">("FLAT");
+  const [manualBillDiscountVal, setManualBillDiscountVal] = useState<string>("");
+  const manualBillDiscountInputRef = useRef<HTMLInputElement>(null);
+
+  const handleApplyManualBillDiscount = (valStr: string, mode: "FLAT" | "PERCENT") => {
+    const num = parseFloat(valStr);
+    if (!valStr || isNaN(num) || num <= 0) {
+      handleResetManualBillDiscount();
+      return;
+    }
+    setIsManualBillPromoOverride(true);
+    if (mode === "FLAT") {
+      setBillLevelPromo({
+        code: "MANUAL",
+        description: `Cashier Direct Discount (₹${num.toFixed(2)})`,
+        discountPct: 0,
+        discountAmt: num,
+        calculatedOn: summaryTotals.salesValue,
+        priceOffs: 0,
+        applyBillLevelFirst: false,
+        reason: "Cashier Direct Discount",
+        remarks: `Manual ₹${num.toFixed(2)}`
+      });
+    } else {
+      setBillLevelPromo({
+        code: "MANUAL",
+        description: `Cashier Direct Discount (${num.toFixed(2)}%)`,
+        discountPct: num,
+        discountAmt: 0,
+        calculatedOn: summaryTotals.salesValue,
+        priceOffs: 0,
+        applyBillLevelFirst: false,
+        reason: "Cashier Direct Discount",
+        remarks: `Manual ${num.toFixed(2)}%`
+      });
+    }
+  };
+
+  const handleResetManualBillDiscount = () => {
+    setIsManualBillPromoOverride(false);
+    setBillLevelPromo({
+      code: "NONE",
+      description: "No bill discount applied",
+      discountPct: 0,
+      discountAmt: 0,
+      calculatedOn: 0,
+      priceOffs: 0,
+      applyBillLevelFirst: false,
+      reason: "Generally Allowed Discount",
+      remarks: ""
+    });
+  };
   const [showSettlementModal, setShowSettlementModal] = useState<boolean>(false);
   const [billingPreview, setBillingPreview] = useState<{
     fingerprint: string;
@@ -1802,6 +1854,10 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       } else if (e.key === "F12") {
         e.preventDefault();
         handleSuspendInvoice();
+      } else if (e.altKey && (e.key === "d" || e.key === "D")) {
+        e.preventDefault();
+        manualBillDiscountInputRef.current?.focus();
+        manualBillDiscountInputRef.current?.select();
       } else if (e.ctrlKey && (e.key === "d" || e.key === "D")) {
         e.preventDefault();
         if (selectedRowIndex >= 0 && selectedRowIndex < items.length) {
@@ -4673,7 +4729,28 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                     data-lookup="customer"
                     value={customerSearchInput}
                     onChange={e => handleCustomerSearchChange(e.target.value)}
-                    onFocus={() => setShowCustomerDropdown(true)}
+                    onFocus={() => {
+                      setShowCustomerDropdown(true);
+                      if (customerSuggestions.length === 0 && !customerSearchInput) {
+                        void (async () => {
+                          try {
+                            const results = await searchBackendCustomers("", undefined, { billingOnly: true });
+                            const options: TypeaheadOption[] = results.map(r => ({
+                              id: r.id,
+                              title: r.name,
+                              subtitle: `${r.isDependant ? `Child of ${r.parentCustomerName || r.primaryAccountName || r.primaryAccountCode || "parent account"} • ` : ""}${r.mobile || "No Mobile"} • ${r.customerGroupId || "CG-Retail"}`,
+                              badge: r.outstanding > 0 ? `Bal: ₹${r.outstanding}` : "Clear",
+                              badgeColor: r.outstanding > 0 ? "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200" : "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300",
+                              iconType: "customer",
+                              metadata: r
+                            }));
+                            setCustomerSuggestions(options);
+                          } catch {
+                            // Non-blocking fallback
+                          }
+                        })();
+                      }
+                    }}
                     onKeyDown={e => {
                       if (e.key === "Enter") {
                         e.preventDefault();
@@ -5834,34 +5911,94 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                   </details>
                 )}
 
-                {/* Bill Discount (Promo / F6) */}
-                <div 
-                  onClick={() => {
-                    if (sourceBillingSelection) {
-                      onNotification?.("Source Pricing Locked", "Source-backed invoices retain the source discount and cannot receive an invoice-level override.", "error");
-                      return;
-                    }
-                    setShowF6PromoModal(true);
-                  }}
-                  className={`flex items-center justify-between py-1 -mx-1 px-1 rounded transition ${
-                    sourceBillingSelection
-                      ? "cursor-not-allowed opacity-60"
-                      : "cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/60"
-                  }`}
-                  title={sourceBillingSelection ? "Invoice-level discounts are locked for source-backed invoices" : "Manage Bill Discounts & Promotions (F6)"}
-                >
-                  <span className="text-slate-600 dark:text-slate-400 font-medium flex items-center gap-1">
-                    <span>Bill Discount</span>
-                    <span className="text-[9px] font-mono font-bold bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 px-1 py-0.2 rounded">F6</span>
-                    {billLevelPromo.code !== "NONE" && (
-                      <span className="text-[9px] font-bold text-amber-700 bg-amber-100 dark:bg-amber-950 dark:text-amber-300 px-1 rounded uppercase">
-                        {billLevelPromo.code}
-                      </span>
-                    )}
-                  </span>
-                  <span className="font-mono font-semibold text-emerald-600 dark:text-emerald-400">
-                    {summaryTotals.billDiscount > 0 ? `-₹${summaryTotals.billDiscount.toFixed(2)}` : "₹0.00"}
-                  </span>
+                {/* Bill Discount (Direct Editable / Alt+D / F6 Promo) */}
+                <div className="py-1.5 px-1.5 rounded bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/80 transition mb-1">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-slate-600 dark:text-slate-400 font-medium flex items-center gap-1 text-xs">
+                      <span>Bill Discount</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (sourceBillingSelection) {
+                            onNotification?.("Source Pricing Locked", "Source-backed invoices retain the source discount.", "error");
+                            return;
+                          }
+                          setShowF6PromoModal(true);
+                        }}
+                        className="text-[9px] font-mono font-bold bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 px-1 py-0.2 rounded transition cursor-pointer"
+                        title="Open Advanced F6 Promotions Modal"
+                      >
+                        F6 Promos
+                      </button>
+                      {billLevelPromo.code !== "NONE" && (
+                        <span className="text-[9px] font-bold text-amber-700 bg-amber-100 dark:bg-amber-950 dark:text-amber-300 px-1 rounded uppercase">
+                          {billLevelPromo.code}
+                        </span>
+                      )}
+                    </span>
+                    <span className="font-mono font-bold text-xs text-emerald-600 dark:text-emerald-400">
+                      {summaryTotals.billDiscount > 0 ? `-₹${summaryTotals.billDiscount.toFixed(2)}` : "₹0.00"}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <div className="flex rounded border border-slate-300 dark:border-slate-700 overflow-hidden text-[10px] font-bold">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setManualBillDiscountMode("FLAT");
+                          handleApplyManualBillDiscount(manualBillDiscountVal, "FLAT");
+                        }}
+                        className={`px-1.5 py-0.5 transition ${manualBillDiscountMode === "FLAT" ? "bg-emerald-600 text-white" : "bg-white dark:bg-slate-900 text-slate-600 hover:bg-slate-100"}`}
+                        title="Apply flat amount discount (₹)"
+                      >
+                        ₹
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setManualBillDiscountMode("PERCENT");
+                          handleApplyManualBillDiscount(manualBillDiscountVal, "PERCENT");
+                        }}
+                        className={`px-1.5 py-0.5 transition ${manualBillDiscountMode === "PERCENT" ? "bg-emerald-600 text-white" : "bg-white dark:bg-slate-900 text-slate-600 hover:bg-slate-100"}`}
+                        title="Apply percentage discount (%)"
+                      >
+                        %
+                      </button>
+                    </div>
+
+                    <div className="relative flex-1">
+                      <input
+                        ref={manualBillDiscountInputRef}
+                        type="number"
+                        min="0"
+                        step={manualBillDiscountMode === "PERCENT" ? "0.1" : "1"}
+                        disabled={!!sourceBillingSelection}
+                        value={manualBillDiscountVal}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setManualBillDiscountVal(val);
+                          handleApplyManualBillDiscount(val, manualBillDiscountMode);
+                        }}
+                        placeholder={manualBillDiscountMode === "FLAT" ? "Discount ₹ (Alt+D)..." : "Discount % (Alt+D)..."}
+                        className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded h-6 px-1.5 text-xs font-mono font-semibold text-slate-900 dark:text-slate-100 focus:ring-1 focus:ring-emerald-500 focus:outline-none"
+                        title="Directly edit bill discount (Alt+D)"
+                      />
+                      {manualBillDiscountVal && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setManualBillDiscountVal("");
+                            handleResetManualBillDiscount();
+                          }}
+                          className="absolute right-1 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-[10px] px-1"
+                          title="Clear manual discount and restore automatic promotions"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
                 {/* GST / Taxes */}

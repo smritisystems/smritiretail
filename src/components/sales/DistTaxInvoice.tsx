@@ -6,7 +6,7 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 6.99.19
  * Created      : 2026-08-24
- * Modified     : 2026-10-29
+ * Modified     : 2026-11-03
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * Classification: Distributor Tax Invoice Workspace with Unified Body Portal Print Studio
  */
@@ -23,6 +23,7 @@ import { apiFetchV1, getTenantCompanyContext } from "../../lib/apiFetchV1.ts";
 import { getCustomers, refreshCustomerCache } from "../../services/customerStore.ts";
 import { ExportColumnDefinition } from "../export/types.ts";
 import { X, Search, Zap, CheckCircle2, AlertCircle, Printer, FileText } from "lucide-react";
+import { UniversalInvoiceQr } from "../common/UniversalInvoiceQr.tsx";
 import { useF2Screen } from "../../context/F2DispatcherContext.tsx";
 import type { LookupResult } from "../../context/F2DispatcherContext.tsx";
 
@@ -1426,13 +1427,24 @@ export const DistTaxInvoice: React.FC<SmritiDistributorTaxInvoiceWorkspaceProps>
                       <span>State: <strong>Maharashtra (27)</strong></span>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className="inline-block bg-slate-900 text-white font-bold px-3 py-1 rounded text-xs tracking-wider uppercase">
-                      TAX INVOICE
+                  <div className="flex items-center gap-3">
+                    <UniversalInvoiceQr
+                      signedQr={(docState as any).signedQr || (docState as any).signed_qr_code}
+                      invoiceNo={`${docState.docPrefix}-${docState.docNo}`}
+                      companyName={tenantContext.companyName}
+                      companyGst={tenantContext.companyGstin}
+                      grandTotal={docState.summaryTotals?.grandTotal}
+                      invoiceDate={docState.docDate}
+                      size={64}
+                    />
+                    <div className="text-right">
+                      <div className="inline-block bg-slate-900 text-white font-bold px-3 py-1 rounded text-xs tracking-wider uppercase">
+                        TAX INVOICE
+                      </div>
+                      <p className="text-[9px] text-slate-500 mt-1 italic">
+                        Rule 46, CGST Rules 2017
+                      </p>
                     </div>
-                    <p className="text-[9px] text-slate-500 mt-1 italic">
-                      Rule 46, CGST Rules 2017
-                    </p>
                   </div>
                 </div>
               </div>

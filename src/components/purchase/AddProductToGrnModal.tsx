@@ -8,7 +8,7 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 3.34.0
  * Created      : 2026-09-20
- * Modified     : 2026-11-02 (v3.34.0 — Strict PO Line & SKU/Size Parameter Reconciliation)
+ * Modified     : 2026-11-03 (v3.34.1 — Strict PO Line & SKU/Size Parameter Reconciliation)
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -201,6 +201,9 @@ export const AddProductToGrnModal: React.FC<AddProductToGrnModalProps> = ({
                 const gst = Number(it.gst_rate || 18);
                 const mrp = Number(it.mrp || (cost * 1.5));
                 const orderedQty = Number(it.quantity || it.qty_ordered || 0);
+                const receivedQty = Number(it.received_qty || 0);
+                const pendingQty = it.pending_qty !== undefined ? Number(it.pending_qty) : Math.max(0, orderedQty - receivedQty);
+                const isFullyBilled = it.is_billed || (pendingQty <= 0 && orderedQty > 0);
 
                 const isAlreadyAdded = existingLines.some(
                   (l) => (l.code === sku || l.product_id === it.product_id) && String(l.size).toLowerCase() === String(size).toLowerCase()
@@ -226,17 +229,30 @@ export const AddProductToGrnModal: React.FC<AddProductToGrnModalProps> = ({
                         <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
                           Color: {color}
                         </span>
-                        {isAlreadyAdded && (
+                        {isFullyBilled && (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 flex items-center gap-0.5">
+                            <Check className="w-3 h-3" /> Fully Inwarded / Billed
+                          </span>
+                        )}
+                        {isAlreadyAdded && !isFullyBilled && (
                           <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center gap-0.5">
-                            <Check className="w-3 h-3" /> Already Inwarded
+                            <Check className="w-3 h-3" /> In Draft GRN
                           </span>
                         )}
                       </div>
                       <div className="font-semibold text-xs text-slate-900 dark:text-white truncate">
                         {name}
                       </div>
-                      <div className="text-[11px] text-slate-500 flex items-center gap-2 font-mono">
+                      <div className="text-[11px] text-slate-500 flex items-center gap-2 font-mono flex-wrap">
                         <span>Ordered: <strong className="text-slate-800 dark:text-slate-200">{orderedQty} Pcs</strong></span>
+                        {receivedQty > 0 && (
+                          <>
+                            <span>•</span>
+                            <span>Received/Billed: <strong className="text-emerald-600 dark:text-emerald-400">{receivedQty} Pcs</strong></span>
+                            <span>•</span>
+                            <span>Pending: <strong className={pendingQty > 0 ? "text-amber-600 dark:text-amber-400 font-bold" : "text-slate-400"}>{pendingQty} Pcs</strong></span>
+                          </>
+                        )}
                         <span>•</span>
                         <span>Cost: ₹{cost.toFixed(2)}</span>
                         <span>•</span>
@@ -259,7 +275,7 @@ export const AddProductToGrnModal: React.FC<AddProductToGrnModalProps> = ({
                             gst_rate: gst,
                             mrp,
                             quantity_ordered: orderedQty,
-                            quantity_received: orderedQty || 1,
+                            quantity_received: (pendingQty > 0 ? pendingQty : orderedQty) || 1,
                           });
                           onClose();
                         }}

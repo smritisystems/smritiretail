@@ -6,7 +6,7 @@
  * Websites     : smritisys.com | smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 4.7.1 (Production-Grade A4 Multi-Page Print & PDF Engine)
  * Created      : 2026-08-20
- * Modified     : 2026-10-11
+ * Modified     : 2026-11-03
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -14,6 +14,7 @@
 
 import React from "react";
 import { numberToIndianWords } from "../../utils/indianNumberWords.ts";
+import { UniversalInvoiceQr } from "../common/UniversalInvoiceQr.tsx";
 export { numberToIndianWords };
 
 export const QrCodeSvg: React.FC<{ value: string; size?: number }> = ({ value, size = 62 }) => {
@@ -470,19 +471,15 @@ export const TaxInvoiceA4: React.FC<TaxInvoiceA4Props> = ({ data, onEWayBillNoCh
               <h2 className="text-base font-bold text-gray-900 uppercase tracking-wider mb-0.5">TAX INVOICE</h2>
               <BarcodeCode128Svg value={data.invoiceNo} />
             </div>
-{((data as any).signedQr || (data as any).signed_qr_code) ? (
-              <div className="flex flex-col items-center">
-                <img
-                  src={(data as any).signedQr || (data as any).signed_qr_code}
-                  alt="GST E-Invoice QR"
-                  className="border border-gray-300 p-0.5 bg-white rounded-xs"
-                  style={{ width: 68, height: 68, objectFit: "contain" }}
-                />
-                <span className="font-mono text-[6.5px] text-gray-500 uppercase tracking-wider mt-0.5">GST E-INVOICE QR</span>
-              </div>
-            ) : (
-              <QrCodeSvg value={`GSTIN:${data.companyGst || 'UNREGISTERED'}|INV:${data.invoiceNo}|VAL:${grandTotal.toFixed(2)}|DATE:${data.date}`} size={68} />
-            )}
+<UniversalInvoiceQr
+              signedQr={(data as any).signedQr || (data as any).signed_qr_code}
+              invoiceNo={data.invoiceNo}
+              companyName={data.companyDisplayName || (data as any).companyName}
+              companyGst={data.companyGst}
+              grandTotal={grandTotal}
+              invoiceDate={data.date}
+              size={68}
+            />
           </div>
           <table className="w-full font-mono text-[10px] border-collapse">
             <tbody>

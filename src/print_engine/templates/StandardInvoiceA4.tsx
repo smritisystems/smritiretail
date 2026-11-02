@@ -9,12 +9,13 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 3.28.0
  * Created      : 2026-07-10
- * Modified     : 2026-08-19
+ * Modified     : 2026-11-03
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  */
 
 import React from "react";
+import { UniversalInvoiceQr } from "../../components/common/UniversalInvoiceQr.tsx";
 import { getTenantCompanyContext } from "../../lib/apiFetchV1";
 
 export interface InvoiceItem {
@@ -511,18 +512,29 @@ export const StandardInvoiceA4: React.FC<{ data?: InvoiceData }> = ({ data = {} 
                       )}
                     </div>
                     
-                    <div className="text-right flex flex-col items-end">
-                      <div className={`${isDraft ? "bg-amber-600 border border-amber-700" : "bg-slate-900"} text-white font-bold text-[10.5px] uppercase tracking-widest px-2.5 py-1 rounded inline-block`}>
-                        {isDraft ? "DRAFT TAX INVOICE" : isJobWorkOrder ? "JOB WORK ORDER" : isPurchaseOrder ? "PURCHASE ORDER" : "TAX INVOICE"}
-                      </div>
-                      <div className="text-[9px] text-slate-500 mt-0.5">(E. &amp; O.E.)</div>
-                      <div className="mt-1 text-right">
-                        <p className="text-xs font-extrabold text-slate-900 m-0 whitespace-nowrap font-mono tracking-tight">
-                          {isJobWorkOrder ? "Job Work No" : isPurchaseOrder ? "PO No" : "Invoice No"}: {invoiceNo}
-                        </p>
-                        <p className="text-[10.5px] font-medium text-slate-700 m-0 mt-0.5">
-                          Date: <span className="font-mono">{formattedDate}</span>
-                        </p>
+                    <div className="flex items-center gap-3">
+                      <UniversalInvoiceQr
+                        signedQr={(invoiceData as any)?.signedQr || (invoiceData as any)?.signed_qr_code}
+                        invoiceNo={invoiceNo}
+                        companyName={companyName}
+                        companyGst={companyGst}
+                        grandTotal={grandTotal}
+                        invoiceDate={formattedDate}
+                        size={64}
+                      />
+                      <div className="text-right flex flex-col items-end">
+                        <div className={`${isDraft ? "bg-amber-600 border border-amber-700" : "bg-slate-900"} text-white font-bold text-[10.5px] uppercase tracking-widest px-2.5 py-1 rounded inline-block`}>
+                          {isDraft ? "DRAFT TAX INVOICE" : isJobWorkOrder ? "JOB WORK ORDER" : isPurchaseOrder ? "PURCHASE ORDER" : "TAX INVOICE"}
+                        </div>
+                        <div className="text-[9px] text-slate-500 mt-0.5">(E. &amp; O.E.)</div>
+                        <div className="mt-1 text-right">
+                          <p className="text-xs font-extrabold text-slate-900 m-0 whitespace-nowrap font-mono tracking-tight">
+                            {isJobWorkOrder ? "Job Work No" : isPurchaseOrder ? "PO No" : "Invoice No"}: {invoiceNo}
+                          </p>
+                          <p className="text-[10.5px] font-medium text-slate-700 m-0 mt-0.5">
+                            Date: <span className="font-mono">{formattedDate}</span>
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </div>

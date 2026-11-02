@@ -18,7 +18,7 @@ Founders
 
 * Version    : 3.19.0
 * Created    : 2026-07-11
-* Modified   : 2026-10-16
+* Modified   : 2026-11-03
 * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
 * License    : Proprietary Commercial Software
 Classification: Internal
@@ -146,6 +146,10 @@ class PurchaseOrderItemResponse(BaseModel):
     color:            Optional[str] = None
     size:             Optional[str] = None
     style:            Optional[str] = None
+    received_qty:     Decimal = Decimal("0.00")
+    billed_qty:       Decimal = Decimal("0.00")
+    pending_qty:      Decimal = Decimal("0.00")
+    is_billed:        bool = False
 
     model_config = {"from_attributes": True}
 
@@ -230,6 +234,9 @@ class PurchaseOrderResponse(BaseModel):
     tax_total:     Decimal
     grand_total:   Decimal
     items:         List[PurchaseOrderItemResponse] = []
+    pending_qty:         Optional[Decimal] = None
+    pending_items_count: Optional[int] = None
+    is_fully_billed:     bool = False
     company_id:    Optional[str] = None
     branch_id:     Optional[str] = None
     # Phase A lifecycle audit fields

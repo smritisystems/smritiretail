@@ -18,7 +18,7 @@ Founders
 
 * Version    : 3.35.0
 * Created    : 2026-07-11
-* Modified   : 2026-10-16
+* Modified   : 2026-11-03
 * Copyright  : © AITDL.com and SMRITIBooks.com. All Rights Reserved.
 * License    : Proprietary Commercial Software
 Classification: Internal
@@ -304,8 +304,62 @@ async def get_purchase_order_contract(
                     it.brand = getattr(prod, "brand", None) or attrs.get("brand")
                     it.style = getattr(prod, "style_code", None) or attrs.get("style_code") or attrs.get("style")
 
+    if items:
+        from ...models.purchase import PurchaseReceipt, PurchaseReceiptItem
+        from sqlalchemy import func
+        rec_stmt = (
+            select(
+                PurchaseReceiptItem.product_id,
+                PurchaseReceiptItem.variant_id,
+                PurchaseReceiptItem.code,
+                func.sum(PurchaseReceiptItem.quantity_received).label("received_qty")
+            )
+            .join(PurchaseReceipt, PurchaseReceipt.id == PurchaseReceiptItem.receipt_id)
+            .where(
+                PurchaseReceipt.order_id == order.id,
+                PurchaseReceipt.is_deleted == False,
+                PurchaseReceiptItem.is_deleted == False,
+            )
+            .group_by(
+                PurchaseReceiptItem.product_id,
+                PurchaseReceiptItem.variant_id,
+                PurchaseReceiptItem.code,
+            )
+        )
+        rec_res = await db.execute(rec_stmt)
+        rec_map = {}
+        for r_row in rec_res.all():
+            p_id, v_id, c_code, r_qty = r_row
+            q_val = Decimal(str(r_qty or "0.00"))
+            if v_id:
+                rec_map[f"v:{v_id}"] = rec_map.get(f"v:{v_id}", Decimal("0.00")) + q_val
+            if p_id:
+                rec_map[f"p:{p_id}"] = rec_map.get(f"p:{p_id}", Decimal("0.00")) + q_val
+            if c_code:
+                rec_map[f"c:{c_code}"] = rec_map.get(f"c:{c_code}", Decimal("0.00")) + q_val
+
+        for it in items:
+            rec_qty = (
+                rec_map.get(f"v:{it.variant_id}")
+                or rec_map.get(f"p:{it.product_id}")
+                or rec_map.get(f"c:{it.code}")
+                or Decimal("0.00")
+            )
+            it.received_qty = rec_qty
+            it.billed_qty = rec_qty
+            it_ordered = Decimal(str(it.quantity or "0.00"))
+            it.pending_qty = max(Decimal("0.00"), it_ordered - rec_qty)
+            it.is_billed = (it.pending_qty <= Decimal("0.00") and it_ordered > Decimal("0.00"))
+
     order.items = items
     resp = PurchaseOrderResponse.model_validate(order)
+    if items:
+        total_pending = sum(it.pending_qty for it in items)
+        pending_items_count = sum(1 for it in items if it.pending_qty > Decimal("0.00"))
+        resp.pending_qty = total_pending
+        resp.pending_items_count = pending_items_count
+        resp.is_fully_billed = (total_pending <= Decimal("0.00") and len(items) > 0)
+
     if order.supplier_id:
         sup_stmt = select(Supplier.name).where(
             Supplier.id == order.supplier_id,

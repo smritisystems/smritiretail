@@ -6,7 +6,7 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 6.99.20
  * Created      : 2026-10-17
- * Modified     : 2026-10-29
+ * Modified     : 2026-11-03
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: SMRITI Retail Billing Studio with Unified Thermal & A4 Body Portal Print Engine
@@ -590,6 +590,7 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
   const stagedQtyInputRef = useRef<HTMLInputElement>(null);
   const stagedRateInputRef = useRef<HTMLInputElement>(null);
   const stagedDiscountInputRef = useRef<HTMLInputElement>(null);
+  const billDiscountInputRef = useRef<HTMLInputElement>(null);
   const stagedSalespersonSelectRef = useRef<HTMLSelectElement>(null);
   const lastScanRef = useRef<{ query: string; time: number }>({ query: "", time: 0 });
 
@@ -1133,8 +1134,8 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
   // ── Customer Search Filter ────────────────────────────────────────────────
   const filteredCustomers = useMemo(() => {
     const q = customerSearchQuery.trim().toLowerCase();
-    if (!q || q.length < 2) return [];
     const sourceList = customers.length > 0 ? customers : [DEMO_RELIANCE_CUSTOMER];
+    if (!q) return sourceList.slice(0, 8);
     return sourceList.filter(
       (c) =>
         c.name?.toLowerCase().includes(q) ||
@@ -1386,9 +1387,10 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
         setShowF2Modal(true);
         return;
       }
-      if (e.key === "F4") {
+      if (e.key === "F4" || (e.altKey && (e.key === "d" || e.key === "D"))) {
         e.preventDefault();
-        setShowMoreDetails((prev) => !prev);
+        billDiscountInputRef.current?.focus();
+        billDiscountInputRef.current?.select();
         return;
       }
       if (e.key === "F7") {
@@ -2122,6 +2124,7 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs font-bold">-</span>
                     <input
+                      ref={billDiscountInputRef}
                       type="number"
                       min="0"
                       step="any"
@@ -2129,7 +2132,7 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
                       onChange={(e) => setBillLevelDiscount(Math.max(0, Number(e.target.value) || 0))}
                       placeholder="0.00"
                       className="w-20 px-1.5 py-0.5 text-right font-mono font-bold text-xs rounded border border-emerald-300 dark:border-emerald-800 bg-white dark:bg-slate-900 text-emerald-700 dark:text-emerald-300 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                      title="Directly enter bill discount value"
+                      title="Directly enter bill discount value (Alt+D / F4)"
                     />
                     <span className="font-mono font-semibold text-xs min-w-[55px] text-right">
                       (₹ {calculations.billDiscount.toFixed(2)})

@@ -11,7 +11,7 @@
  * 
  * Version      : 3.31.1
  * Created      : 2026-08-31
- * Modified     : 2026-09-02
+ * Modified     : 2026-11-03
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -277,7 +277,7 @@ const CustomerLookupModal: React.FC<{
                 <input
                   ref={searchInputRef}
                   type="text"
-                  placeholder="Search by code or name... (minimum 2 characters)"
+                  placeholder="Search by code or name..."
                   value={search}
                   onChange={(e) => handleSearch(e.target.value)}
                   className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -344,6 +344,7 @@ const StockLookupModal: React.FC<{
   useEffect(() => {
     if (isOpen) {
       searchInputRef.current?.focus();
+      loadItems(search || "");
     }
   }, [isOpen]);
 
@@ -374,9 +375,7 @@ const StockLookupModal: React.FC<{
 
   const handleSearch = async (value: string) => {
     setSearch(value);
-    if (value.length >= 2) {
-      await loadItems(value);
-    }
+    await loadItems(value.trim());
   };
 
   return (
@@ -414,7 +413,7 @@ const StockLookupModal: React.FC<{
                 <input
                   ref={searchInputRef}
                   type="text"
-                  placeholder="Search by code or description... (minimum 2 characters)"
+                  placeholder="Search by code or description..."
                   value={search}
                   onChange={(e) => handleSearch(e.target.value)}
                   className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"

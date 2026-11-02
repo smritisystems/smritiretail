@@ -1,5 +1,26 @@
 <!--
 
+## [6.99.33] - 2026-11-03 - Billing: QR Codes, Direct Discount Editing, Instant Dropdowns & PO Billed Item Reconciliation v6.99.20
+
+### Added
+- src/components/common/UniversalInvoiceQr.tsx:
+  - Created universal certified QR code renderer generating authentic, scannable QR codes for both statutory GST E-Invoice (signed JWT) and dynamic NPCI UPI Deep Link payment (upi://pay?pa=...&pn=...&am=...&cu=INR&tn=...&tr=...).
+  - Integrated into TaxInvoiceA4.tsx, DistTaxInvoice.tsx, ProPosTaxInvoiceRc.tsx, and StandardInvoiceA4.tsx.
+- src/components/billing/BillingTerm.tsx:
+  - Added inline direct bill discount editor with ₹ (Flat) and % (Percentage) mode toggles.
+  - Added Alt+D global keyboard accelerator jumping directly to bill discount.
+  - Added immediate typeahead suggestion population on focus without requiring cashier typing.
+- src/components/sales/SalesOrderFormPremium.tsx:
+  - Removed >= 2 character hurdle on stock lookup and customer lookups, loading items immediately on open.
+- ackend/app/repositories/sales.py:
+  - Fixed SmartFilter cancellation filter: soft-deleted cancelled and voided sales invoices are now queryable and returned when querying status Cancelled or Voided.
+- ackend/app/schemas/purchase.py & ackend/app/api/v1/purchase.py:
+  - Added line-level 
+eceived_qty, illed_qty, pending_qty, and is_billed tracking calculated against PurchaseReceiptItem.
+  - Added order-level pending_qty and is_fully_billed flags.
+- src/components/purchase/AddProductToGrnModal.tsx:
+  - Displays Ordered, Received/Billed, and Pending quantities, tagging fully inwarded items and defaulting remaining pending units.
+
 ## [6.99.32] - 2026-10-31 - Billing: Draft Tax Invoice Interactive Print Preview & Statutory Non-Tax Watermarking v1.0.0
 
 ### Added

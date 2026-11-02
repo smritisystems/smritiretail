@@ -6,7 +6,7 @@
  * Websites     : smritibooks.com | erpnbook.com | aitdl.com
  * Version      : 6.99.15
  * Created      : 2026-08-21
- * Modified     : 2026-10-29 (v6.99.15 — Unified body portal & #root suppression print standard)
+ * Modified     : 2026-11-03 (v6.99.15 — Unified body portal & #root suppression print standard)
  * Copyright    : © SMRITIBooks.com. All Rights Reserved.
  * License      : Proprietary Commercial Software
  * Classification: Internal
@@ -17,6 +17,7 @@ import { createPortal } from "react-dom";
 import { ProPosCartItem, ProPosCustomer, ProPosTenderSplit } from "./types.ts";
 import { TaxInvoiceA4 } from "../../templates/TaxInvoiceA4.tsx";
 import { Printer, X, FileText, Receipt, ZoomIn, ZoomOut, RotateCcw } from "lucide-react";
+import { UniversalInvoiceQr } from "../../common/UniversalInvoiceQr.tsx";
 
 export interface SmritiProPosTaxInvoiceReceiptProps {
   billNo: string;
@@ -464,6 +465,19 @@ export const SmritiProPosTaxInvoiceReceipt: React.FC<SmritiProPosTaxInvoiceRecei
                   {Number(changeDue || 0) > 0 && <div className="flex justify-between font-bold text-black pt-1"><span>Change Returned:</span><span>₹{fmt(changeDue)}</span></div>}
                 </div>
               )}
+
+              {/* Dynamic Payment / Statutory Invoice QR */}
+              <div className="border-t border-dashed border-gray-400 py-2.5 flex flex-col items-center justify-center">
+                <UniversalInvoiceQr
+                  signedQr={(customer as any)?.signedQr || (customer as any)?.signed_qr_code}
+                  invoiceNo={billNo}
+                  companyName={storeProfile?.storeName || "SMRITI Retail Store"}
+                  companyGst={storeProfile?.gstin}
+                  grandTotal={netPayable}
+                  invoiceDate={billDate}
+                  size={90}
+                />
+              </div>
 
               {/* Footer Terms */}
               <div className="border-t border-dashed border-gray-400 pt-3 text-center space-y-1 text-[10px] text-gray-600">
