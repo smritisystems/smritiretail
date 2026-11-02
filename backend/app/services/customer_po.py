@@ -260,7 +260,13 @@ class CustomerPOService:
         skip: int = 0,
         limit: int = 100,
     ):
-        query = self._scope(select(CustomerPurchaseOrder).options(selectinload(CustomerPurchaseOrder.lines)), CustomerPurchaseOrder)
+        query = self._scope(
+            select(CustomerPurchaseOrder).options(
+                selectinload(CustomerPurchaseOrder.lines),
+                selectinload(CustomerPurchaseOrder.customer),
+            ),
+            CustomerPurchaseOrder,
+        )
         if customer_id:
             query = query.where(CustomerPurchaseOrder.customer_id == customer_id)
         if q:
@@ -277,7 +283,10 @@ class CustomerPOService:
             .offset(skip)
             .limit(limit)
         )
-        return list(result.scalars().unique().all())
+        purchase_orders = list(result.scalars().unique().all())
+        for purchase_order in purchase_orders:
+            purchase_order.customer_name = purchase_order.customer.name if purchase_order.customer else None
+        return purchase_orders
 
     async def utilization(self, po_id: str):
         po = await self.get(po_id)

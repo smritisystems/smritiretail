@@ -483,6 +483,7 @@ class SalesReturnResponse(SalesReturnBase):
     company_id: Optional[str] = None
     branch_id: Optional[str] = None
     customer_id: Optional[str] = None
+    customer_name: Optional[str] = None
     created_at: Optional[datetime] = None
     modified_at: Optional[datetime] = None
     is_active: Optional[bool] = True

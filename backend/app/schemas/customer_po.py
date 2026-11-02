@@ -64,6 +64,7 @@ class CustomerPOResponse(BaseModel):
     company_id: Optional[str]
     branch_id: Optional[str]
     customer_id: str
+    customer_name: Optional[str] = None
     po_number: str
     po_date: date
     valid_until: Optional[date]

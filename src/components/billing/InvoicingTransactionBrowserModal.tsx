@@ -168,61 +168,18 @@ const InvoicingTransactionBrowserModalBase: React.FC<InvoicingTransactionBrowser
     setPage(0);
   }, [activeTab, customerId, invoiceStatus, debouncedSearch]);
 
-  // Filtered rows
   const filteredRows = useMemo(() => {
-    const term = searchTerm.trim().toLowerCase();
-
     if (activeTab === "INVOICES") {
-      const activeInvoices = invoices.filter(inv => String(inv.status || "").toUpperCase() !== "CANCELLED");
-      if (!term) return activeInvoices;
-      return activeInvoices.filter(inv => 
-        String(inv.invoice_no || "").toLowerCase().includes(term) ||
-        String(inv.customer_name || "").toLowerCase().includes(term) ||
-        String(inv.delivery_store_code || "").toLowerCase().includes(term) ||
-        String(inv.date || "").toLowerCase().includes(term)
-      );
+      return invoices.filter(inv => String(inv.status || "").toUpperCase() !== "CANCELLED");
     }
-
     if (activeTab === "CANCELLED") {
-      const cancelled = invoices.filter(inv => String(inv.status || "").toUpperCase() === "CANCELLED");
-      if (!term) return cancelled;
-      return cancelled.filter(inv => 
-        String(inv.invoice_no || "").toLowerCase().includes(term) ||
-        String(inv.customer_name || "").toLowerCase().includes(term) ||
-        String(inv.date || "").toLowerCase().includes(term)
-      );
+      return invoices.filter(inv => String(inv.status || "").toUpperCase() === "CANCELLED");
     }
-
-    if (activeTab === "ORDERS") {
-      if (!term) return orders;
-      return orders.filter(o => 
-        String(o.order_no || o.po_number || "").toLowerCase().includes(term) ||
-        String(o.customer_name || "").toLowerCase().includes(term) ||
-        String(o.site_code || "").toLowerCase().includes(term) ||
-        String(o.date || "").toLowerCase().includes(term)
-      );
-    }
-
-    if (activeTab === "RETURNS") {
-      if (!term) return returns;
-      return returns.filter(r => 
-        String(r.return_no || r.credit_note_number || "").toLowerCase().includes(term) ||
-        String(r.customer_name || "").toLowerCase().includes(term) ||
-        String(r.date || "").toLowerCase().includes(term)
-      );
-    }
-
-    if (activeTab === "SUSPENDED") {
-      if (!term) return suspended;
-      return suspended.filter(s => 
-        String(s.invoice_no || "").toLowerCase().includes(term) ||
-        String(s.customer_name || "").toLowerCase().includes(term) ||
-        String(s.date || "").toLowerCase().includes(term)
-      );
-    }
-
+    if (activeTab === "ORDERS") return orders;
+    if (activeTab === "RETURNS") return returns;
+    if (activeTab === "SUSPENDED") return suspended;
     return [];
-  }, [activeTab, searchTerm, invoices, orders, returns, suspended]);
+  }, [activeTab, invoices, orders, returns, suspended]);
 
   if (!isOpen) return null;
 

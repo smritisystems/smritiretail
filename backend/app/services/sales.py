@@ -1747,8 +1747,9 @@ class SalesService:
         limit: int = 100,
     ) -> List[SalesReturn]:
         stmt = (
-            select(SalesReturn)
+            select(SalesReturn, SalesInvoice.customer_name)
             .options(selectinload(SalesReturn.items))
+            .outerjoin(SalesInvoice, SalesReturn.original_invoice_id == SalesInvoice.id)
             .where(
                 SalesReturn.company_id == self.tenant_ctx.company_id,
                 (SalesReturn.branch_id == self.tenant_ctx.branch_id) | (SalesReturn.branch_id.is_(None)),
@@ -1759,7 +1760,7 @@ class SalesService:
             stmt = stmt.where(SalesReturn.customer_id == customer_id)
         if search_term:
             term = f"%{search_term.strip()}%"
-            stmt = stmt.outerjoin(SalesInvoice, SalesReturn.original_invoice_id == SalesInvoice.id).where(or_(
+            stmt = stmt.where(or_(
                 SalesReturn.return_no.ilike(term),
                 SalesReturn.credit_note_number.ilike(term),
                 SalesInvoice.invoice_no.ilike(term),
@@ -1768,7 +1769,12 @@ class SalesService:
             ))
         stmt = stmt.order_by(SalesReturn.date.desc(), SalesReturn.created_at.desc()).offset(skip).limit(limit)
         res = await self.db.execute(stmt)
-        return list(res.scalars().unique().all())
+        rows = res.unique().all()
+        sales_returns = []
+        for sales_return, customer_name in rows:
+            sales_return.customer_name = customer_name
+            sales_returns.append(sales_return)
+        return sales_returns
 
     async def get_sales_return(self, sr_id: str) -> tuple[SalesReturn, List[SalesReturnItem]]:
         res = await self.db.execute(
