@@ -111,3 +111,4 @@ Completed
 ## 19. Related Walkthroughs
 - `docs/walkthrough/accounting/Business_Ledger_UX_Transformation_v1.0.0.md`
 - `docs/walkthrough/accounting/Accounting_Business_Ledger_Store_Code_And_Variants_v1.1.0.md`
+

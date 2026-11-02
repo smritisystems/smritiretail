@@ -116,3 +116,4 @@ Automated visual verification was captured using headless Playwright:
 ## 13. Related RFCs
 - `RFC-089`: High-Density Enterprise Sales & Statutory Ledger Canvas Standard
 - `RFC-094`: Footwear & Apparel SKU Tokenization and Variant Matrix Standard
+

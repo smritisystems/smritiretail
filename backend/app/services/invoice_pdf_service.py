@@ -357,9 +357,7 @@ def format_place_of_supply(raw_state: str, is_interstate: bool, customer_gstin: 
 
 
 def _resolve_delivery_gstin(invoice: Any, meta: Dict[str, Any]) -> str:
-    snapshot = getattr(invoice, "delivery_location_snapshot", None) or meta.get("delivery_location_snapshot") or {}
-    if not isinstance(snapshot, dict):
-        snapshot = {}
+    snapshot = _resolve_delivery_snapshot(invoice, meta)
     value = (
         getattr(invoice, "delivery_gstin", None)
         or snapshot.get("delivery_gstin")
@@ -369,27 +367,46 @@ def _resolve_delivery_gstin(invoice: Any, meta: Dict[str, Any]) -> str:
     return str(value or "").strip()
 
 
+def _resolve_delivery_snapshot(invoice: Any, meta: Dict[str, Any]) -> Dict[str, Any]:
+    snapshot = meta.get("delivery_location_snapshot") or {}
+    if not isinstance(snapshot, dict):
+        snapshot = {}
+    stored_snapshot = getattr(invoice, "delivery_location_snapshot", None) or {}
+    if isinstance(stored_snapshot, dict):
+        return {**snapshot, **stored_snapshot}
+    return snapshot
+
+
+def _format_delivery_snapshot_address(snapshot: Dict[str, Any]) -> str:
+    parts = [
+        snapshot.get("address_line1"),
+        snapshot.get("address_line2"),
+        snapshot.get("city"),
+    ]
+    state_and_pin = " ".join(
+        str(value).strip()
+        for value in (snapshot.get("state_name"), snapshot.get("pincode"))
+        if value
+    )
+    if state_and_pin:
+        parts.append(state_and_pin)
+    return " | ".join(str(part).strip() for part in parts if part)
+
+
 def _resolve_invoice_supply_context(
     invoice: Any,
     delivery_gstin: str,
     billing_gstin: str,
     supplier_gstin: str,
 ) -> tuple[str, bool, str]:
-    snapshot = getattr(invoice, "delivery_location_snapshot", None) or {}
-    if not isinstance(snapshot, dict):
-        snapshot = {}
     raw_state = (
-        snapshot.get("state_code")
-        or snapshot.get("state_name")
-        or getattr(invoice, "place_of_supply_code", None)
+        getattr(invoice, "place_of_supply_code", None)
         or getattr(invoice, "pos_state", None)
         or ""
     )
-    pos_gstin = delivery_gstin or (billing_gstin if not raw_state else "")
+    pos_gstin = billing_gstin if not raw_state else ""
     state_code = ""
-    if delivery_gstin[:2].isdigit() and delivery_gstin[:2] in GST_STATE_MAP:
-        state_code = delivery_gstin[:2]
-    elif raw_state:
+    if raw_state:
         match = re.search(r"\(?(\d{2})\)?", str(raw_state))
         if match and match.group(1) in GST_STATE_MAP:
             state_code = match.group(1)
@@ -399,6 +416,8 @@ def _resolve_invoice_supply_context(
                 (code for code, name in GST_STATE_MAP.items() if name.lower() in state or state in name.lower()),
                 "",
             )
+    elif delivery_gstin[:2].isdigit() and delivery_gstin[:2] in GST_STATE_MAP:
+        state_code = delivery_gstin[:2]
     elif billing_gstin[:2].isdigit() and billing_gstin[:2] in GST_STATE_MAP:
         state_code = billing_gstin[:2]
 
@@ -408,17 +427,12 @@ def _resolve_invoice_supply_context(
         else "27"
     )
     pos_code = state_code or supplier_state_code
-    is_interstate = pos_code != supplier_state_code
     stored_is_interstate = getattr(invoice, "is_interstate", None)
-    if stored_is_interstate is not None and bool(stored_is_interstate) != is_interstate:
-        raise HTTPException(
-            status_code=409,
-            detail=(
-                f"Invoice {getattr(invoice, 'invoice_no', '')} has a delivery place of supply "
-                "that conflicts with its saved tax classification. Correct it through the approved "
-                "amendment workflow before reprinting."
-            ),
-        )
+    is_interstate = (
+        bool(stored_is_interstate)
+        if stored_is_interstate is not None
+        else pos_code != supplier_state_code
+    )
     display = format_place_of_supply(
         raw_state,
         is_interstate,
@@ -432,20 +446,25 @@ def _validate_delivery_gstin_for_reprint(
     invoice: Any,
     delivery_gstin: str,
     billing_gstin: str,
+    delivery_snapshot: Optional[Dict[str, Any]] = None,
 ) -> None:
     status_str = str(getattr(invoice, "status", "") or "").casefold()
-    if (
-        status_str == "submitted"
-        and getattr(invoice, "delivery_store_code", None)
-        and billing_gstin
-        and not delivery_gstin
+    if status_str == "submitted" and (
+        getattr(invoice, "delivery_store_code", None)
+        or getattr(invoice, "sis_code", None)
     ):
+        missing_fields = []
+        if not _format_delivery_snapshot_address(delivery_snapshot or {}):
+            missing_fields.append("delivery address")
+        if billing_gstin and not delivery_gstin:
+            missing_fields.append("delivery GSTIN")
+        if not missing_fields:
+            return
         raise HTTPException(
             status_code=409,
             detail=(
                 f"Cannot reprint submitted invoice {getattr(invoice, 'invoice_no', '')}: "
-                "delivery GSTIN is missing from its historical snapshot. Correct the invoice through "
-                "the approved amendment workflow before reprinting."
+                f"missing from its snapshot or active store record: {' and '.join(missing_fields)}."
             ),
         )
 
@@ -639,12 +658,26 @@ class InvoicePdfService:
         eway_bill = invoice.eway_bill_no or meta.get("eway_bill_no", "")
 
         customer_name = getattr(invoice, "customer_name", None) or meta.get("customer_name", "Reliance Retail Limited")
-        site_name = getattr(invoice, "site_name", None) or meta.get("site_name", customer_name)
+        delivery_snapshot = _resolve_delivery_snapshot(invoice, meta)
+        site_name = (
+            delivery_snapshot.get("location_name")
+            or getattr(invoice, "site_name", None)
+            or meta.get("site_name", customer_name)
+        )
         billing_addr = getattr(invoice, "billing_address", None) or meta.get("billing_address", meta.get("customer_address", ""))
-        shipping_addr = getattr(invoice, "shipping_address", None) or meta.get("shipping_address", billing_addr)
+        shipping_addr = (
+            _format_delivery_snapshot_address(delivery_snapshot)
+            or getattr(invoice, "shipping_address", None)
+            or meta.get("shipping_address", billing_addr)
+        )
         customer_gstin = getattr(invoice, "customer_gstin", None) or meta.get("customer_gstin", "")
         delivery_gstin = _resolve_delivery_gstin(invoice, meta)
-        _validate_delivery_gstin_for_reprint(invoice, delivery_gstin, customer_gstin)
+        _validate_delivery_gstin_for_reprint(
+            invoice,
+            delivery_gstin,
+            customer_gstin,
+            delivery_snapshot,
+        )
         pos_code, is_interstate, place_of_supply_display = _resolve_invoice_supply_context(
             invoice,
             delivery_gstin,
@@ -1532,6 +1565,69 @@ class InvoicePdfService:
         if not invoice_rec:
             raise HTTPException(status_code=404, detail="Invoice not found under current company context.")
 
+        render_meta = dict(extra_meta or {})
+        store_code = (
+            getattr(invoice_rec, "delivery_store_code", None)
+            or getattr(invoice_rec, "sis_code", None)
+        )
+        stored_snapshot = getattr(invoice_rec, "delivery_location_snapshot", None) or {}
+        meta_snapshot = render_meta.get("delivery_location_snapshot") or {}
+        if not isinstance(stored_snapshot, dict):
+            stored_snapshot = {}
+        if not isinstance(meta_snapshot, dict):
+            meta_snapshot = {}
+        merged_snapshot = {**meta_snapshot, **stored_snapshot}
+        has_delivery_gstin = (
+            getattr(invoice_rec, "delivery_gstin", None)
+            or merged_snapshot.get("delivery_gstin")
+            or merged_snapshot.get("gstin")
+            or render_meta.get("delivery_gstin")
+        )
+        if store_code and (
+            not has_delivery_gstin
+            or not _format_delivery_snapshot_address(merged_snapshot)
+        ):
+            from ..models.crm import CustomerDeliveryLocation
+
+            location_stmt = select(CustomerDeliveryLocation).where(
+                CustomerDeliveryLocation.company_id == (company_id or invoice_rec.company_id),
+                CustomerDeliveryLocation.customer_id == invoice_rec.customer_id,
+                CustomerDeliveryLocation.store_code == str(store_code).strip().upper(),
+                CustomerDeliveryLocation.is_deleted == False,
+                CustomerDeliveryLocation.is_active == True,
+                CustomerDeliveryLocation.status == "ACTIVE",
+            )
+            if invoice_rec.branch_id:
+                location_stmt = location_stmt.where(
+                    or_(
+                        CustomerDeliveryLocation.branch_id == invoice_rec.branch_id,
+                        CustomerDeliveryLocation.branch_id.is_(None),
+                    )
+                )
+            else:
+                location_stmt = location_stmt.where(CustomerDeliveryLocation.branch_id.is_(None))
+            location_result = await session.execute(location_stmt.limit(1))
+            location = location_result.scalars().first()
+            if location:
+                current_location_snapshot = {
+                    "id": location.id,
+                    "store_code": location.store_code,
+                    "location_name": location.location_name,
+                    "address_line1": location.address_line1,
+                    "address_line2": location.address_line2,
+                    "city": location.city,
+                    "state_code": location.state_code,
+                    "state_name": location.state,
+                    "pincode": location.pincode,
+                    "delivery_gstin": location.gstin,
+                }
+                render_meta["delivery_location_snapshot"] = {
+                    **current_location_snapshot,
+                    **meta_snapshot,
+                    **stored_snapshot,
+                }
+                render_meta.setdefault("delivery_gstin", location.gstin)
+
         # Verify layout integrity before rendering
         verify_smrititaxinvoice_integrity()
 
@@ -1543,7 +1639,7 @@ class InvoicePdfService:
                 db=session,
                 company_id=target_cid,
                 invoice=invoice_rec,
-                extra_meta=extra_meta,
+                extra_meta=render_meta,
                 doc_type="TAX_INVOICE",
             )
         if seller_ctx:
@@ -1554,7 +1650,7 @@ class InvoicePdfService:
             invoice=invoice_rec,
             company_name=company_name,
             company_gstin=company_gstin,
-            extra_meta=extra_meta,
+            extra_meta=render_meta,
             seller_ctx=seller_ctx,
         )
 
