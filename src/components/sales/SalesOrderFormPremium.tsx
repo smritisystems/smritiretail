@@ -239,9 +239,7 @@ const CustomerLookupModal: React.FC<{
 
   const handleSearch = async (value: string) => {
     setSearch(value);
-    if (value.length >= 2) {
-      await loadCustomers(value);
-    }
+    await loadCustomers(value.trim());
   };
 
   return (

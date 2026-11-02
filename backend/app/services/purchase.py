@@ -1220,13 +1220,19 @@ class PurchaseService:
                     PurchaseOrderItem.order_id == target_po.id,
                     PurchaseOrderItem.is_deleted == False,
                 )
+                # Configurable: Strict SKU / Variant / Size Matching Rule
+                # If the purchase order line specifies a variant, enforce exact variant parity.
+                strict_variant_matching = getattr(self.tenant, "strict_po_variant_matching", True)
                 if canonical_variant_id:
-                    po_line_stmt = po_line_stmt.where(
-                        or_(
-                            PurchaseOrderItem.variant_id == canonical_variant_id,
-                            PurchaseOrderItem.product_id == product.id,
+                    if strict_variant_matching:
+                        po_line_stmt = po_line_stmt.where(PurchaseOrderItem.variant_id == canonical_variant_id)
+                    else:
+                        po_line_stmt = po_line_stmt.where(
+                            or_(
+                                PurchaseOrderItem.variant_id == canonical_variant_id,
+                                PurchaseOrderItem.product_id == product.id,
+                            )
                         )
-                    )
                 else:
                     po_line_stmt = po_line_stmt.where(PurchaseOrderItem.product_id == product.id)
 
@@ -1649,6 +1655,36 @@ class PurchaseService:
         curr_outstanding = Decimal(str(supplier.outstanding)) if supplier.outstanding is not None else Decimal("0.00")
         supplier.outstanding = (curr_outstanding + grand_total).quantize(Decimal("0.01"))
         supplier.modified_at = datetime.now(timezone.utc)
+
+        # Configurable PO Fulfillment Transition:
+        # Advance Purchase Order status when received
+        if linked_po:
+            try:
+                tot_ordered_stmt = select(func.coalesce(func.sum(PurchaseOrderItem.quantity), Decimal("0.00"))).where(
+                    PurchaseOrderItem.order_id == linked_po.id,
+                    PurchaseOrderItem.is_deleted == False
+                )
+                tot_ord_res = await self.db.execute(tot_ordered_stmt)
+                tot_ordered = tot_ord_res.scalar_one()
+
+                tot_rec_stmt = select(func.coalesce(func.sum(PurchaseReceiptItem.quantity_received), Decimal("0.00"))).select_from(PurchaseReceiptItem).join(
+                    PurchaseReceipt, PurchaseReceipt.id == PurchaseReceiptItem.receipt_id
+                ).where(
+                    PurchaseReceipt.order_id == linked_po.id,
+                    PurchaseReceipt.is_deleted == False,
+                    PurchaseReceipt.id != receipt.id
+                )
+                tot_rec_res = await self.db.execute(tot_rec_stmt)
+                tot_received_prior = tot_rec_res.scalar_one()
+                tot_received_now = tot_received_prior + sum(item.quantity_received for item in req.items)
+
+                if tot_received_now >= tot_ordered and tot_ordered > Decimal("0.00"):
+                    linked_po.status = "RECEIVED"
+                elif tot_received_now > Decimal("0.00"):
+                    linked_po.status = "PARTIALLY_RECEIVED"
+            except Exception as e:
+                # Log but do not block receipt
+                pass
 
         # Record Transactional Outbox event atomically within same DB transaction
         from .outbox_service import OutboxService
@@ -3407,6 +3443,22 @@ class PurchaseService:
                 "journal_voucher_id": voucher.id if voucher else None,
             },
         )
+        # Advance PO status to COMPLETED if linked to PO
+        target_po_ref = req.order_id or (grn.order_id if (req.receipt_id and 'grn' in locals() and grn) else None)
+        if target_po_ref:
+            try:
+                po_bill_stmt = select(PurchaseOrder).where(
+                    (PurchaseOrder.id == target_po_ref) | (PurchaseOrder.order_no == target_po_ref) | (PurchaseOrder.identity_code == target_po_ref),
+                    PurchaseOrder.company_id == self.tenant.company_id,
+                    PurchaseOrder.is_deleted == False,
+                )
+                po_bill_res = await self.db.execute(po_bill_stmt)
+                po_obj = po_bill_res.scalars().first()
+                if po_obj and po_obj.status in ("CONFIRMED", "RECEIVED", "PARTIALLY_RECEIVED"):
+                    po_obj.status = "COMPLETED"
+            except Exception:
+                pass
+
         await self.db.commit()
         return {
             "id": bill_id,

@@ -2097,21 +2097,44 @@ export const SmritiBillingStudio: React.FC<SmritiBillingStudioProps> = ({
                   </span>
                 </div>
 
-                <div className="flex justify-between items-center text-emerald-600 dark:text-emerald-400">
-                  <div className="flex items-center gap-1">
-                    <span>Bill Discount</span>
-                    <button
-                      type="button"
-                      onClick={() => setShowDiscountModal(true)}
-                      className="text-blue-600 hover:text-blue-800 p-0.5 rounded cursor-pointer"
-                      title="Edit Bill Discount"
-                    >
-                      <Pencil size={11} />
-                    </button>
+                <div className="flex justify-between items-center text-emerald-600 dark:text-emerald-400 py-0.5">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-medium text-xs">Bill Discount</span>
+                    <div className="inline-flex rounded border border-emerald-300 dark:border-emerald-700 overflow-hidden text-[10px]">
+                      <button
+                        type="button"
+                        onClick={() => setBillDiscountType("FLAT")}
+                        className={`px-1.5 py-0.5 font-bold transition ${billDiscountType === "FLAT" ? "bg-emerald-600 text-white" : "bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300"}`}
+                        title="Flat Amount Discount (₹)"
+                      >
+                        ₹
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setBillDiscountType("PERCENT")}
+                        className={`px-1.5 py-0.5 font-bold transition ${billDiscountType === "PERCENT" ? "bg-emerald-600 text-white" : "bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300"}`}
+                        title="Percentage Discount (%)"
+                      >
+                        %
+                      </button>
+                    </div>
                   </div>
-                  <span className="font-mono font-semibold">
-                    - ₹ {calculations.billDiscount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-bold">-</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={billLevelDiscount || ""}
+                      onChange={(e) => setBillLevelDiscount(Math.max(0, Number(e.target.value) || 0))}
+                      placeholder="0.00"
+                      className="w-20 px-1.5 py-0.5 text-right font-mono font-bold text-xs rounded border border-emerald-300 dark:border-emerald-800 bg-white dark:bg-slate-900 text-emerald-700 dark:text-emerald-300 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                      title="Directly enter bill discount value"
+                    />
+                    <span className="font-mono font-semibold text-xs min-w-[55px] text-right">
+                      (₹ {calculations.billDiscount.toFixed(2)})
+                    </span>
+                  </div>
                 </div>
 
                 <div className="flex justify-between items-center text-slate-800 dark:text-slate-200 font-semibold pt-1 border-t border-slate-100 dark:border-slate-800">

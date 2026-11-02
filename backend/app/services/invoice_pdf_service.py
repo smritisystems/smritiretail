@@ -373,7 +373,10 @@ def _resolve_delivery_snapshot(invoice: Any, meta: Dict[str, Any]) -> Dict[str, 
         snapshot = {}
     stored_snapshot = getattr(invoice, "delivery_location_snapshot", None) or {}
     if isinstance(stored_snapshot, dict):
-        return {**snapshot, **stored_snapshot}
+        snapshot = {**snapshot, **stored_snapshot}
+    current_snapshot = meta.get("current_delivery_location_snapshot") or {}
+    if isinstance(current_snapshot, dict):
+        snapshot = {**snapshot, **current_snapshot}
     return snapshot
 
 
@@ -1570,23 +1573,7 @@ class InvoicePdfService:
             getattr(invoice_rec, "delivery_store_code", None)
             or getattr(invoice_rec, "sis_code", None)
         )
-        stored_snapshot = getattr(invoice_rec, "delivery_location_snapshot", None) or {}
-        meta_snapshot = render_meta.get("delivery_location_snapshot") or {}
-        if not isinstance(stored_snapshot, dict):
-            stored_snapshot = {}
-        if not isinstance(meta_snapshot, dict):
-            meta_snapshot = {}
-        merged_snapshot = {**meta_snapshot, **stored_snapshot}
-        has_delivery_gstin = (
-            getattr(invoice_rec, "delivery_gstin", None)
-            or merged_snapshot.get("delivery_gstin")
-            or merged_snapshot.get("gstin")
-            or render_meta.get("delivery_gstin")
-        )
-        if store_code and (
-            not has_delivery_gstin
-            or not _format_delivery_snapshot_address(merged_snapshot)
-        ):
+        if store_code:
             from ..models.crm import CustomerDeliveryLocation
 
             location_stmt = select(CustomerDeliveryLocation).where(
@@ -1621,11 +1608,7 @@ class InvoicePdfService:
                     "pincode": location.pincode,
                     "delivery_gstin": location.gstin,
                 }
-                render_meta["delivery_location_snapshot"] = {
-                    **current_location_snapshot,
-                    **meta_snapshot,
-                    **stored_snapshot,
-                }
+                render_meta["current_delivery_location_snapshot"] = current_location_snapshot
                 render_meta.setdefault("delivery_gstin", location.gstin)
 
         # Verify layout integrity before rendering

@@ -470,7 +470,19 @@ export const TaxInvoiceA4: React.FC<TaxInvoiceA4Props> = ({ data, onEWayBillNoCh
               <h2 className="text-base font-bold text-gray-900 uppercase tracking-wider mb-0.5">TAX INVOICE</h2>
               <BarcodeCode128Svg value={data.invoiceNo} />
             </div>
-            <QrCodeSvg value={`GSTIN:${data.companyGst || 'UNREGISTERED'}|INV:${data.invoiceNo}|VAL:${grandTotal.toFixed(2)}|DATE:${data.date}`} size={68} />
+{((data as any).signedQr || (data as any).signed_qr_code) ? (
+              <div className="flex flex-col items-center">
+                <img
+                  src={(data as any).signedQr || (data as any).signed_qr_code}
+                  alt="GST E-Invoice QR"
+                  className="border border-gray-300 p-0.5 bg-white rounded-xs"
+                  style={{ width: 68, height: 68, objectFit: "contain" }}
+                />
+                <span className="font-mono text-[6.5px] text-gray-500 uppercase tracking-wider mt-0.5">GST E-INVOICE QR</span>
+              </div>
+            ) : (
+              <QrCodeSvg value={`GSTIN:${data.companyGst || 'UNREGISTERED'}|INV:${data.invoiceNo}|VAL:${grandTotal.toFixed(2)}|DATE:${data.date}`} size={68} />
+            )}
           </div>
           <table className="w-full font-mono text-[10px] border-collapse">
             <tbody>

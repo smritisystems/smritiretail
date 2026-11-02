@@ -1119,7 +1119,9 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
         { value: "Draft", label: "Draft" },
         { value: "Submitted", label: "Submitted" },
         { value: "Converted", label: "Converted" },
-        { value: "Confirmed", label: "Confirmed" }
+        { value: "Confirmed", label: "Confirmed" },
+        { value: "Cancelled", label: "Cancelled" },
+        { value: "Voided", label: "Voided" }
       ]
     },
     {

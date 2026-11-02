@@ -693,6 +693,7 @@ export const TaxInvoicePrintPage: React.FC = () => {
       irn: headerConfig.irn || einvoiceState.irn,
       ackNo: headerConfig.ackNo || einvoiceState.ackNo,
       ackDate: headerConfig.ackDate || einvoiceState.ackDate,
+      signedQr: (headerConfig as any).signedQr || einvoiceState.signedQr,
     };
   }, [invoice, headerConfig, einvoiceState]);
 
