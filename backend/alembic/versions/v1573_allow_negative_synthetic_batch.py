@@ -1,3 +1,15 @@
+# -----------------------------------------------------------------------------
+# Project      : SMRITI Retail OS
+# Author       : Jawahar Ramkripal Mallah
+# Designation  : Chief Systems Architect & Creator
+# Email        : support@smritibooks.com
+# Websites     : smritibooks.com | erpnbook.com | aitdl.com
+# Version      : 3.17.0
+# Created      : 2026-11-02
+# Copyright    : © SMRITIBooks.com. All Rights Reserved.
+# License      : Proprietary Commercial Software
+# Classification: Internal
+# -----------------------------------------------------------------------------
 """Allow explicitly authorized negative stock in synthetic DEFAULT batches.
 
 Revision ID: v1573
@@ -23,7 +35,8 @@ _CHECK = (
 
 
 def upgrade() -> None:
-    op.drop_constraint(_CONSTRAINT, "product_batch_stocks", type_="check")
+    bind = op.get_bind()
+    bind.execute(sa.text(f"ALTER TABLE product_batch_stocks DROP CONSTRAINT IF EXISTS {_CONSTRAINT}"))
     op.create_check_constraint(_CONSTRAINT, "product_batch_stocks", _CHECK)
 
 
@@ -41,7 +54,7 @@ def downgrade() -> None:
             "reconcile those balances before downgrading v1573."
         )
 
-    op.drop_constraint(_CONSTRAINT, "product_batch_stocks", type_="check")
+    bind.execute(sa.text(f"ALTER TABLE product_batch_stocks DROP CONSTRAINT IF EXISTS {_CONSTRAINT}"))
     op.create_check_constraint(
         _CONSTRAINT,
         "product_batch_stocks",

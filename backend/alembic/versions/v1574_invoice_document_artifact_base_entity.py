@@ -46,6 +46,16 @@ def upgrade() -> None:
         f"ALTER TABLE {_TABLE} ADD COLUMN IF NOT EXISTS version INTEGER NOT NULL DEFAULT 1",
         f"CREATE UNIQUE INDEX IF NOT EXISTS ix_{_TABLE}_uuid ON {_TABLE} (uuid)",
         f"""
+        UPDATE {_TABLE}
+        SET company_id = (SELECT id FROM companies ORDER BY id ASC LIMIT 1)
+        WHERE company_id IS NOT NULL AND company_id NOT IN (SELECT id FROM companies);
+        """,
+        f"""
+        UPDATE {_TABLE}
+        SET branch_id = (SELECT id FROM branches WHERE company_id = {_TABLE}.company_id ORDER BY id ASC LIMIT 1)
+        WHERE branch_id IS NOT NULL AND branch_id NOT IN (SELECT id FROM branches);
+        """,
+        f"""
         DO $$
         BEGIN
             IF NOT EXISTS (
