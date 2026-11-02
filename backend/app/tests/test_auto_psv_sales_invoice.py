@@ -36,6 +36,7 @@ from app.models.sales import SalesInvoice, SalesInvoiceItem
 from app.schemas.sales import SalesInvoiceCreate, SalesInvoiceItemCreate
 from app.api.deps import TenantContext
 from app.services.sales import SalesService
+from app.services.stock_ledger import StockLedger
 from app.services.psv_projection import PSVProjectionService
 from app.schemas.psv import PSVReceiveInvoiceReq, PSVReceiveInvoiceLineReq
 from app.services.product_code_parser import ProductCodeParser
@@ -268,6 +269,10 @@ async def test_child_account_invoice_uses_child_billing_and_delivery_identity(db
     product = env["product"]
     item = env["item"]
     variant = env["variant"]
+    warehouse.address = "12 Warehouse Road"
+    warehouse.city = "Mumbai"
+    warehouse.state = "Maharashtra"
+    warehouse.pincode = "400001"
     item.mrp = Decimal("999.00")
     item.selling_price = Decimal("599.00")
     variant.mrp = Decimal("999.00")
@@ -382,6 +387,15 @@ async def test_child_account_invoice_uses_child_billing_and_delivery_identity(db
         child_policy,
     ])
     await db_session.flush()
+    await StockLedger.post_admin_opening_stock(
+        db_session,
+        company_id=company.id,
+        product_id=product.id,
+        quantity=Decimal("10.00"),
+        reason="Child-account invoice integration test stock",
+        warehouse_id=warehouse.id,
+        user_id="TEST",
+    )
 
     invoice = await SalesService(db_session, env["tenant_ctx"]).create_sales_invoice(
         SalesInvoiceCreate(
