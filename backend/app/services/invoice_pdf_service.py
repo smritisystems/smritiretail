@@ -356,6 +356,100 @@ def format_place_of_supply(raw_state: str, is_interstate: bool, customer_gstin: 
     return f"{name} ({code}) — {supply_type}"
 
 
+def _resolve_delivery_gstin(invoice: Any, meta: Dict[str, Any]) -> str:
+    snapshot = getattr(invoice, "delivery_location_snapshot", None) or meta.get("delivery_location_snapshot") or {}
+    if not isinstance(snapshot, dict):
+        snapshot = {}
+    value = (
+        getattr(invoice, "delivery_gstin", None)
+        or snapshot.get("delivery_gstin")
+        or snapshot.get("gstin")
+        or meta.get("delivery_gstin")
+    )
+    return str(value or "").strip()
+
+
+def _resolve_invoice_supply_context(
+    invoice: Any,
+    delivery_gstin: str,
+    billing_gstin: str,
+    supplier_gstin: str,
+) -> tuple[str, bool, str]:
+    snapshot = getattr(invoice, "delivery_location_snapshot", None) or {}
+    if not isinstance(snapshot, dict):
+        snapshot = {}
+    raw_state = (
+        snapshot.get("state_code")
+        or snapshot.get("state_name")
+        or getattr(invoice, "place_of_supply_code", None)
+        or getattr(invoice, "pos_state", None)
+        or ""
+    )
+    pos_gstin = delivery_gstin or (billing_gstin if not raw_state else "")
+    state_code = ""
+    if delivery_gstin[:2].isdigit() and delivery_gstin[:2] in GST_STATE_MAP:
+        state_code = delivery_gstin[:2]
+    elif raw_state:
+        match = re.search(r"\(?(\d{2})\)?", str(raw_state))
+        if match and match.group(1) in GST_STATE_MAP:
+            state_code = match.group(1)
+        else:
+            state = str(raw_state).strip().lower()
+            state_code = next(
+                (code for code, name in GST_STATE_MAP.items() if name.lower() in state or state in name.lower()),
+                "",
+            )
+    elif billing_gstin[:2].isdigit() and billing_gstin[:2] in GST_STATE_MAP:
+        state_code = billing_gstin[:2]
+
+    supplier_state_code = (
+        supplier_gstin[:2]
+        if supplier_gstin[:2].isdigit() and supplier_gstin[:2] in GST_STATE_MAP
+        else "27"
+    )
+    pos_code = state_code or supplier_state_code
+    is_interstate = pos_code != supplier_state_code
+    stored_is_interstate = getattr(invoice, "is_interstate", None)
+    if stored_is_interstate is not None and bool(stored_is_interstate) != is_interstate:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Invoice {getattr(invoice, 'invoice_no', '')} has a delivery place of supply "
+                "that conflicts with its saved tax classification. Correct it through the approved "
+                "amendment workflow before reprinting."
+            ),
+        )
+    display = format_place_of_supply(
+        raw_state,
+        is_interstate,
+        customer_gstin=pos_gstin,
+        supplier_gstin=supplier_gstin,
+    )
+    return pos_code, is_interstate, display
+
+
+def _validate_delivery_gstin_for_reprint(
+    invoice: Any,
+    delivery_gstin: str,
+    billing_gstin: str,
+) -> None:
+    status_str = str(getattr(invoice, "status", "") or "").casefold()
+    if (
+        status_str == "submitted"
+        and getattr(invoice, "delivery_store_code", None)
+        and billing_gstin
+        and not delivery_gstin
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Cannot reprint submitted invoice {getattr(invoice, 'invoice_no', '')}: "
+                "delivery GSTIN is missing from its historical snapshot. Correct the invoice through "
+                "the approved amendment workflow before reprinting."
+            ),
+        )
+
+
 # ==============================================================================
 # CANONICAL GOVERNED TAX INVOICE CONFIGURATION (FROZEN V1)
 # ==============================================================================
@@ -549,26 +643,14 @@ class InvoicePdfService:
         billing_addr = getattr(invoice, "billing_address", None) or meta.get("billing_address", meta.get("customer_address", ""))
         shipping_addr = getattr(invoice, "shipping_address", None) or meta.get("shipping_address", billing_addr)
         customer_gstin = getattr(invoice, "customer_gstin", None) or meta.get("customer_gstin", "")
-
-        # Determine Supply Type dynamically from supplier GSTIN and Place of Supply / Customer GSTIN
-        supplier_state_code = company_gstin[:2] if (company_gstin and len(company_gstin) >= 2 and company_gstin[:2].isdigit()) else "27"
-        pos_code = None
-        if customer_gstin and len(customer_gstin) >= 2 and customer_gstin[:2].isdigit():
-            pos_code = customer_gstin[:2]
-        elif pos_state:
-            m = re.search(r'\(?(\d{2})\)?', str(pos_state))
-            if m:
-                pos_code = m.group(1)
-            else:
-                for c, n in GST_STATE_MAP.items():
-                    if n.lower() in str(pos_state).lower() or str(pos_state).lower() in n.lower():
-                        pos_code = c
-                        break
-        if not pos_code:
-            pos_code = supplier_state_code
-            
-        is_interstate = (pos_code != supplier_state_code)
-        place_of_supply_display = format_place_of_supply(pos_state, is_interstate, customer_gstin, supplier_gstin=company_gstin)
+        delivery_gstin = _resolve_delivery_gstin(invoice, meta)
+        _validate_delivery_gstin_for_reprint(invoice, delivery_gstin, customer_gstin)
+        pos_code, is_interstate, place_of_supply_display = _resolve_invoice_supply_context(
+            invoice,
+            delivery_gstin,
+            customer_gstin,
+            company_gstin,
+        )
 
         is_rcm = bool(getattr(invoice, "reverse_charge", False) or getattr(invoice, "is_reverse_charge", False) or meta.get("reverse_charge", False) or meta.get("is_reverse_charge", False))
         reverse_charge_display = "Yes" if is_rcm else "No"
@@ -1104,7 +1186,7 @@ class InvoicePdfService:
                       <div class="cust-heading">SHIPPED TO (DELIVERY SITE)</div>
                       <div class="cust-name">{site_name}</div>
                       <div class="cust-address">{shipping_addr}</div>
-                      <div class="cust-gstin">GSTIN: <span style="color: #1e40af;">{customer_gstin}</span></div>
+                      <div class="cust-gstin">GSTIN: <span style="color: #1e40af;">{delivery_gstin}</span></div>
                     </td>
                   </tr>
                 </table>

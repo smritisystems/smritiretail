@@ -32,6 +32,7 @@ import {
   formatIndianShortCurrency,
   formatDisplayDate,
   getMonthName,
+  parseSkuTokens,
   TaxInvoiceLine,
   DetailedInvoiceResponse,
 } from "../components/BusinessLedgerTab.tsx";
@@ -50,6 +51,8 @@ describe("SMRITI Statutory Business Ledger & Sales Register Unit Suite", () => {
       customer_name: "Reliance Retail Limited",
       customer_gstin: "27AAACR1921R1Z5",
       place_of_supply: "Maharashtra (27)",
+      sis_code: "1888",
+      site_name: "RRL FOOTPRINT RKB PATH DIBRUGARH AS",
       items_count: 101,
       total_quantity: 152.0,
       taxable_value: 168634.88,
@@ -71,6 +74,8 @@ describe("SMRITI Statutory Business Ledger & Sales Register Unit Suite", () => {
       customer_name: "Reliance Retail Limited",
       customer_gstin: "27AAACR1921R1Z5",
       place_of_supply: "Maharashtra (27)",
+      sis_code: "1969",
+      site_name: "RRL FOOTPRINT FORTUNE CENTRAL GUWAH",
       items_count: 101,
       total_quantity: 152.0,
       taxable_value: 168634.88,
@@ -92,6 +97,8 @@ describe("SMRITI Statutory Business Ledger & Sales Register Unit Suite", () => {
       customer_name: "Reliance Retail Limited",
       customer_gstin: "27AAACR1921R1Z5",
       place_of_supply: "Maharashtra (27)",
+      sis_code: "1977",
+      site_name: "RRL FOOTPRINT GACHIBOWLI HYDERABAD",
       items_count: 85,
       total_quantity: 130.0,
       taxable_value: 156864.0,
@@ -113,6 +120,8 @@ describe("SMRITI Statutory Business Ledger & Sales Register Unit Suite", () => {
       customer_name: "Tata Trent Limited",
       customer_gstin: "27AAACT2345T1Z1",
       place_of_supply: "Maharashtra (27)",
+      sis_code: "8155",
+      site_name: "RRL FOOTPRINT RAMA TALKIES RO",
       items_count: 60,
       total_quantity: 90.0,
       taxable_value: 106124.0,
@@ -179,6 +188,28 @@ describe("SMRITI Statutory Business Ledger & Sales Register Unit Suite", () => {
       expect(getMonthName("2026-10-15")).toBe("Oct 2026");
       expect(getMonthName("2026-11-20")).toBe("Nov 2026");
     });
+
+    it("should parse SKU code tokens into canonical Article, Color, and Size components", () => {
+      const res1 = parseSkuTokens("CH-24-G-BLACK-36", "CH-24-G BLACK 36");
+      expect(res1.article).toBe("CH-24-G");
+      expect(res1.color).toBe("BLACK");
+      expect(res1.size).toBe("36");
+
+      const res2 = parseSkuTokens("SND-01-C-GOLD-38", "SND-01-C GOLD 38");
+      expect(res2.article).toBe("SND-01-C");
+      expect(res2.color).toBe("GOLD");
+      expect(res2.size).toBe("38");
+
+      const res3 = parseSkuTokens("CH-18-E-BROWN-40", "CH-18-E BROWN 40");
+      expect(res3.article).toBe("CH-18-E");
+      expect(res3.color).toBe("BROWN");
+      expect(res3.size).toBe("40");
+
+      const resFallback = parseSkuTokens(null, null);
+      expect(resFallback.article).toBe("—");
+      expect(resFallback.color).toBe("—");
+      expect(resFallback.size).toBe("—");
+    });
   });
 
   describe("2. Statutory Financial Calculations and KPI Accuracy", () => {
@@ -214,14 +245,16 @@ describe("SMRITI Statutory Business Ledger & Sales Register Unit Suite", () => {
   });
 
   describe("3. Invoice Register Filtering and Search", () => {
-    it("should filter by search query matching invoice number, customer, or GSTIN", () => {
+    it("should filter by search query matching invoice number, customer, GSTIN, store code, or site name", () => {
       const searchByInv = (query: string) => {
         const q = query.trim().toLowerCase();
         return mockInvoices.filter(
           (inv) =>
             inv.invoice_number.toLowerCase().includes(q) ||
             (inv.customer_name && inv.customer_name.toLowerCase().includes(q)) ||
-            (inv.customer_gstin && inv.customer_gstin.toLowerCase().includes(q))
+            (inv.customer_gstin && inv.customer_gstin.toLowerCase().includes(q)) ||
+            (inv.sis_code && inv.sis_code.toLowerCase().includes(q)) ||
+            (inv.site_name && inv.site_name.toLowerCase().includes(q))
         );
       };
 
@@ -229,6 +262,9 @@ describe("SMRITI Statutory Business Ledger & Sales Register Unit Suite", () => {
       expect(searchByInv("Reliance").length).toBe(3);
       expect(searchByInv("27AAACR1921R1Z5").length).toBe(3);
       expect(searchByInv("Trent").length).toBe(1);
+      expect(searchByInv("1888").length).toBe(1);
+      expect(searchByInv("DIBRUGARH").length).toBe(1);
+      expect(searchByInv("GACHIBOWLI").length).toBe(1);
       expect(searchByInv("NonExistent").length).toBe(0);
     });
 

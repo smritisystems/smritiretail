@@ -70,6 +70,8 @@ import {
   ShieldAlert,
   SlidersHorizontal,
   FileSpreadsheet,
+  Store,
+  Tag,
 } from "lucide-react";
 import { apiFetchV1 } from "../lib/apiFetchV1.ts";
 import { useDrillDown } from "./drilldown/drilldown_store.tsx";
@@ -86,6 +88,7 @@ export interface TaxInvoiceLine {
   status: string;
   document_type?: string;
   sis_code?: string | null;
+  store_code?: string | null;
   supplier_name?: string | null;
   supplier_gstin?: string | null;
   supplier_state?: string | null;
@@ -199,6 +202,28 @@ export const getMonthName = (dStr?: string | null): string => {
   return `${month} ${year}`;
 };
 
+export interface SkuTokens {
+  article: string;
+  color: string;
+  size: string;
+}
+
+export const parseSkuTokens = (code?: string | null, name?: string | null): SkuTokens => {
+  if (!code && !name) return { article: "—", color: "—", size: "—" };
+  const raw = (code || name || "").trim();
+  const parts = raw.split("-");
+  if (parts.length >= 3) {
+    const size = parts[parts.length - 1].trim();
+    const color = parts[parts.length - 2].trim();
+    const article = parts.slice(0, parts.length - 2).join("-").trim();
+    return { article, color, size };
+  }
+  if (parts.length === 2) {
+    return { article: parts[0].trim(), color: "—", size: parts[1].trim() };
+  }
+  return { article: raw, color: "—", size: "—" };
+};
+
 type ActiveDetailTab = "Invoice Details" | "Item Details" | "Tax Breakdown" | "Payments" | "Activity";
 
 // ─────────────────────────────────────────────────────────────
@@ -248,10 +273,12 @@ export const BusinessLedgerTab: React.FC<BusinessLedgerTabProps> = ({ currentUse
   const [isExportDropdownOpen, setIsExportDropdownOpen] = useState<boolean>(false);
   const [copiedGstin, setCopiedGstin] = useState<boolean>(false);
   const [copiedInvoiceNo, setCopiedInvoiceNo] = useState<string | null>(null);
+  const [itemSearchQuery, setItemSearchQuery] = useState<string>("");
 
   // Visible columns configuration
   const [visibleColumns, setVisibleColumns] = useState({
     invoiceDate: true,
+    storeCode: false,
     customer: true,
     taxableValue: true,
     gst: true,
@@ -377,14 +404,25 @@ export const BusinessLedgerTab: React.FC<BusinessLedgerTabProps> = ({ currentUse
           return false;
         }
       }
-      // Search query
+      // Search query (Supports Invoice No, Customer, GSTIN, Store Code, Site Name, Place of Supply)
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
         const no = (inv.invoice_number || "").toLowerCase();
         const cname = (inv.customer_name || "").toLowerCase();
         const cgst = (inv.customer_gstin || "").toLowerCase();
         const pos = (inv.place_of_supply || "").toLowerCase();
-        if (!no.includes(q) && !cname.includes(q) && !cgst.includes(q) && !pos.includes(q)) {
+        const store = (inv.sis_code || inv.store_code || "").toLowerCase();
+        const site = (inv.site_name || "").toLowerCase();
+        const po = (inv.po_reference || "").toLowerCase();
+        if (
+          !no.includes(q) &&
+          !cname.includes(q) &&
+          !cgst.includes(q) &&
+          !pos.includes(q) &&
+          !store.includes(q) &&
+          !site.includes(q) &&
+          !po.includes(q)
+        ) {
           return false;
         }
       }
@@ -562,6 +600,8 @@ export const BusinessLedgerTab: React.FC<BusinessLedgerTabProps> = ({ currentUse
     const headers = [
       "Invoice No",
       "Invoice Date",
+      "Store Code",
+      "Site / Store Name",
       "Customer Name",
       "Customer GSTIN",
       "Place of Supply",
@@ -577,6 +617,8 @@ export const BusinessLedgerTab: React.FC<BusinessLedgerTabProps> = ({ currentUse
     const rows = sortedInvoices.map((inv) => [
       inv.invoice_number,
       inv.invoice_date,
+      `"${inv.sis_code || inv.store_code || ""}"`,
+      `"${(inv.site_name || "").replace(/"/g, '""')}"`,
       `"${(inv.customer_name || "").replace(/"/g, '""')}"`,
       inv.customer_gstin || "",
       `"${(inv.place_of_supply || "").replace(/"/g, '""')}"`,
@@ -1124,6 +1166,17 @@ export const BusinessLedgerTab: React.FC<BusinessLedgerTabProps> = ({ currentUse
                           </div>
                         </th>
                       )}
+                      {visibleColumns.storeCode && (
+                        <th
+                          className="py-2.5 px-2.5 font-bold cursor-pointer hover:text-blue-600 whitespace-nowrap"
+                          onClick={() => handleSort("sis_code")}
+                        >
+                          <div className="flex items-center gap-1">
+                            <span>Store Code</span>
+                            <ArrowUpDown size={12} className="text-slate-400" />
+                          </div>
+                        </th>
+                      )}
                       {visibleColumns.customer && (
                         <th
                           className="py-2.5 px-2.5 font-bold cursor-pointer hover:text-blue-600"
@@ -1235,6 +1288,15 @@ export const BusinessLedgerTab: React.FC<BusinessLedgerTabProps> = ({ currentUse
                             {visibleColumns.invoiceDate && (
                               <td className="py-2.5 px-2.5 whitespace-nowrap text-slate-600 dark:text-slate-300">
                                 {formatDisplayDate(inv.invoice_date)}
+                              </td>
+                            )}
+
+                            {/* Store Code */}
+                            {visibleColumns.storeCode && (
+                              <td className="py-2.5 px-2.5 whitespace-nowrap text-slate-700 dark:text-slate-300 font-mono text-[11px]" title={inv.site_name || ""}>
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-700 dark:text-slate-300">
+                                  {inv.sis_code || inv.store_code || "—"}
+                                </span>
                               </td>
                             )}
 
@@ -1517,6 +1579,17 @@ export const BusinessLedgerTab: React.FC<BusinessLedgerTabProps> = ({ currentUse
                                 <MapPin size={11} className="text-slate-400 shrink-0" />
                                 <span>{selectedInvoice.supplier_state || "Maharashtra"}</span>
                               </div>
+                              {(selectedInvoice.sis_code || selectedInvoice.store_code || selectedInvoice.site_name) && (
+                                <div className="flex items-center gap-1.5 text-[10px] text-blue-600 dark:text-blue-400 font-semibold pt-1 border-t border-slate-100 dark:border-slate-800">
+                                  <Store size={11} className="shrink-0" />
+                                  <span>Store Code: {selectedInvoice.sis_code || selectedInvoice.store_code}</span>
+                                  {selectedInvoice.site_name && (
+                                    <span className="truncate text-slate-500 dark:text-slate-400 font-normal">
+                                      · {selectedInvoice.site_name}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           </div>
 
@@ -1592,7 +1665,7 @@ export const BusinessLedgerTab: React.FC<BusinessLedgerTabProps> = ({ currentUse
                     {/* Tab 2: Item Details */}
                     {activeTab === "Item Details" && (
                       <div className="space-y-3">
-                        <div className="flex justify-between items-center">
+                        <div className="flex flex-wrap justify-between items-center gap-2">
                           <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
                             Invoice Line Items ({detailedInvoice?.items?.length || selectedInvoice.items_count})
                           </span>
@@ -1600,12 +1673,37 @@ export const BusinessLedgerTab: React.FC<BusinessLedgerTabProps> = ({ currentUse
                             Total Qty: {Number(selectedInvoice.total_quantity || 0).toFixed(2)}
                           </span>
                         </div>
+
+                        {/* Inline Item Filter by Article, Color, Size */}
+                        <div className="relative w-full">
+                          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                          <input
+                            type="text"
+                            value={itemSearchQuery}
+                            onChange={(e) => setItemSearchQuery(e.target.value)}
+                            placeholder="Filter by Article, Color, Size, Description, HSN..."
+                            className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50/70 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 rounded-lg focus:bg-white focus:outline-hidden focus:ring-1 focus:ring-blue-500 text-slate-800 dark:text-slate-200 placeholder-slate-400 font-sans"
+                          />
+                          {itemSearchQuery && (
+                            <button
+                              type="button"
+                              onClick={() => setItemSearchQuery("")}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600 font-bold"
+                            >
+                              ×
+                            </button>
+                          )}
+                        </div>
+
                         <div className="overflow-x-auto max-h-64 border border-slate-200 dark:border-slate-800 rounded-xl">
                           <table className="w-full text-left text-[11px]">
-                            <thead className="bg-slate-50 dark:bg-slate-950 font-bold uppercase text-slate-500 border-b border-slate-200 dark:border-slate-800">
+                            <thead className="bg-slate-50 dark:bg-slate-950 font-bold uppercase text-slate-500 border-b border-slate-200 dark:border-slate-800 select-none">
                               <tr>
-                                <th className="p-2">#</th>
-                                <th className="p-2">Item Code / Description</th>
+                                <th className="p-2 w-7">#</th>
+                                <th className="p-2">Article</th>
+                                <th className="p-2 text-center">Color</th>
+                                <th className="p-2 text-center">Size</th>
+                                <th className="p-2">Description / HSN</th>
                                 <th className="p-2 text-right">Qty</th>
                                 <th className="p-2 text-right">Rate</th>
                                 <th className="p-2 text-right">Total</th>
@@ -1614,26 +1712,56 @@ export const BusinessLedgerTab: React.FC<BusinessLedgerTabProps> = ({ currentUse
                             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                               {loadingDetails ? (
                                 <tr>
-                                  <td colSpan={5} className="p-4 text-center text-slate-400">Loading item lines...</td>
+                                  <td colSpan={8} className="p-4 text-center text-slate-400">Loading item lines...</td>
                                 </tr>
                               ) : detailedInvoice?.items && detailedInvoice.items.length > 0 ? (
-                                detailedInvoice.items.map((it, idx) => (
-                                  <tr key={it.id || idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                                    <td className="p-2 font-mono text-slate-400">{idx + 1}</td>
-                                    <td className="p-2">
-                                      <div className="font-semibold text-slate-800 dark:text-slate-200">{it.name}</div>
-                                      <div className="font-mono text-[10px] text-slate-400">{it.code} {it.hsn_code ? `· HSN: ${it.hsn_code}` : ""}</div>
-                                    </td>
-                                    <td className="p-2 text-right font-mono font-medium">{Number(it.quantity).toFixed(0)}</td>
-                                    <td className="p-2 text-right font-mono">{formatINR(Number(it.price))}</td>
-                                    <td className="p-2 text-right font-mono font-bold text-slate-900 dark:text-white">
-                                      {formatINR(Number(it.total_amount || (it.quantity * it.price)))}
-                                    </td>
-                                  </tr>
-                                ))
+                                detailedInvoice.items
+                                  .filter((it) => {
+                                    if (!itemSearchQuery.trim()) return true;
+                                    const q = itemSearchQuery.toLowerCase().trim();
+                                    const { article, color, size } = parseSkuTokens(it.code, it.name);
+                                    return (
+                                      (it.name || "").toLowerCase().includes(q) ||
+                                      (it.code || "").toLowerCase().includes(q) ||
+                                      article.toLowerCase().includes(q) ||
+                                      color.toLowerCase().includes(q) ||
+                                      size.toLowerCase().includes(q) ||
+                                      (it.hsn_code || "").includes(q)
+                                    );
+                                  })
+                                  .map((it, idx) => {
+                                    const { article, color, size } = parseSkuTokens(it.code, it.name);
+                                    return (
+                                      <tr key={it.id || idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                                        <td className="p-2 font-mono text-slate-400">{idx + 1}</td>
+                                        <td className="p-2 font-mono font-bold text-blue-600 dark:text-blue-400 whitespace-nowrap">
+                                          {article}
+                                        </td>
+                                        <td className="p-2 text-center whitespace-nowrap">
+                                          <span className="inline-flex px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                                            {color}
+                                          </span>
+                                        </td>
+                                        <td className="p-2 text-center whitespace-nowrap">
+                                          <span className="inline-flex items-center justify-center min-w-[20px] px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300 font-mono">
+                                            {size}
+                                          </span>
+                                        </td>
+                                        <td className="p-2 max-w-[140px] truncate" title={it.name}>
+                                          <div className="font-semibold text-slate-800 dark:text-slate-200 truncate">{it.name}</div>
+                                          <div className="font-mono text-[9px] text-slate-400">{it.hsn_code ? `HSN: ${it.hsn_code}` : it.code}</div>
+                                        </td>
+                                        <td className="p-2 text-right font-mono font-medium">{Number(it.quantity).toFixed(0)}</td>
+                                        <td className="p-2 text-right font-mono">{formatINR(Number(it.price))}</td>
+                                        <td className="p-2 text-right font-mono font-bold text-slate-900 dark:text-white">
+                                          {formatINR(Number(it.total_amount || (it.quantity * it.price)))}
+                                        </td>
+                                      </tr>
+                                    );
+                                  })
                               ) : (
                                 <tr>
-                                  <td colSpan={5} className="p-4 text-center text-slate-400">
+                                  <td colSpan={8} className="p-4 text-center text-slate-400">
                                     {selectedInvoice.items_count} aggregated line items. Click Open to view in Billing Studio.
                                   </td>
                                 </tr>
