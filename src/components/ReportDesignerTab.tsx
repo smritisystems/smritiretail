@@ -47,6 +47,7 @@ import {
   REPORT_BUSINESS_AREAS,
   resolveReportBusinessArea,
 } from "./reports/reportBusinessAreas.ts";
+import { ReportingCenterHub } from "./reports/ReportingCenterHub.tsx";
 
 // Types for drill down context
 interface DrilldownBreadcrumb {
@@ -79,6 +80,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
   // Navigation states
   const [activeView, setActiveView] = useState<"bi_center" | "designer" | "viewer">("bi_center");
   const [activeStudio, setActiveStudio] = useState<string>("all_reports");
+  const [showFullCatalogTable, setShowFullCatalogTable] = useState<boolean>(false);
 
   // Active Report being viewed/run
   const [selectedReport, setSelectedReport] = useState<any | null>(null);
@@ -1324,6 +1326,108 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
     setDrillLevel(0);
     setDrillFilter("");
     setActiveView("viewer");
+    try {
+      const stored = localStorage.getItem("smriti_recently_run_reports");
+      let list: any[] = [];
+      if (stored) {
+        try { list = JSON.parse(stored); } catch {}
+      }
+      const now = new Date();
+      const timeStr = now.toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric"
+      }) + ", " + now.toLocaleTimeString("en-IN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true
+      });
+      const item = {
+        id: report.id,
+        reportCode: report.code || report.id,
+        title: report.title,
+        executedAt: timeStr,
+        format: report.format === "Matrix" || report.format === "Pivot" ? "Excel" : "PDF",
+      };
+      list = [item, ...list.filter((x: any) => x.id !== report.id)].slice(0, 10);
+      localStorage.setItem("smriti_recently_run_reports", JSON.stringify(list));
+    } catch {}
+  };
+
+  const findAndRunReport = (reportIdentifier: string | any) => {
+    if (typeof reportIdentifier === "object" && reportIdentifier !== null) {
+      runReport(reportIdentifier);
+      return;
+    }
+    const id = String(reportIdentifier);
+    for (const studio of Object.values(studios)) {
+      const r = (studio as any)?.reports?.find((x: any) => x.id === id || x.code === id);
+      if (r) {
+        runReport(r);
+        return;
+      }
+    }
+    if (id === "RPT-TAX-005") {
+      handleLaunchStandardReport("sales_register");
+      return;
+    }
+    if (id === "RPT-SAL-001") {
+      handleLaunchStandardReport("cashier_summary");
+      return;
+    }
+    if (id === "RPT-PUR-001") {
+      handleLaunchStandardReport("purchase_register");
+      return;
+    }
+    if (id === "RPT-INV-001") {
+      handleLaunchStandardReport("stock_on_hand");
+      return;
+    }
+    if (id === "RPT-TAX-003") {
+      runReport({
+        id: "RPT-TAX-003",
+        code: "RPT-TAX-003",
+        title: "Item-wise Sales",
+        category: "Product",
+        format: "Pivot",
+        drillDownEnabled: true,
+        description: "Consolidated sales quantity and value per item across all invoices in the period.",
+      });
+      return;
+    }
+    if (id === "RPT-TAX-001") {
+      runReport({
+        id: "RPT-TAX-001",
+        code: "RPT-TAX-001",
+        title: "Tax Register (GST Sales Summary)",
+        category: "Tax",
+        format: "Grid",
+        drillDownEnabled: false,
+        description: "Bill-wise GST/IGST/CGST/SGST breakdowns for a date range — statutory audit register.",
+      });
+      return;
+    }
+    if (id === "RPT-TAX-006") {
+      runReport({
+        id: "RPT-TAX-006",
+        code: "RPT-TAX-006",
+        title: "Statutory GST Tax Invoices Master Register (GSTR-1)",
+        category: "Tax & Compliance",
+        format: "Grid",
+        drillDownEnabled: true,
+        description: "Complete statutory audit ledger of all tax invoices with buyer & seller GSTINs, Place of Supply, RCM, E-Way Bill.",
+      });
+      return;
+    }
+    runReport({
+      id: id,
+      code: id,
+      title: id,
+      category: "General",
+      format: "Grid",
+      drillDownEnabled: true,
+      description: "Standard ERP Report",
+    });
   };
 
   const handleBreadcrumbClick = (index: number) => {
@@ -1395,7 +1499,78 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
         )}
       </AnimatePresence>
 
-      {/* Header Controller Bar */}
+      {/* 🌟 AUTHORITATIVE SMRITI REPORTING CENTER WORKSPACE HUB */}
+      {activeView === "bi_center" && !showFullCatalogTable && (
+        <ReportingCenterHub
+          onRunReport={findAndRunReport}
+          onViewAllReports={() => setShowFullCatalogTable(true)}
+          onSelectCategory={(studioId) => {
+            setActiveStudio(studioId);
+            setShowFullCatalogTable(true);
+          }}
+          currentStore={activeStoreName}
+          availableBranches={availableBranches}
+          isLocationsManagementEnabled={isLocationsManagementEnabled}
+          currentUser={currentUser}
+        />
+      )}
+
+      {/* FULL CATALOG TABLE VIEW (When user clicks 'View All Reports (66)' or a specific functional category) */}
+      {activeView === "bi_center" && showFullCatalogTable && (
+        <div className="flex items-center justify-between bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              id="report-catalog-back-to-hub-btn"
+              onClick={() => setShowFullCatalogTable(false)}
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer"
+            >
+              <ArrowLeft size={14} />
+              <span>← Back to Reporting Center Hub</span>
+            </button>
+            <span className="text-xs text-slate-500 font-semibold">
+              Full Reports Catalog ({totalReportCount} available)
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setActiveView("designer")}
+              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+            >
+              <Plus size={13} /> New Report
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowBalanceSheetModal(true)}
+              className="px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <FileSpreadsheet size={13} className="text-blue-600" />
+              <span>Balance Sheet</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowPLDashboardModal(true)}
+              className="px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <TrendingUp size={13} className="text-emerald-600" />
+              <span>Branch P&L</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowScheduleModal(true)}
+              className="px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <Calendar size={13} className="text-purple-600" />
+              <span>Schedule</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Header Controller Bar (Only in Catalog View) */}
+      {activeView === "bi_center" && showFullCatalogTable && (
       <div className="bg-theme-surface-1 border border-theme-border rounded-xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-xs">
         <div>
           <div className="flex items-center space-x-2">
@@ -1543,8 +1718,9 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
           </select>
         </div>
       </div>
+      )}
 
-      {activeView === "bi_center" && (
+      {activeView === "bi_center" && showFullCatalogTable && (
         <div className="bg-theme-surface-1 border border-theme-border rounded-xl px-4 py-3 shadow-xs flex flex-col xl:flex-row xl:items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex items-center gap-1.5 text-xs font-bold text-theme-body whitespace-nowrap mr-1">
@@ -1682,7 +1858,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
       )}
 
       {/* Main View Manager */}
-      {activeView === "bi_center" && (
+      {activeView === "bi_center" && showFullCatalogTable && (
         <div className="space-y-5">
             {loading ? (
               <div className="bg-theme-surface-1 border border-theme-border rounded-xl h-96 flex flex-col items-center justify-center text-center shadow-xs">
@@ -2143,7 +2319,10 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
         <div className="space-y-4">
           <ReportBuilder
             initialTitle="Report Builder"
-            onReturnToCatalog={() => setActiveView("bi_center")}
+            onReturnToCatalog={() => {
+              setActiveView("bi_center");
+              setShowFullCatalogTable(false);
+            }}
             onNotification={(type, msg) => showNotification(type, msg)}
             isLocationsManagementEnabled={isLocationsManagementEnabled}
             activeStoreName={activeStoreName}
@@ -2159,11 +2338,17 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
           <div className="bg-theme-surface-1 border border-theme-divider rounded-2xl p-4 shadow-xl flex flex-wrap items-center justify-between gap-3 shrink-0">
             <div className="flex items-center gap-3">
               <button
-                onClick={() => setActiveView("bi_center")}
-                className="p-2 border border-theme-divider text-theme-muted hover:text-theme-body hover:bg-theme-surface-2 rounded-xl text-xs transition-colors"
-                title="Return to BI Hub"
+                id="report-viewer-back-to-hub-btn"
+                onClick={() => {
+                  setSelectedReport(null);
+                  setActiveView("bi_center");
+                  setShowFullCatalogTable(false);
+                }}
+                className="flex items-center gap-1.5 px-3.5 py-2 border border-blue-200 text-blue-700 hover:bg-blue-50 bg-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+                title="Return to Reporting Center Hub"
               >
-                <ArrowLeft size={16} />
+                <ArrowLeft size={14} />
+                <span>← Back to Reporting Center</span>
               </button>
               <div>
                 <h3 className="text-sm font-bold text-theme-body flex items-center gap-2">
