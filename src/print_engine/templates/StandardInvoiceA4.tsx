@@ -121,6 +121,8 @@ export interface InvoiceData {
   dispatch_from_snapshot?: any;
   dispatchFromSnapshot?: any;
   dispatchFromAddress?: string;
+  signedQr?: string;
+  signed_qr_code?: string;
   items?: InvoiceItem[];
 }
 
@@ -514,11 +516,11 @@ export const StandardInvoiceA4: React.FC<{ data?: InvoiceData }> = ({ data = {} 
                     
                     <div className="flex items-center gap-3">
                       <UniversalInvoiceQr
-                        signedQr={(invoiceData as any)?.signedQr || (invoiceData as any)?.signed_qr_code}
+                        signedQr={data.signedQr || data.signed_qr_code}
                         invoiceNo={invoiceNo}
                         companyName={companyName}
                         companyGst={companyGst}
-                        grandTotal={grandTotal}
+                        grandTotal={totalGrand}
                         invoiceDate={formattedDate}
                         size={64}
                       />

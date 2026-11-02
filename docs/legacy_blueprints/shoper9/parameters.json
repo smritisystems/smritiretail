@@ -1,5 +1,5 @@
 {
-  "totalParameters": 828,
+  "totalParameters": 831,
   "profileVariancesCount": 26,
   "parameters": [
     {
@@ -53821,6 +53821,105 @@
         "storageKey": "sysparam_yearendmonthno",
         "isConfigurable": true
       }
+    },
+      {
+        "id": "SO-1001",
+        "paramCode": "SalesOrderZeroRateFallback",
+        "description": "Price level to recommend when the customer-selected Sales Order price is missing",
+        "category": "11. Billing",
+        "categoryDescription": "Sales Order Pricing and Discount Defaults",
+        "displayOrder": 35,
+        "type": "T",
+        "inRetail": true,
+        "inDistributor": true,
+        "retailDefaults": {
+          "Id": "SO-1001", "Descr": "Price level to recommend when the customer-selected Sales Order price is missing",
+          "ParamCode": "SalesOrderZeroRateFallback", "Boolean": "0", "Intg": "0", "Txt": "MRP", "Dt": "",
+          "Sng": "0.00", "Cur": "0.00", "Opt": "T", "VAUid": "Super", "VActr": "1", "VATermId": ".",
+          "VACompCode": "", "Fixed": "Variable", "Changed": "0", "Category": "11. Billing",
+          "CatDescr": "Sales Order Pricing and Discount Defaults", "DispOrder": "35", "WZ": "0",
+          "WZType": "11. Billing", "WZOrder": "0"
+        },
+        "distributorDefaults": {
+          "Id": "SO-1001", "Descr": "Price level to recommend when the customer-selected Sales Order price is missing",
+          "ParamCode": "SalesOrderZeroRateFallback", "Boolean": "0", "Intg": "0", "Txt": "MRP", "Dt": "",
+          "Sng": "0.00", "Cur": "$0.00", "Opt": "T", "VAUid": "Super", "VActr": "1", "VATermId": ".",
+          "VACompCode": "", "Fixed": "Variable", "Changed": "0", "Category": "11. Billing",
+          "CatDescr": "Sales Order Pricing and Discount Defaults", "DispOrder": "35", "WZ": "0",
+          "WZType": "11. Billing", "WZOrder": "0"
+        },
+        "hasProfileVariance": false,
+        "smritiMapping": {
+          "targetSystem": "smritisys.system_parameters",
+          "storageKey": "sysparam_salesorderzeroratefallback",
+          "isConfigurable": true
+        }
+      },
+      {
+        "id": "SO-1002",
+        "paramCode": "SalesOrderDefaultDiscountPct",
+        "description": "Default Sales Order discount percent when the customer profile has no discount",
+        "category": "11. Billing",
+        "categoryDescription": "Sales Order Pricing and Discount Defaults",
+        "displayOrder": 36,
+        "type": "C",
+        "inRetail": true,
+        "inDistributor": true,
+        "retailDefaults": {
+          "Id": "SO-1002", "Descr": "Default Sales Order discount percent when the customer profile has no discount",
+          "ParamCode": "SalesOrderDefaultDiscountPct", "Boolean": "0", "Intg": "0", "Txt": "",
+          "Dt": "", "Sng": "0.00", "Cur": "0.00", "Opt": "C", "VAUid": "Super", "VActr": "1",
+          "VATermId": ".", "VACompCode": "", "Fixed": "Variable", "Changed": "0", "Category": "11. Billing",
+          "CatDescr": "Sales Order Pricing and Discount Defaults", "DispOrder": "36", "WZ": "0",
+          "WZType": "11. Billing", "WZOrder": "0"
+        },
+        "distributorDefaults": {
+          "Id": "SO-1002", "Descr": "Default Sales Order discount percent when the customer profile has no discount",
+          "ParamCode": "SalesOrderDefaultDiscountPct", "Boolean": "0", "Intg": "0", "Txt": "",
+          "Dt": "", "Sng": "0.00", "Cur": "$0.00", "Opt": "C", "VAUid": "Super", "VActr": "1",
+          "VATermId": ".", "VACompCode": "", "Fixed": "Variable", "Changed": "0", "Category": "11. Billing",
+          "CatDescr": "Sales Order Pricing and Discount Defaults", "DispOrder": "36", "WZ": "0",
+          "WZType": "11. Billing", "WZOrder": "0"
+        },
+        "hasProfileVariance": false,
+        "smritiMapping": {
+          "targetSystem": "smritisys.system_parameters",
+          "storageKey": "sysparam_salesorderdefaultdiscountpct",
+          "isConfigurable": true
+        }
+      },
+      {
+        "id": "SO-1003",
+        "paramCode": "AllowSalesOrderDiscountOverride",
+        "description": "Allow staff to override customer or system-default Sales Order discounts",
+        "category": "11. Billing",
+        "categoryDescription": "Sales Order Pricing and Discount Defaults",
+        "displayOrder": 37,
+        "type": "B",
+        "inRetail": true,
+        "inDistributor": true,
+        "retailDefaults": {
+          "Id": "SO-1003", "Descr": "Allow staff to override customer or system-default Sales Order discounts",
+          "ParamCode": "AllowSalesOrderDiscountOverride", "Boolean": "1", "Intg": "0", "Txt": "",
+          "Dt": "", "Sng": "0.00", "Cur": "0.00", "Opt": "B", "VAUid": "Super", "VActr": "1",
+          "VATermId": ".", "VACompCode": "", "Fixed": "Variable", "Changed": "0", "Category": "11. Billing",
+          "CatDescr": "Sales Order Pricing and Discount Defaults", "DispOrder": "37", "WZ": "0",
+          "WZType": "11. Billing", "WZOrder": "0"
+        },
+        "distributorDefaults": {
+          "Id": "SO-1003", "Descr": "Allow staff to override customer or system-default Sales Order discounts",
+          "ParamCode": "AllowSalesOrderDiscountOverride", "Boolean": "1", "Intg": "0", "Txt": "",
+          "Dt": "", "Sng": "0.00", "Cur": "$0.00", "Opt": "B", "VAUid": "Super", "VActr": "1",
+          "VATermId": ".", "VACompCode": "", "Fixed": "Variable", "Changed": "0", "Category": "11. Billing",
+          "CatDescr": "Sales Order Pricing and Discount Defaults", "DispOrder": "37", "WZ": "0",
+          "WZType": "11. Billing", "WZOrder": "0"
+        },
+        "hasProfileVariance": false,
+        "smritiMapping": {
+          "targetSystem": "smritisys.system_parameters",
+          "storageKey": "sysparam_allowsalesorderdiscountoverride",
+          "isConfigurable": true
+        }
     }
   ],
   "profileVariances": [

@@ -19,14 +19,18 @@ from decimal import Decimal
 from typing import Dict, Any, List, Optional, Tuple
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import selectinload
 
 from ...api.deps import get_company_db, get_current_user
 from ...models.pricing import PriceBook, CustomerPriceTier, PriceBookEntry, CustomerPriceAssignment, SalesFactor, ItemPriceRevision
-from ...models.crm import Customer
+from ...models.crm import Customer, CustomerPolicy
+from ...models.item_master import ItemPrice
+from ...models.inventory import Product
 from ...services.pricing_engine import PricingEngine
 from ...services.price_revision_service import PriceRevisionService
+from ...services.system_parameter import SystemParameterService
+from ...services.customer_discount_policy import resolve_customer_discount_policy
 from ...schemas.pricing import (
     PriceBookCreateRequest,
     PriceBookResponse,
@@ -38,6 +42,9 @@ from ...schemas.pricing import (
     CustomerPriceAssignmentResponse,
     PricingResolutionRequest,
     PricingResolutionResponse,
+    SalesOrderPriceResolutionRequest,
+    SalesOrderPriceResolutionResponse,
+    SalesOrderPricingControlsResponse,
     BulkPricingRequest,
     BulkPricingResponse,
     PricingSnapshot,
@@ -343,6 +350,39 @@ async def assign_customer_price_tier(
 # PRICING RESOLUTION & SNAPSHOT ENDPOINTS
 # ============================================================================
 
+@router.get(
+    "/sales-order-controls",
+    response_model=SalesOrderPricingControlsResponse,
+    summary="Get Sales Order Pricing Controls",
+)
+async def get_sales_order_pricing_controls(
+    db: AsyncSession = Depends(get_company_db),
+    current_user: Any = Depends(get_current_user),
+):
+    company_id, _ = _extract_user_info(current_user)
+
+    allow_discount_override = await SystemParameterService.resolve_parameter(
+        db=db,
+        param_code="SMRITI.SALES_ORDER.ALLOW_DISCOUNT_OVERRIDE",
+        company_id=company_id,
+    )
+    allow_rate_override = await SystemParameterService.resolve_parameter(
+        db=db,
+        param_code="AllowRateAlterInBill",
+        company_id=company_id,
+    )
+    return SalesOrderPricingControlsResponse(
+        allow_discount_override=(
+            bool(allow_discount_override.effective_value)
+            if allow_discount_override else True
+        ),
+        allow_rate_override=(
+            bool(allow_rate_override.effective_value)
+            if allow_rate_override else True
+        ),
+    )
+
+
 @router.post("/resolve", response_model=PricingResolutionResponse, summary="Resolve Effective Item Price")
 async def resolve_pricing(
     req: PricingResolutionRequest,
@@ -374,6 +414,186 @@ async def resolve_pricing(
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post(
+    "/sales-order-resolve",
+    response_model=SalesOrderPriceResolutionResponse,
+    summary="Resolve Sales Order Price and Discount Defaults",
+)
+async def resolve_sales_order_price(
+    req: SalesOrderPriceResolutionRequest,
+    db: AsyncSession = Depends(get_company_db),
+    current_user: Any = Depends(get_current_user),
+):
+    company_id, _ = _extract_user_info(current_user)
+
+    customer = None
+    if req.customer_id:
+        customer = (await db.execute(select(Customer).where(
+            Customer.id == req.customer_id,
+            Customer.company_id == company_id,
+            Customer.is_deleted == False,
+        ))).scalars().first()
+        if not customer:
+            raise HTTPException(status_code=404, detail="Selected customer was not found in the active company.")
+
+    async def parameter_value(code: str, default: Any) -> Any:
+        parameter = await SystemParameterService.resolve_parameter(
+            db=db,
+            param_code=code,
+            company_id=company_id,
+        )
+        return parameter.effective_value if parameter else default
+
+    fallback_level = str(await parameter_value("SMRITI.SALES_ORDER.ZERO_RATE_FALLBACK", "MRP")).strip().upper()
+    if fallback_level not in {"MRP", "SELLING_PRICE", "WHOLESALE_PRICE", "NONE"}:
+        fallback_level = "MRP"
+
+    customer_basis = str(getattr(customer, "pricing_basis", "") or "").strip().upper()
+    if customer_basis == "MRP":
+        pricing_level = "MRP"
+    elif customer_basis == "RATE":
+        pricing_level = "SELLING_PRICE"
+    elif customer_basis in {"MRP", "SELLING_PRICE", "WHOLESALE_PRICE", "PRICE_BOOK"}:
+        pricing_level = customer_basis
+    else:
+        pricing_level = fallback_level
+
+    tier_code = None
+    if customer:
+        from ...models.pricing import CustomerPriceAssignment
+        now = datetime.now(timezone.utc)
+        assignment_row = (await db.execute(
+            select(CustomerPriceAssignment, CustomerPriceTier)
+            .join(CustomerPriceTier, CustomerPriceAssignment.price_tier_id == CustomerPriceTier.id)
+            .where(
+                CustomerPriceAssignment.customer_id == customer.id,
+                CustomerPriceAssignment.company_id == company_id,
+                CustomerPriceAssignment.status == "ACTIVE",
+                CustomerPriceAssignment.is_deleted == False,
+                CustomerPriceTier.company_id == company_id,
+                CustomerPriceTier.is_active == True,
+                CustomerPriceTier.is_deleted == False,
+            )
+        )).first()
+        if assignment_row:
+            assignment, tier = assignment_row
+            if (
+                (assignment.valid_from is None or assignment.valid_from <= now)
+                and (assignment.valid_to is None or assignment.valid_to >= now)
+            ):
+                tier_code = tier.code
+
+    resolved = await PricingEngine.calculate_effective_price(
+        session=db,
+        item_id=req.item_id,
+        variant_id=req.variant_id,
+        quantity=Decimal(str(req.quantity)),
+        customer_tier_code=tier_code,
+        company_id=company_id,
+    )
+
+    wholesale_price = Decimal("0.00")
+    if req.variant_id:
+        item_price = (await db.execute(select(ItemPrice).where(
+            ItemPrice.item_variant_id == req.variant_id,
+            ItemPrice.company_id == company_id,
+            ItemPrice.is_active == True,
+        ))).scalars().first()
+        if item_price and item_price.wholesale_price is not None:
+            wholesale_price = Decimal(str(item_price.wholesale_price))
+
+    price_by_level = {
+        "MRP": Decimal(str(resolved["base_mrp"])),
+        "SELLING_PRICE": Decimal(str(resolved["effective_unit_price"])),
+        "WHOLESALE_PRICE": wholesale_price,
+        "PRICE_BOOK": Decimal(str(resolved["effective_unit_price"])),
+    }
+    rate = price_by_level.get(pricing_level, Decimal("0.00"))
+    fallback_applied = False
+    warning = None
+    if rate <= 0 and fallback_level != "NONE" and fallback_level != pricing_level:
+        fallback_rate = price_by_level.get(fallback_level, Decimal("0.00"))
+        if fallback_rate > 0:
+            rate = fallback_rate
+            fallback_applied = True
+            warning = (
+                f"{pricing_level.replace('_', ' ').title()} price is missing; "
+                f"using configured {fallback_level.replace('_', ' ').title()} fallback."
+            )
+    if rate <= 0:
+        warning = f"No usable price is configured for this item at the {pricing_level.replace('_', ' ')} level."
+
+    discount_percent = Decimal(str(await parameter_value(
+        "SMRITI.SALES_ORDER.DEFAULT_DISCOUNT_PCT",
+        0,
+    ) or 0))
+    discount_source = "SYSTEM_PARAMETER" if discount_percent > 0 else "NONE"
+    if customer:
+        discount_policy = await resolve_customer_discount_policy(
+            db,
+            customer.id,
+            company_id,
+            getattr(customer, "branch_id", None),
+        )
+        if discount_policy.contractual_discount_percent > 0:
+            discount_percent = discount_policy.contractual_discount_percent
+            discount_source = "CUSTOMER_PROFILE"
+        elif discount_percent > 0:
+            if discount_policy.can_receive_discount:
+                discount_percent = min(discount_percent, discount_policy.max_discount_percent)
+            else:
+                discount_percent = Decimal("0.00")
+                discount_source = "NONE"
+
+    discount_percent = max(Decimal("0.00"), min(discount_percent, Decimal("100.00")))
+    allow_discount_override = bool(await parameter_value(
+        "SMRITI.SALES_ORDER.ALLOW_DISCOUNT_OVERRIDE",
+        True,
+    ))
+    allow_rate_override = bool(await parameter_value("AllowRateAlterInBill", True))
+
+    stock_query = select(Product).where(
+        Product.company_id == company_id,
+        Product.is_deleted == False,
+    )
+    if req.product_id:
+        stock_query = stock_query.where(Product.id == req.product_id)
+    elif req.variant_id:
+        stock_query = stock_query.where(Product.item_variant_id == req.variant_id)
+    else:
+        stock_query = stock_query.where(or_(
+            Product.id == req.item_id,
+            Product.item_id == req.item_id,
+        ))
+    stock_product = (await db.execute(stock_query)).scalars().first()
+    if stock_product and (
+        (stock_product.item_id and stock_product.item_id != req.item_id)
+        or (
+            req.variant_id
+            and stock_product.item_variant_id
+            and stock_product.item_variant_id != req.variant_id
+        )
+    ):
+        raise HTTPException(status_code=400, detail="Selected product does not match the requested item or variant.")
+    available_stock = (
+        max(0.0, float(stock_product.stock or 0) - float(stock_product.reserved_stock or 0))
+        if stock_product else None
+    )
+
+    return SalesOrderPriceResolutionResponse(
+        effective_unit_price=float(rate),
+        pricing_level=pricing_level,
+        pricing_source=fallback_level if fallback_applied else resolved["pricing_source"],
+        fallback_applied=fallback_applied,
+        warning=warning,
+        default_discount_percent=float(discount_percent),
+        discount_source=discount_source,
+        allow_discount_override=allow_discount_override,
+        allow_rate_override=allow_rate_override,
+        available_stock=available_stock,
+    )
 
 
 @router.post("/resolve/bulk", response_model=BulkPricingResponse, summary="Resolve Bulk Cart/Order Pricing")
@@ -942,6 +1162,3 @@ async def activate_scheduled_price_revisions(
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
-
-
-

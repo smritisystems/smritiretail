@@ -80,6 +80,10 @@ export interface SalesOrderItem {
   total: number;
   salesStaff?: string;
   gstRate?: number;
+  availableStock?: number;
+  pricingWarning?: string;
+  pricingSource?: string;
+  discountSource?: string;
 }
 
 export interface Customer {
@@ -165,6 +169,19 @@ type SalesOrderItemMasterResolution = {
   tax_rate?: number | string;
   hsn_code?: string;
   uom?: string;
+};
+
+type SalesOrderPricingResolution = {
+  effective_unit_price: number;
+  pricing_level: string;
+  pricing_source: string;
+  fallback_applied: boolean;
+  warning?: string | null;
+  default_discount_percent: number;
+  discount_source: string;
+  allow_discount_override: boolean;
+  allow_rate_override: boolean;
+  available_stock?: number | null;
 };
 
 const getSalesOrderSummary = (items: SalesOrderItem[], formData: Partial<SalesOrderFormData>) => {
@@ -879,8 +896,11 @@ const PremiumSalesOrderDetail: React.FC<{
   items: SalesOrderItem[];
   onItemsChange: (items: SalesOrderItem[]) => void;
   onResolveItem: (identifier: string) => Promise<SalesOrderItem | null>;
+  allowRateOverride: boolean;
+  allowDiscountOverride: boolean;
+  readOnly: boolean;
   dense?: boolean;
-}> = ({ items, onItemsChange, onResolveItem, dense = false }) => {
+}> = ({ items, onItemsChange, onResolveItem, allowRateOverride, allowDiscountOverride, readOnly, dense = false }) => {
   const [selectedItemIndex, setSelectedItemIndex] = useState<number | null>(null);
   const [showStockModal, setShowStockModal] = useState(false);
 
@@ -904,9 +924,11 @@ const PremiumSalesOrderDetail: React.FC<{
   };
 
   const handleItemChange = (index: number, field: string, value: any) => {
+    if (readOnly || (field === "rate" && !allowRateOverride) || (field === "discPercent" && !allowDiscountOverride)) return;
     const updated = [...items];
     const item = updated[index] as Record<string, any>;
     item[field] = value;
+    if (field === "discPercent") item.discountSource = "MANUAL";
 
     const sharedLine = calculateLineTotal({
       id: item.id || `line-${index}`,
@@ -941,6 +963,9 @@ const PremiumSalesOrderDetail: React.FC<{
     if (!currentItem) return;
 
     const quantity = Number(currentItem.quantity || 0);
+    const discountPercent = currentItem.discountSource === "MANUAL"
+      ? Number(currentItem.discPercent || 0)
+      : Number(masterItem.discPercent ?? currentItem.discPercent ?? 0);
     const sharedLine = calculateLineTotal({
       id: currentItem.id,
       productId: masterItem.productId,
@@ -950,7 +975,7 @@ const PremiumSalesOrderDetail: React.FC<{
       qty: quantity,
       rate: masterItem.rate,
       value: quantity * masterItem.rate,
-      discPercent: Number(currentItem.discPercent || 0),
+      discPercent: discountPercent,
       discAmt: Number(currentItem.discAmount || 0),
       taxPercent: Number(masterItem.taxPercent ?? currentItem.taxPercent ?? 18),
       taxAmount: 0,
@@ -970,6 +995,11 @@ const PremiumSalesOrderDetail: React.FC<{
       uom: masterItem.uom,
       gstRate: masterItem.gstRate,
       taxPercent: masterItem.taxPercent,
+      discPercent: discountPercent,
+      discountSource: currentItem.discountSource === "MANUAL" ? "MANUAL" : masterItem.discountSource,
+      availableStock: masterItem.availableStock,
+      pricingWarning: masterItem.pricingWarning,
+      pricingSource: masterItem.pricingSource,
       value: sharedLine.value,
       discAmount: sharedLine.discAmt,
       taxAmount: sharedLine.taxAmount,
@@ -1129,13 +1159,36 @@ const PremiumSalesOrderDetail: React.FC<{
                     </td>
                     <td className={`${dense ? "px-1.5 py-1" : "px-2.5 py-2"}`}>
                       <div className="text-xs font-medium text-slate-900">{item.description || "—"}</div>
-                      {item.hsn && <div className="text-[10px] text-slate-500 mt-0.5">HSN: {item.hsn}</div>}
+                      {(item.hsn || item.availableStock !== undefined) && (
+                        <div className="text-[10px] text-slate-500 mt-0.5 flex flex-wrap gap-x-2">
+                          {item.hsn && <span>HSN: {item.hsn}</span>}
+                          {item.availableStock !== undefined && (
+                            <span className={item.availableStock <= 0 ? "font-semibold text-rose-600" : "text-emerald-700"}>
+                              Cached available: {formatQuantity(item.availableStock)}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      {item.availableStock !== undefined && (
+                        item.availableStock <= 0 || Number(item.quantity || 0) > item.availableStock
+                      ) && (
+                        <div className="text-[10px] font-semibold text-rose-700 mt-0.5" role="status">
+                          {item.availableStock <= 0
+                            ? "Cached stock shows out of stock"
+                            : "Order quantity exceeds cached available stock"}
+                        </div>
+                      )}
+                      {item.pricingWarning && (
+                        <div className="text-[10px] text-amber-700 mt-0.5" role="status">{item.pricingWarning}</div>
+                      )}
                     </td>
                     <td className={`${dense ? "px-1.5 py-1" : "px-2.5 py-2"}`}>
                       <input
                         type="number"
                         value={item.rate}
                         onChange={(e) => handleItemChange(index, "rate", parseFloat(e.target.value) || 0)}
+                        disabled={readOnly || !allowRateOverride}
+                        aria-label={allowRateOverride ? "Rate" : "Rate (system controlled)"}
                         className={`w-full ${dense ? "px-1.5 py-1" : "px-2 py-1.5"} border border-slate-200 rounded text-xs text-right bg-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent`}
                         step="0.01"
                       />
@@ -1176,6 +1229,8 @@ const PremiumSalesOrderDetail: React.FC<{
                         type="number"
                         value={item.discPercent || 0}
                         onChange={(e) => handleItemChange(index, "discPercent", parseFloat(e.target.value) || 0)}
+                        disabled={readOnly || !allowDiscountOverride}
+                        aria-label={allowDiscountOverride ? "Discount percent" : "Discount percent (system controlled)"}
                         data-field-key="disc_percent"
                         className={`w-full ${dense ? "px-1.5 py-1" : "px-2 py-1.5"} border border-slate-200 rounded text-xs text-right bg-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent`}
                         step="0.01"
@@ -1339,6 +1394,8 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
   const [showImportModal, setShowImportModal] = useState(false);
   const [showRecallModal, setShowRecallModal] = useState(false);
   const [itemMasterNotice, setItemMasterNotice] = useState<{ title: string; message: string } | null>(null);
+  const [allowRateOverride, setAllowRateOverride] = useState(false);
+  const [allowDiscountOverride, setAllowDiscountOverride] = useState(false);
   const [isAttachmentsExpanded, setIsAttachmentsExpanded] = useState(!workspaceFill);
   const isAuditReadOnly = readOnly;
   const [quickEntry, setQuickEntry] = useState({
@@ -1353,6 +1410,7 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
     discCode: "",
     discQty: "",
     discPercent: "",
+    discountSource: "",
     discAmount: "",
     taxPercent: "18",
     taxAmount: "",
@@ -1380,6 +1438,53 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
       };
     });
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void apiFetchV1<{
+      allow_discount_override: boolean;
+      allow_rate_override: boolean;
+    }>("/pricing/sales-order-controls")
+      .then((controls) => {
+        if (cancelled) return;
+        setAllowDiscountOverride(controls.allow_discount_override);
+        setAllowRateOverride(controls.allow_rate_override);
+      })
+      .catch((controlsError) => {
+        console.error("Failed to load Sales Order pricing controls:", controlsError);
+        if (!cancelled) {
+          setItemMasterNotice({
+            title: "Pricing controls could not be loaded",
+            message: "Rate and discount edits remain locked until System Parameter settings can be verified.",
+          });
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const resolveSalesOrderPricing = useCallback(async (item: {
+    itemId: string;
+    productId?: string;
+    variantId?: string;
+    quantity: number;
+  }) => {
+    const pricing = await apiFetchV1<SalesOrderPricingResolution>("/pricing/sales-order-resolve", {
+      method: "POST",
+      body: JSON.stringify({
+        item_id: item.itemId,
+        product_id: item.productId,
+        variant_id: item.variantId,
+        customer_id: formData.customerId || undefined,
+        quantity: item.quantity,
+      }),
+    });
+    setAllowDiscountOverride(pricing.allow_discount_override);
+    setAllowRateOverride(pricing.allow_rate_override);
+    return pricing;
+  }, [formData.customerId]);
 
   const resolveItemMasterCode = useCallback(async (identifier: string): Promise<SalesOrderItem | null> => {
     const code = identifier.trim();
@@ -1411,6 +1516,15 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
         return null;
       }
 
+      const itemId = String(result.item_id || productId);
+      const variantId = result.variant_id ? String(result.variant_id) : undefined;
+      const pricing = await resolveSalesOrderPricing({
+        itemId,
+        productId,
+        variantId,
+        quantity: 1,
+      });
+
       return {
         id: `item-${Date.now()}`,
         productId,
@@ -1419,17 +1533,21 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
         stockNo: result.sku || code,
         barcode: result.barcode || code,
         description: result.name || "",
-        rate: Number(result.selling_price ?? result.mrp ?? 0),
+        rate: Number(pricing.effective_unit_price || 0),
         quantity: 1,
         value: 0,
         hsn: result.hsn_code,
         uom: result.uom,
-        discPercent: 0,
+        discPercent: Number(pricing.default_discount_percent || 0),
         discAmount: 0,
         taxPercent: Number(result.tax_rate ?? 18),
         taxAmount: 0,
         total: 0,
         gstRate: Number(result.tax_rate ?? 18),
+        availableStock: pricing.available_stock ?? undefined,
+        pricingWarning: pricing.warning || undefined,
+        pricingSource: pricing.pricing_source,
+        discountSource: pricing.discount_source,
       };
     } catch (lookupError) {
       console.error("Item Master verification failed:", lookupError);
@@ -1439,7 +1557,77 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
       });
       return null;
     }
-  }, []);
+  }, [resolveSalesOrderPricing]);
+
+  const previousCustomerIdRef = useRef(formData.customerId || "");
+  useEffect(() => {
+    const customerId = formData.customerId || "";
+    const previousCustomerId = previousCustomerIdRef.current;
+    previousCustomerIdRef.current = customerId;
+    if (!customerId || customerId === previousCustomerId || isAuditReadOnly || !(formData.items?.length)) return;
+
+    let cancelled = false;
+    void Promise.all((formData.items || []).map(async (item) => {
+      const resolved = await resolveItemMasterCode(item.barcode || item.stockNo);
+      if (!resolved) return item;
+      const quantity = Number(item.quantity || 0);
+      const discountPercent = item.discountSource === "MANUAL"
+        ? Number(item.discPercent || 0)
+        : Number(resolved.discPercent || 0);
+      const line = calculateLineTotal({
+        id: item.id,
+        productId: resolved.productId,
+        stockNo: resolved.stockNo,
+        barcode: resolved.barcode,
+        itemDescription: resolved.description,
+        qty: quantity,
+        rate: resolved.rate,
+        value: quantity * resolved.rate,
+        discPercent: discountPercent,
+        discAmt: 0,
+        taxPercent: Number(resolved.taxPercent ?? item.taxPercent ?? 18),
+        taxAmount: 0,
+        total: 0,
+      });
+      return {
+        ...item,
+        productId: resolved.productId,
+        itemId: resolved.itemId,
+        variantId: resolved.variantId,
+        stockNo: resolved.stockNo,
+        barcode: resolved.barcode,
+        description: resolved.description,
+        rate: resolved.rate,
+        discPercent: discountPercent,
+        discountSource: item.discountSource === "MANUAL" ? "MANUAL" : resolved.discountSource,
+        taxPercent: resolved.taxPercent,
+        gstRate: resolved.gstRate,
+        availableStock: resolved.availableStock,
+        pricingSource: resolved.pricingSource,
+        pricingWarning: resolved.pricingWarning,
+        value: line.value,
+        discAmount: line.discAmt,
+        taxAmount: line.taxAmount,
+        total: line.total,
+      };
+    })).then((items) => {
+      if (cancelled) return;
+      setFormData((prev) => {
+        const summary = getSalesOrderSummary(items, { ...prev, items });
+        return { ...prev, items, ...summary };
+      });
+    }).catch((repriceError) => {
+      console.error("Failed to refresh Sales Order prices for the selected customer:", repriceError);
+      setItemMasterNotice({
+        title: "Customer pricing refresh failed",
+        message: "Some order lines could not be repriced for the selected customer. Re-scan those items before saving.",
+      });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [formData.customerId, formData.items, isAuditReadOnly, resolveItemMasterCode]);
 
   // ─── F2 Universal Lookup Architecture v2 — Screen Registration (Phase B Batch 2) ──
   // Two variant lookup inputs in this screen:
@@ -1478,6 +1666,7 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
             barcode: product.barcode || "",
             description: product.description,
             rate: String(product.rate),
+            discPercent: String(product.discPercent || 0),
             taxPercent: String(product.taxPercent ?? 18),
             gstRate: String(product.gstRate ?? 18),
             productId: product.productId || "",
@@ -1510,6 +1699,9 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
             const updated = [...(prev.items ?? [])];
             if (rowIdx >= updated.length) return prev;
             const currentItem = updated[rowIdx];
+            const discPercent = currentItem.discountSource === "MANUAL"
+              ? Number(currentItem.discPercent || 0)
+              : Number(product.discPercent || 0);
             const line = calculateLineTotal({
               id: currentItem.id,
               productId: product.productId,
@@ -1519,8 +1711,8 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
               qty: Number(currentItem.quantity || 0),
               rate: product.rate,
               value: Number(currentItem.quantity || 0) * product.rate,
-              discPercent: Number(currentItem.discPercent || 0),
-              discAmt: Number(currentItem.discAmount || 0),
+              discPercent,
+              discAmt: currentItem.discountSource === "MANUAL" ? Number(currentItem.discAmount || 0) : 0,
               taxPercent: Number(product.taxPercent ?? currentItem.taxPercent ?? 18),
               taxAmount: 0,
               total: 0,
@@ -1538,6 +1730,11 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
               uom: product.uom,
               gstRate: product.gstRate,
               taxPercent: product.taxPercent,
+              discPercent,
+              discountSource: currentItem.discountSource === "MANUAL" ? "MANUAL" : product.discountSource,
+              availableStock: product.availableStock,
+              pricingWarning: product.pricingWarning,
+              pricingSource: product.pricingSource,
               value: line.value,
               discAmount: line.discAmt,
               taxAmount: line.taxAmount,
@@ -1552,7 +1749,7 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
   });
 
   const handleGlobalImportCommit = useCallback(
-    (rows: ParsedGridRow[], mode: GridImportMode) => {
+    async (rows: ParsedGridRow[], mode: GridImportMode) => {
       const unresolvedRows = rows.filter((row) => !row.resolvedProduct?.productId);
       if (unresolvedRows.length > 0) {
         const codes = unresolvedRows.slice(0, 5).map((row) => row.identifier || `row ${row.rowNumber}`);
@@ -1563,47 +1760,84 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
         return;
       }
 
-      const newItems: SalesOrderItem[] = rows.map((r, idx) => {
-        const prod = r.resolvedProduct;
-        const qty = r.quantity || 1;
-        const rate = Number(r.rate ?? r.sellingPrice ?? prod?.sellingPrice ?? prod?.mrp ?? 0);
-        const discPercent = Number(r.discount ?? 0);
-        const taxPercent = Number(r.taxRate ?? prod?.taxRate ?? 18);
+      let newItems: SalesOrderItem[];
+      try {
+        newItems = [];
+        for (let start = 0; start < rows.length; start += 8) {
+          const batch = await Promise.all(rows.slice(start, start + 8).map(async (r, batchIndex) => {
+            const prod = r.resolvedProduct;
+            if (!prod?.productId) {
+              throw new Error(`Row ${r.rowNumber} has no verified product.`);
+            }
 
-        const sharedLine = calculateLineTotal({
-          id: `line-import-${Date.now()}-${idx}`,
-          productId: prod?.productId,
-          stockNo: prod?.sku || r.identifier,
-          barcode: prod?.barcode || r.identifier,
-          itemDescription: prod?.name || r.identifier || "Item",
-          qty: qty,
-          rate: rate,
-          value: qty * rate,
-          discPercent: discPercent,
-          discAmt: Number(r.discountAmount ?? 0),
-          taxPercent: taxPercent,
-          taxAmount: 0,
-          total: 0,
+            const qty = r.quantity || 1;
+            const pricing = await resolveSalesOrderPricing({
+              itemId: prod.itemId || prod.productId,
+              productId: prod.productId,
+              variantId: prod.variantId,
+              quantity: qty,
+            });
+            const hasImportedRate = r.rate !== undefined || r.sellingPrice !== undefined;
+            const rate = pricing.allow_rate_override && hasImportedRate
+              ? Number(r.rate ?? r.sellingPrice)
+              : pricing.effective_unit_price;
+            const hasImportedDiscount = r.discount !== undefined || r.discountAmount !== undefined;
+            const useImportedDiscount = pricing.allow_discount_override && hasImportedDiscount;
+            const discPercent = useImportedDiscount
+              ? Number(r.discount ?? 0)
+              : pricing.default_discount_percent;
+            const discAmount = useImportedDiscount ? Number(r.discountAmount ?? 0) : 0;
+            const taxPercent = Number(r.taxRate ?? prod.taxRate ?? 18);
+            const index = start + batchIndex;
+            const sharedLine = calculateLineTotal({
+              id: `line-import-${Date.now()}-${index}`,
+              productId: prod.productId,
+              stockNo: prod.sku || r.identifier,
+              barcode: prod.barcode || r.identifier,
+              itemDescription: prod.name || r.identifier || "Item",
+              qty,
+              rate,
+              value: qty * rate,
+              discPercent,
+              discAmt: discAmount,
+              taxPercent,
+              taxAmount: 0,
+              total: 0,
+            });
+
+            return {
+              id: `item-${Date.now()}-${index}`,
+              productId: prod.productId,
+              itemId: prod.itemId,
+              variantId: prod.variantId,
+              stockNo: prod.sku || r.identifier,
+              barcode: prod.barcode || r.identifier,
+              description: prod.name || r.identifier || "Imported Item",
+              rate,
+              quantity: qty,
+              value: sharedLine.value,
+              discPercent,
+              discountSource: useImportedDiscount ? "MANUAL" : pricing.discount_source,
+              discAmount: sharedLine.discAmt,
+              taxPercent,
+              taxAmount: sharedLine.taxAmount,
+              total: sharedLine.total,
+              gstRate: taxPercent,
+              availableStock: pricing.available_stock ?? undefined,
+              pricingWarning: pricing.warning || undefined,
+              pricingSource: pricing.pricing_source,
+            } satisfies SalesOrderItem;
+          }));
+          newItems.push(...batch);
+        }
+      } catch (importError) {
+        console.error("Sales Order import pricing resolution failed:", importError);
+        setItemMasterNotice({
+          title: "Import pricing could not be resolved",
+          message: "No imported lines were added. Check the connection and retry so customer pricing, discounts, and stock can be verified.",
         });
-
-        return {
-          id: `item-${Date.now()}-${idx}`,
-          productId: prod?.productId,
-          itemId: prod?.itemId,
-          variantId: prod?.variantId,
-          stockNo: prod?.sku || r.identifier,
-          barcode: prod?.barcode || r.identifier,
-          description: prod?.name || r.identifier || "Imported Item",
-          rate: rate,
-          quantity: qty,
-          value: sharedLine.value,
-          discPercent: discPercent,
-          discAmount: sharedLine.discAmt,
-          taxPercent: taxPercent,
-          taxAmount: sharedLine.taxAmount,
-          total: sharedLine.total,
-        };
-      });
+        return;
+      }
 
       if (mode === "REPLACE") {
         handleItemsChange(newItems);
@@ -1648,7 +1882,7 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
     },
-    [formData.items, handleItemsChange]
+    [formData.items, handleItemsChange, resolveSalesOrderPricing]
   );
 
   const handleRecall = useCallback((recalledData: Partial<SalesOrderFormData>) => {
@@ -1689,6 +1923,8 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
       barcode: product.barcode || "",
       description: product.description,
       rate: String(product.rate),
+      discPercent: String(product.discPercent || 0),
+      discountSource: product.discountSource || "",
       gstRate: String(product.gstRate ?? 18),
       taxPercent: String(product.taxPercent ?? 18),
       productId: product.productId || "",
@@ -1718,6 +1954,8 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
         variantId: resolved.variantId || "",
         description: resolved.description,
         rate: String(resolved.rate),
+        discPercent: String(resolved.discPercent || 0),
+        discountSource: resolved.discountSource || "",
         taxPercent: String(resolved.taxPercent ?? 18),
         gstRate: String(resolved.gstRate ?? 18),
       };
@@ -1756,6 +1994,7 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
       discCode: entry.discCode || undefined,
       discQty: entry.discQty ? Number(entry.discQty) : undefined,
       discPercent,
+      discountSource: entry.discountSource || undefined,
       discAmount: calcDiscAmount,
       taxPercent,
       taxAmount: calcTaxAmount,
@@ -1777,6 +2016,7 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
       discCode: "",
       discQty: "",
       discPercent: "",
+      discountSource: "",
       discAmount: "",
       taxPercent: "18",
       taxAmount: "",
@@ -1962,6 +2202,9 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
                 items={formData.items || []}
                 onItemsChange={handleItemsChange}
                 onResolveItem={resolveItemMasterCode}
+                allowRateOverride={allowRateOverride}
+                allowDiscountOverride={allowDiscountOverride}
+                readOnly={isAuditReadOnly}
                 dense={workspaceFill}
               />
 
@@ -2019,6 +2262,7 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
                     value={quickEntry.rate}
                     data-field-key="rate"
                     onChange={(e) => setQuickEntry((prev) => ({ ...prev, rate: e.target.value }))}
+                    disabled={isAuditReadOnly || !allowRateOverride}
                     placeholder="Rate"
                     step="0.01"
                     className={`w-full ${workspaceFill ? "px-2 py-1" : "px-2.5 py-2"} border border-slate-300 rounded-md text-xs text-right bg-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent`}
@@ -2037,6 +2281,7 @@ export const SalesOrderFormPremium: React.FC<SalesOrderFormProps> = ({
                     value={quickEntry.discPercent}
                     data-field-key="disc_percent"
                     onChange={(e) => setQuickEntry((prev) => ({ ...prev, discPercent: e.target.value }))}
+                    disabled={isAuditReadOnly || !allowDiscountOverride}
                     placeholder="Disc %"
                     step="0.01"
                     max="100"

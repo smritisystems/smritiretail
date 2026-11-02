@@ -34,16 +34,34 @@ from app.models.system_parameter import SystemParameter
 
 @pytest.mark.asyncio
 async def test_01_blueprint_integrity():
-    """Verify parameters.json contains exactly 828 parameters and 26 profile variances."""
+    """Verify parameters.json contains exactly 831 parameters and 26 profile variances."""
     blueprint_path = workspace_root / "docs" / "legacy_blueprints" / "shoper9" / "parameters.json"
     assert blueprint_path.exists(), f"Blueprint not found at {blueprint_path}"
 
     with open(blueprint_path, "r", encoding="utf-8") as f:
         data = json.load(f)
 
-    assert data["totalParameters"] == 828
+    assert data["totalParameters"] == 831
     assert data["profileVariancesCount"] == 26
-    assert len(data["parameters"]) == 828
+    assert len(data["parameters"]) == 831
+    sales_order_defaults = {
+        parameter["paramCode"]: parameter for parameter in data["parameters"]
+        if parameter["paramCode"] in {
+            "SalesOrderZeroRateFallback",
+            "SalesOrderDefaultDiscountPct",
+            "AllowSalesOrderDiscountOverride",
+        }
+    }
+    assert sales_order_defaults["SalesOrderZeroRateFallback"]["retailDefaults"]["Txt"] == "MRP"
+    assert sales_order_defaults["SalesOrderDefaultDiscountPct"]["retailDefaults"]["Sng"] == "0.00"
+    assert sales_order_defaults["AllowSalesOrderDiscountOverride"]["retailDefaults"]["Boolean"] == "1"
+
+    canonical_mapping_path = blueprint_path.with_name("canonical_mapping.json")
+    with open(canonical_mapping_path, "r", encoding="utf-8") as f:
+        canonical_mapping = json.load(f)
+    assert canonical_mapping["SalesOrderZeroRateFallback"] == "SMRITI.SALES_ORDER.ZERO_RATE_FALLBACK"
+    assert canonical_mapping["SalesOrderDefaultDiscountPct"] == "SMRITI.SALES_ORDER.DEFAULT_DISCOUNT_PCT"
+    assert canonical_mapping["AllowSalesOrderDiscountOverride"] == "SMRITI.SALES_ORDER.ALLOW_DISCOUNT_OVERRIDE"
 
 
 @pytest.mark.asyncio

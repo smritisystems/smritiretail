@@ -154,6 +154,32 @@ class PricingResolutionResponse(BaseModel):
     rule_version: int = 1
 
 
+class SalesOrderPriceResolutionRequest(BaseModel):
+    item_id: str
+    product_id: Optional[str] = None
+    variant_id: Optional[str] = None
+    customer_id: Optional[str] = None
+    quantity: float = Field(1.0, ge=0.0001)
+
+
+class SalesOrderPriceResolutionResponse(BaseModel):
+    effective_unit_price: float
+    pricing_level: str
+    pricing_source: str
+    fallback_applied: bool = False
+    warning: Optional[str] = None
+    default_discount_percent: float = 0.0
+    discount_source: str = "NONE"
+    allow_discount_override: bool = True
+    allow_rate_override: bool = True
+    available_stock: Optional[float] = None
+
+
+class SalesOrderPricingControlsResponse(BaseModel):
+    allow_discount_override: bool = True
+    allow_rate_override: bool = True
+
+
 class BulkPricingLineItem(BaseModel):
     item_id: str
     variant_id: Optional[str] = None
