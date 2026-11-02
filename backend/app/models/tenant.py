@@ -76,6 +76,7 @@ class Branch(Base):
     identity_code = Column(String(100), nullable=True, unique=True, index=True)
     is_active = Column(Boolean, default=True)
     is_deleted = Column(Boolean, default=False)
+    is_default = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
     modified_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 

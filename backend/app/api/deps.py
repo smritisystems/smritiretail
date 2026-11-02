@@ -139,6 +139,17 @@ async def get_current_user(
     token_branch = payload.get("branch_id")
     if token_comp and user.company_id != token_comp:
         set_committed_value(user, "company_id", token_comp)
+    if token_comp:
+        default_branch_res = await db.execute(
+            select(Branch.id).where(
+                Branch.company_id == token_comp,
+                Branch.is_default.is_(True),
+                Branch.is_active.is_(True),
+                Branch.is_deleted.is_(False),
+            )
+        )
+        default_branch_id = default_branch_res.scalars().first()
+        token_branch = default_branch_id or token_branch
     if token_branch and user.branch_id != token_branch:
         set_committed_value(user, "branch_id", token_branch)
 
@@ -215,18 +226,6 @@ async def get_tenant_context(
     query_company = query_company_id or request.query_params.get("company_code") or request.query_params.get("companyCode") or request.cookies.get("smriti_company_id")
     header_company_id = request.headers.get("x-company-id") or request.headers.get("X-Company-ID") or query_company_id
     header_company = header_company_id or request.headers.get("x-company-code") or request.headers.get("X-Company-Code") or query_company
-    header_branch = (
-        request.headers.get("x-branch-code")
-        or request.headers.get("X-Branch-Code")
-        or request.headers.get("x-branch-id")
-        or request.headers.get("X-Branch-ID")
-        or request.query_params.get("branch_code")
-        or request.query_params.get("branch_id")
-        or request.query_params.get("branchCode")
-        or request.query_params.get("branchId")
-        or request.cookies.get("smriti_branch_id")
-    )
-
     raw_target = header_company if header_company else current_user.company_id
     if not raw_target or str(raw_target).strip().lower() in ("none", "null", "undefined", ""):
         if current_user.role == UserRole.SYSADMIN:
@@ -237,51 +236,7 @@ async def get_tenant_context(
             raw_target = "COMP-001"
     target_company = normalize_company_id(raw_target) or "COMP-001"
 
-    target_branch = header_branch if header_branch else current_user.branch_id
-    if not target_branch or not str(target_branch).strip() or str(target_branch).strip().lower() in ("none", "null", "undefined", ""):
-        target_branch = "BR-MAIN-001"
-
-    canonical_branch = normalize_branch_value(target_branch)
-
-    # A branch is part of the tenant identity, not a client-provided label.
-    # Resolve it only when it belongs to the selected company and is active.
-    branch_res = await db.execute(
-        select(Branch).where(
-            Branch.company_id == target_company,
-            (
-                (Branch.id == canonical_branch)
-                | (Branch.code == canonical_branch)
-                | (Branch.id == target_branch)
-                | (Branch.code == target_branch)
-            ),
-            Branch.is_deleted == False,
-            Branch.is_active == True,
-        )
-    )
-    branch = branch_res.scalars().first()
-    if branch is None:
-        fallback_branch_res = await db.execute(
-            select(Branch).where(
-                Branch.company_id == target_company,
-                Branch.is_deleted == False,
-                Branch.is_active == True,
-            ).order_by(Branch.id.asc())
-        )
-        branch = fallback_branch_res.scalars().first()
-
-    if branch is None:
-        if current_user.role == UserRole.SYSADMIN:
-            target_branch = canonical_branch or "BR-MAIN-001"
-        else:
-            raise HTTPException(
-                status_code=403,
-                detail="Access denied: the selected branch does not belong to the selected company.",
-            )
-    else:
-        target_branch = branch.id
-
     if current_user.role != UserRole.SYSADMIN:
-        # Header Tampering Security Check with normalized company IDs
         norm_user_company = normalize_company_id(current_user.company_id)
         if header_company and normalize_company_id(header_company) != norm_user_company:
             raise HTTPException(
@@ -289,7 +244,6 @@ async def get_tenant_context(
                 detail=f"Header Tampering Forbidden: Access to company '{header_company}' is denied.",
             )
 
-        # If user has company assignment records, enforce matching active assignment
         any_comp_res = await db.execute(
             select(UserCompanyAssignment).where(
                 UserCompanyAssignment.user_id == current_user.id,
@@ -310,6 +264,24 @@ async def get_tenant_context(
                     detail="Access denied: You are not assigned to this company.",
                 )
 
+    branch_res = await db.execute(
+        select(Branch).where(
+            Branch.company_id == target_company,
+            Branch.is_default.is_(True),
+            Branch.is_deleted == False,
+            Branch.is_active == True,
+        )
+    )
+    branch = branch_res.scalars().first()
+
+    if branch is None:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Company '{target_company}' has no active default branch. Configure one before continuing.",
+        )
+    target_branch = branch.id
+
+    if current_user.role != UserRole.SYSADMIN:
         # If user has branch assignment records, enforce matching active assignment
         any_br_res = await db.execute(
             select(UserBranchAssignment).where(
@@ -486,5 +458,3 @@ def require_permission(resource: str, action: str) -> Callable:
         )
 
     return _perm_guard
-
-

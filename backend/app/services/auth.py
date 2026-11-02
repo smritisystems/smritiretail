@@ -34,6 +34,7 @@ from sqlalchemy.exc import IntegrityError
 logger = logging.getLogger(__name__)
 from fastapi import HTTPException
 from ..models.auth import User, RefreshTokenBlacklist, UserRole
+from ..models.tenant import Branch
 from ..models.user_assignment import UserCompanyAssignment, UserBranchAssignment
 from ..schemas.auth import LoginRequest, BootstrapRequest, TenantContextSwitchRequest
 from ..core.security import (
@@ -58,6 +59,24 @@ def _build_token_payload(user: User, company_id: str = None, branch_id: str = No
 class AuthService:
     def __init__(self, db: AsyncSession):
         self.db = db
+
+    async def resolve_company_default_branch(self, company_id: str) -> Branch:
+        """Resolve the single active branch configured as the company's default."""
+        branch_res = await self.db.execute(
+            select(Branch).where(
+                Branch.company_id == company_id,
+                Branch.is_default.is_(True),
+                Branch.is_active.is_(True),
+                Branch.is_deleted.is_(False),
+            )
+        )
+        branch = branch_res.scalars().first()
+        if branch is None:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Company '{company_id}' has no active default branch. Configure one before continuing.",
+            )
+        return branch
 
     async def _resolve_token_expirations(
         self,
@@ -250,13 +269,6 @@ class AuthService:
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
-        if req.branch_id is not None and user.branch_id is not None and user.branch_id != req.branch_id:
-            raise HTTPException(
-                status_code=401,
-                detail="Incorrect username or password.",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-
         if not verify_password(req.password, user.hashed_password):
             raise HTTPException(
                 status_code=401,
@@ -292,22 +304,9 @@ class AuthService:
             except Exception as e:
                 logger.warning(f"Notice: unable to query user_company_assignments: {e}")
 
-        if not resolved_branch_id and resolved_company_id:
-            try:
-                default_br_res = await self.db.execute(
-                    select(UserBranchAssignment).where(
-                        UserBranchAssignment.user_id == user.id,
-                        UserBranchAssignment.company_id == resolved_company_id,
-                        UserBranchAssignment.is_default == True,
-                        UserBranchAssignment.is_deleted == False,
-                        UserBranchAssignment.is_active == True,
-                    )
-                )
-                default_br = default_br_res.scalars().first()
-                if default_br:
-                    resolved_branch_id = default_br.branch_id
-            except Exception as e:
-                logger.warning(f"Notice: unable to query user_branch_assignments: {e}")
+        if resolved_company_id:
+            default_branch = await self.resolve_company_default_branch(resolved_company_id)
+            resolved_branch_id = default_branch.id
 
         # For non-SYSADMIN users, company+branch must be resolved or login is rejected.
         # SYSADMIN users may operate without a company (global admin access).
@@ -373,11 +372,19 @@ class AuthService:
                     detail="Access denied: You are not assigned to the specified target company.",
                 )
 
+        default_branch = await self.resolve_company_default_branch(req.target_company_id)
+        if req.target_branch_id != default_branch.id:
+            raise HTTPException(
+                status_code=409,
+                detail="Branch switching is disabled. Use the configured company default branch.",
+            )
+        target_branch_id = default_branch.id
+        if user.role != UserRole.SYSADMIN:
             # Verify branch assignment
             br_res = await self.db.execute(
                 select(UserBranchAssignment).where(
                     UserBranchAssignment.user_id == user.id,
-                    UserBranchAssignment.branch_id == req.target_branch_id,
+                    UserBranchAssignment.branch_id == target_branch_id,
                     UserBranchAssignment.is_deleted == False,
                     UserBranchAssignment.is_active == True,
                 )
@@ -390,15 +397,15 @@ class AuthService:
 
         exp_min, exp_days = await self._resolve_token_expirations(
             company_id=req.target_company_id,
-            branch_id=req.target_branch_id,
+            branch_id=target_branch_id,
         )
 
-        payload = _build_token_payload(user, company_id=req.target_company_id, branch_id=req.target_branch_id)
+        payload = _build_token_payload(user, company_id=req.target_company_id, branch_id=target_branch_id)
         user.company_id = req.target_company_id
-        user.branch_id = req.target_branch_id
+        user.branch_id = target_branch_id
         comp_name, comp_code, br_name, br_code = await self._resolve_tenant_details(
             company_id=req.target_company_id,
-            branch_id=req.target_branch_id,
+            branch_id=target_branch_id,
         )
 
         return {
@@ -409,7 +416,7 @@ class AuthService:
             "company_id":    req.target_company_id,
             "company_code":  comp_code,
             "company_name":  comp_name,
-            "branch_id":     req.target_branch_id,
+            "branch_id":     target_branch_id,
             "branch_code":   br_code,
             "branch_name":   br_name,
             "password_reset_required": user.status == "PendingPasswordChange",

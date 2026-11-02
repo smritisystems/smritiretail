@@ -1006,6 +1006,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     discCode: string;
     discQty: string;
     discPercent: string;
+    discountSelection?: "AUTO" | "NONE";
     staff: string;
   };
   const [directEntry, setDirectEntry] = useState<DirectEntry>({
@@ -1017,6 +1018,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     discCode: "",
     discQty: "",
     discPercent: "",
+    discountSelection: "AUTO",
     staff: currentUser?.name || ""
   });
   const [pendingScanConfirmation, setPendingScanConfirmation] = useState<{
@@ -1024,6 +1026,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     productName: string;
     identifier: string;
   } | null>(null);
+  const [selectedItemProductMeta, setSelectedItemProductMeta] = useState<AutoPopulateProductResult | null>(null);
 
   const salesStaffOptions = useMemo(() => {
     const options = new Map<string, string>();
@@ -1036,10 +1039,50 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     return Array.from(options, ([value, label]) => ({ value, label }));
   }, [salespeople, currentUser?.name, headerState.salesStaff, directEntry.staff, items]);
 
+  const directEntryIsRelianceCustomer = SmritiSalesPromotionService.isRelianceCustomer({
+    name: headerState.customer?.name,
+    code: headerState.customer?.code || headerState.customer?.id,
+    customerGroupId: headerState.customer?.customerGroupId
+  });
+  const directItemRecommendation = useMemo(() => {
+    if (!directEntry.stockNo && !directEntry.barcode) return null;
+    return SmritiSalesPromotionService.resolveBestItemPromo({
+      sku: directEntry.stockNo || directEntry.barcode,
+      barcode: directEntry.barcode || directEntry.stockNo,
+      category: selectedItemProductMeta?.category || "",
+      brand: selectedItemProductMeta?.brand,
+      rate: Number(directEntry.rate) || 0,
+      qty: Number(directEntry.qty) || 1,
+      customerName: headerState.customer?.name,
+      customerCode: headerState.customer?.code || headerState.customer?.id,
+      customerGroup: headerState.customer?.customerGroupId || (directEntryIsRelianceCustomer ? "RELIANCE" : undefined),
+      evalDate: new Date()
+    });
+  }, [
+    directEntry.stockNo,
+    directEntry.barcode,
+    directEntry.rate,
+    directEntry.qty,
+    selectedItemProductMeta?.category,
+    selectedItemProductMeta?.brand,
+    headerState.customer?.name,
+    headerState.customer?.code,
+    headerState.customer?.id,
+    headerState.customer?.customerGroupId,
+    directEntryIsRelianceCustomer
+  ]);
+  const recommendedDirectDiscountCode = directItemRecommendation?.promo
+    ? directItemRecommendation.promoCode
+    : directEntryIsRelianceCustomer ? "REL_RET_4376" : "No discount";
+  const recommendedDirectDiscountPercent = directItemRecommendation?.promo
+    ? directItemRecommendation.discountPct
+    : directEntryIsRelianceCustomer ? 43.76 : 0;
+
   // Tabbed Details State (Footer Left Card & Bottom Drawers)
   const [activeFooterTab, setActiveFooterTab] = useState<"transporter" | "payment" | "addons">("transporter");
   const [activeFooterDrawer, setActiveFooterDrawer] = useState<"none" | "transporter" | "payment" | "addons" | "remarks">("none");
   const [showMoreDetails, setShowMoreDetails] = useState<boolean>(false);
+  const [showBillingHeaderDetails, setShowBillingHeaderDetails] = useState<boolean>(true);
   const [showMoreMenu, setShowMoreMenu] = useState<boolean>(false);
   const [transporterRows, setTransporterRows] = useState<TransporterRow[]>(() =>
     DEFAULT_TRANSPORTER_ROWS.map(r => ({ ...r }))
@@ -1064,7 +1107,6 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   const [productSuggestions, setProductSuggestions] = useState<AutoPopulateProductResult[]>([]);
   const [productSelectedIndex, setProductSelectedIndex] = useState<number>(0);
   const [activeItemSearchField, setActiveItemSearchField] = useState<"stockNo" | "barcode">("stockNo");
-  const [selectedItemProductMeta, setSelectedItemProductMeta] = useState<AutoPopulateProductResult | null>(null);
   const productDebounceRef = useRef<any>(null);
   const productSearchGenerationRef = useRef(0);
   const productSearchValueRef = useRef("");
@@ -1674,6 +1716,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
           barcode:         barcodeVal,
           itemDescription: descVal,
           rate:            rateVal,
+          discountSelection: "AUTO",
           discCode:        bestPromo.promo ? bestPromo.promoCode : (prev.discCode || "ILD"),
           discPercent:     bestPromo.promo ? bestPromo.discountPct.toFixed(2) : (prev.discPercent || "0.00"),
           discQty:         prev.discQty || prev.qty || "1"
@@ -2478,6 +2521,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       color: p.color || (p as any).colour || (p as any).variant_color || (p as any).variantColor,
       size: p.size || (p as any).variant_size || (p as any).variantSize,
       rate: rateVal,
+      discountSelection: "AUTO" as const,
       discCode: bestPromo.promo ? bestPromo.promoCode : (directEntry.discCode || "ILD"),
       discPercent: bestPromo.promo ? bestPromo.discountPct.toFixed(2) : (directEntry.discPercent || "0.00"),
       discQty: directEntry.discQty || directEntry.qty || "1"
@@ -2879,7 +2923,11 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       evalDate: new Date()
     });
 
-    if (promoRes.promo && promoRes.applied) {
+    if (entry.discountSelection === "NONE") {
+      lineDiscPercent = 0;
+      lineDiscCode = "ILD";
+      lineDiscAmt = 0;
+    } else if (promoRes.promo && promoRes.applied) {
       lineDiscPercent = promoRes.discountPct;
       lineDiscCode = promoRes.promoCode;
       lineDiscAmt = Math.round(((rate * qty * lineDiscPercent) / 100) * 100) / 100;
@@ -4305,7 +4353,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     >
       
       {/* ── ZONE A: Compact Premium Header ── */}
-      <header className="bg-white dark:bg-[#131b2e] border-b border-slate-200 dark:border-slate-800 px-3 py-1.5 flex items-center justify-between shrink-0 z-30 shadow-2xs gap-2">
+      <header className="bg-white dark:bg-[#131b2e] border-b border-slate-200 dark:border-slate-800 px-3 py-1.5 flex flex-wrap items-center justify-between shrink-0 z-30 shadow-2xs gap-2">
         {/* Left: Menu, Logo Badge and Billing title */}
         <div className="flex items-center gap-2.5 shrink-0">
           <button
@@ -4327,8 +4375,8 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         </div>
 
         {/* Center: Live Date/Time, Doc Number Pill & Status Pill */}
-        <div className="flex items-center gap-3">
-          <div className="hidden sm:flex items-center gap-1.5 font-mono text-xs text-slate-500 dark:text-slate-400 font-medium">
+        <div className="flex min-w-0 flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-1.5 font-mono text-xs text-slate-500 dark:text-slate-400 font-medium">
             <span>{liveDate}</span>
             <span>·</span>
             <span>{liveTime}</span>
@@ -4355,7 +4403,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         </div>
 
         {/* Right: Primary Actions, Overflow Menu, Shift HUD & Avatar */}
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
           {/* New Bill */}
           <button
             type="button"
@@ -4364,7 +4412,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
             title="New Invoice (Ctrl+N)"
           >
             <FilePlus size={14} className="text-blue-600" />
-            <span className="hidden md:inline">New</span>
+            <span>New</span>
           </button>
 
           {/* More Actions Dropdown */}
@@ -4377,7 +4425,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
               title="More Options & Supporting Workspaces"
             >
               <MoreHorizontal size={14} />
-              <span className="hidden md:inline">More</span>
+              <span>More</span>
               <ChevronDown size={12} />
             </button>
 
@@ -4702,14 +4750,26 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       )}
 
       {/* Main Invoicing Canvas */}
-      <main className="flex-1 flex flex-col p-2.5 gap-2.5 overflow-hidden max-w-[1920px] mx-auto w-full min-h-0">
+      <main className="flex-1 flex flex-col p-2.5 gap-2.5 overflow-x-hidden overflow-y-auto max-w-[1920px] mx-auto w-full min-h-0">
         
         {/* ZONE B: TRANSACTION & CUSTOMER CARD (3-Column Clean Desk Layout) */}
         <section className="bg-white dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-xl p-2 shadow-xs shrink-0">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 items-start">
+          <div className="mb-2 flex justify-end">
+            <button
+              type="button"
+              onClick={() => setShowBillingHeaderDetails(value => !value)}
+              aria-expanded={showBillingHeaderDetails}
+              aria-controls="billing-header-details"
+              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold text-blue-700 hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-blue-950/40"
+            >
+              {showBillingHeaderDetails ? "Hide setup" : "Show setup"}
+              <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showBillingHeaderDetails ? "rotate-180" : ""}`} />
+            </button>
+          </div>
+          <div id="billing-header-details" className="grid grid-cols-1 lg:grid-cols-12 gap-2 items-start">
             
             {/* Column 1: Customer Identification (4 cols) */}
-            <div className={`flex flex-col gap-1.5 ${showMoreDetails ? "lg:col-span-4" : "lg:col-span-9 lg:flex-row lg:items-center"}`}>
+            <div className={`flex flex-col gap-1.5 ${!showBillingHeaderDetails ? "lg:col-span-12 lg:flex-row lg:items-center" : showMoreDetails ? "lg:col-span-4" : "lg:col-span-9 lg:flex-row lg:items-center"}`}>
               <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 shrink-0">
                 <Users size={14} className="text-blue-600 dark:text-blue-400" />
                 <span>Customer</span>
@@ -4879,7 +4939,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300">Default</span>
                 </div>
               )}
-              {headerState.customer?.isDependant && (
+              {showBillingHeaderDetails && headerState.customer?.isDependant && (
                 <section aria-label="Child account billing sources" className="w-full basis-full rounded-lg border border-blue-200 bg-blue-50/70 p-2 dark:border-blue-900 dark:bg-blue-950/30">
                   <div className="mb-1 flex items-center justify-between gap-2">
                     <span className="text-[10px] font-bold uppercase tracking-wide text-blue-900 dark:text-blue-200">Available for this child account</span>
@@ -4955,6 +5015,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
             </div>
 
             {/* Column 2: Transaction Parameters & Settings (5 cols) */}
+            {showBillingHeaderDetails && (
             <div className={`${showMoreDetails ? "lg:col-span-5" : "lg:col-span-3"} flex flex-col gap-1`}>
               {headerState.customer && (
                 <div className="mb-1 rounded-lg border border-slate-200 bg-slate-50 p-2 dark:border-slate-700 dark:bg-slate-900/60">
@@ -5207,9 +5268,10 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                 </div>
               )}
             </div>
+            )}
 
             {/* Optional operator and recall controls remain available in Billing details. */}
-            {showMoreDetails && <div className="lg:col-span-3 flex flex-col gap-1.5">
+            {showBillingHeaderDetails && showMoreDetails && <div className="lg:col-span-3 flex flex-col gap-1.5">
               {/* Action Buttons: Recall Held Bills & Last Saved Bill */}
               <div className="flex items-center gap-1.5">
                 <button
@@ -5233,15 +5295,54 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                 </div>
               )}
             </div>}
-
           </div>
+          {!showBillingHeaderDetails && (
+            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-slate-200 pt-2 text-[11px] text-slate-600 dark:border-slate-700 dark:text-slate-300">
+              <span>
+                Billing source: <strong className="text-slate-800 dark:text-slate-100">
+                  {headerState.billingSource === "CUSTOMER_PO"
+                    ? "Customer Purchase Order"
+                    : headerState.billingSource === "SALES_ORDER"
+                      ? "Sales Order"
+                      : headerState.billingSource === "PACKING_SLIP_CONSOLIDATED"
+                        ? "Packing Slip"
+                        : "Direct Invoice"}
+                </strong>
+                {sourceBillingSelection && ` · ${sourceBillingSelection.documentNumber}`}
+              </span>
+              {(isStoreLocationRequired || headerState.customer?.isDependant) && (
+                <span>
+                  Delivery store: <strong className="text-slate-800 dark:text-slate-100">
+                    {headerState.deliveryStoreCode || customerDeliveryLocations.find(location => location.id === headerState.deliveryLocationId)?.store_code || "Not selected"}
+                  </strong>
+                </span>
+              )}
+              {billingPolicyError && <span role="status" className="font-semibold text-rose-700 dark:text-rose-300">Billing policy unavailable; settlement is paused.</span>}
+              {!billingPolicyLoading && !billingPolicyError && permittedTransactions.length === 0 && (
+                <span role="status" className="font-semibold text-amber-700 dark:text-amber-300">Billing is blocked by customer or company policy.</span>
+              )}
+              {!billingPolicyLoading && !billingPolicyError && (
+                transactionCustomerPolicy?.channel_conflict ||
+                transactionCustomerPolicy?.configuration_warning ||
+                billingTransactionPolicy?.configuration_warning ||
+                transactionModeConflict ||
+                (!configuredTransactionIsPermitted && permittedTransactions.length > 0) ||
+                (transactionCustomerPolicy?.require_po_number && !headerState.poReference?.trim() && !headerState.customerPoId) ||
+                requiresCreditOverride
+              ) && (
+                <span role="status" className="font-semibold text-amber-700 dark:text-amber-300">
+                  Billing setup requires attention. Expand setup to review.
+                </span>
+              )}
+            </div>
+          )}
         </section>
 
         {/* ZONES C & D: ITEM GRID (~74%) & BILL SUMMARY (~26%) SIDE-BY-SIDE */}
-        <div className="flex-1 flex flex-col lg:flex-row gap-2.5 min-h-0 overflow-hidden">
+        <div className="flex-1 flex flex-col lg:flex-row gap-2.5 min-h-[360px] overflow-visible">
           
           {/* ZONE C: LINE ITEMS GRID & DIRECT ENTRY (~74% width) */}
-          <section className="relative flex-1 bg-white dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-xl flex flex-col overflow-hidden shadow-xs min-h-0">
+          <section className="relative flex-1 min-w-0 bg-white dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-xl flex flex-col overflow-hidden shadow-xs min-h-0">
             <div className="flex items-center justify-between gap-2 px-3 py-1.5 border-b border-slate-200 dark:border-slate-700 shrink-0">
               <span className="text-[10px] font-bold uppercase tracking-wide text-slate-600 dark:text-slate-300">Item Details</span>
               <div className="relative">
@@ -5582,7 +5683,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
               const sel = items[selectedRowIndex];
               return (
                 <div className="bg-slate-100 dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 px-3 py-1.5 text-xs flex flex-wrap items-center justify-between gap-2 shrink-0">
-                  <div className="flex items-center gap-3 font-mono text-[11px] overflow-x-auto">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px] min-w-0">
                     <span className="font-bold text-blue-600 dark:text-blue-400">Line #{sel.sNo}: {sel.stockNo}</span>
                     <span className="text-slate-800 dark:text-slate-200 font-sans font-medium">{sel.itemDescription}</span>
                     {sel.brand && <span className="text-slate-600 dark:text-slate-400 bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 rounded text-[10px]">Brand: {sel.brand}</span>}
@@ -5591,8 +5692,8 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                     <span className="text-slate-600 dark:text-slate-400 text-[10px]">GST: {sel.gstPercentage}% (₹{(sel.taxAmount || 0).toFixed(2)})</span>
                     {(sel.discAmt || 0) > 0 && <span className="text-emerald-600 dark:text-emerald-400 font-semibold text-[10px]">Disc: {sel.discCode || "ILD"} -₹{(sel.discAmt || 0).toFixed(2)} ({sel.discPercent || 0}%)</span>}
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-slate-400 text-[10px] hidden md:inline">Double-click to edit | Ctrl+D to delete</span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-slate-400 text-[10px]">Double-click to edit | Ctrl+D to delete</span>
                     {!isReadOnlyView && (
                       <button
                         type="button"
@@ -5638,15 +5739,15 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
             )}
 
             {/* Direct Entry Row (F11) at Bottom of Item Card */}
-            <div className="bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 p-2 flex gap-2 items-center shrink-0">
+            <div className="bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 p-2 flex flex-wrap gap-2 items-center shrink-0">
               <span className="text-[10px] font-mono font-bold text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-950/80 px-2 py-1 rounded shrink-0">
                 F11
               </span>
 
               {/* Inputs aligned with table columns */}
-              <div className="flex-1 flex gap-1.5 items-center flex-wrap sm:flex-nowrap">
+              <div className="flex-1 min-w-0 flex gap-1.5 items-center flex-wrap">
                 {/* Stock / Barcode Search */}
-                <div className="w-[110px] relative shrink-0">
+                <div className="w-[min(100%,180px)] relative shrink-0">
                   <input
                     ref={directStockNoRef}
                     type="text"
@@ -5746,17 +5847,44 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                   value={directGrossValue > 0 ? directGrossValue.toFixed(2) : ""}
                   readOnly
                   placeholder="Value"
-                  className="w-[85px] bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 h-8 font-mono text-xs rounded-lg px-2 text-right font-bold text-slate-700 dark:text-slate-300 shrink-0 hidden sm:block"
+                  className="w-[85px] bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 h-8 font-mono text-xs rounded-lg px-2 text-right font-bold text-slate-700 dark:text-slate-300 shrink-0"
                 />
 
-                {/* Disc Code */}
-                <input
-                  type="text"
-                  value={directEntry.discCode}
-                  onChange={e => setDirectEntry({ ...directEntry, discCode: e.target.value })}
-                  placeholder="Disc Code"
-                  className="w-[75px] border border-slate-300 dark:border-slate-700 h-8 font-mono text-xs rounded-lg px-2 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500 shrink-0 hidden md:block"
-                />
+                {/* Recommended discount can be accepted or explicitly declined. */}
+                <select
+                  aria-label="Discount recommendation for new item"
+                  data-testid="item-discount-select"
+                  value={directEntry.discountSelection === "NONE" ? "NONE" : "AUTO"}
+                  onChange={event => {
+                    if (event.target.value === "NONE") {
+                      setDirectEntry(prev => ({
+                        ...prev,
+                        discountSelection: "NONE",
+                        discCode: "ILD",
+                        discPercent: "0.00"
+                      }));
+                      return;
+                    }
+
+                    setDirectEntry(prev => ({
+                      ...prev,
+                      discountSelection: "AUTO",
+                      discCode: recommendedDirectDiscountCode === "No discount" ? "ILD" : recommendedDirectDiscountCode,
+                      discPercent: recommendedDirectDiscountPercent.toFixed(2),
+                      discQty: prev.discQty || prev.qty || "1"
+                    }));
+                  }}
+                  title={`Recommended discount: ${recommendedDirectDiscountCode}${recommendedDirectDiscountPercent ? ` (${recommendedDirectDiscountPercent.toFixed(2)}%)` : ""}`}
+                  className="w-[180px] max-w-full border border-slate-300 dark:border-slate-700 h-8 font-mono text-[10px] rounded-lg px-1.5 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500 shrink-0"
+                >
+                  <option value="AUTO">
+                    {directEntry.discountSelection === "NONE"
+                      ? `Recommended: ${recommendedDirectDiscountCode}`
+                      : `Auto: ${recommendedDirectDiscountCode}`}
+                    {recommendedDirectDiscountPercent > 0 ? ` (${recommendedDirectDiscountPercent.toFixed(2)}%)` : ""}
+                  </option>
+                  <option value="NONE">No discount</option>
+                </select>
 
                 {/* Disc % */}
                 <input
@@ -6231,11 +6359,11 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         )}
 
         {/* ZONE E: COMPACT BILLING ACTION BAR */}
-        <div className="bg-white dark:bg-[#131b2e] border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1.5 flex items-center justify-between gap-2 shadow-xs shrink-0">
-          <span className="text-[11px] text-slate-500 dark:text-slate-400 hidden sm:block">
+        <div className="bg-white dark:bg-[#131b2e] border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1.5 flex flex-wrap items-center justify-between gap-2 shadow-xs shrink-0">
+          <span className="text-[11px] text-slate-500 dark:text-slate-400">
             {summaryTotals.itemCount} {summaryTotals.itemCount === 1 ? "item" : "items"} · Net payable ₹{summaryTotals.netAmount.toFixed(2)}
           </span>
-          <div className="flex items-center gap-1.5 ml-auto">
+          <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5 ml-auto">
             <button
               type="button"
               onClick={handleSuspendInvoice}
@@ -6244,7 +6372,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
               title="Hold / Park Invoice (F12)"
             >
               <Save size={14} className="text-blue-600" />
-              <span>Hold <span className="hidden sm:inline">(F12)</span></span>
+              <span>Hold (F12)</span>
             </button>
             <button
               type="button"
@@ -6303,7 +6431,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
               <Check size={16} />
               <span>{sourceBillingSelection
                 ? activeDraftId ? "Source Draft Saved" : "Save Source Draft"
-                : <>Settle &amp; Save <span className="hidden sm:inline">(F8)</span></>}</span>
+                : <>Settle &amp; Save (F8)</>}</span>
             </button>
           </div>
         </div>

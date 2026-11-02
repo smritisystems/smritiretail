@@ -689,6 +689,7 @@ async def company_setup(
                 code=branch_code,
                 is_active=True,
                 is_deleted=False,
+                is_default=(idx == 0),
             )
             db.add(branch)
             await db.flush()

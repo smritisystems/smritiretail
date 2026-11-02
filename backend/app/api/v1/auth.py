@@ -27,7 +27,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
@@ -37,6 +37,7 @@ from ...core.security import verify_password
 from ...schemas.auth import (
     LoginRequest, TokenResponse, AccessTokenResponse,
     RefreshRequest, BootstrapRequest, UserResponse, TenantContextSwitchRequest,
+    SetCompanyDefaultBranchRequest,
     SupervisorPinVerifyRequest, SupervisorPinVerifyResponse,
 )
 from ...schemas.masters_tier2 import CompanyResponse, BranchResponse
@@ -169,6 +170,7 @@ async def list_tenant_options(
                 .where(
                     Branch.id.in_(assigned_br_ids),
                     Branch.company_id.in_(ready_comp_ids),
+                    Branch.is_default.is_(True),
                     Branch.is_active.is_(True),
                     Branch.is_deleted.is_(False),
                 )
@@ -180,6 +182,7 @@ async def list_tenant_options(
                 .where(
                     Branch.id == current_user.branch_id,
                     Branch.company_id.in_(ready_comp_ids),
+                    Branch.is_default.is_(True),
                     Branch.is_active.is_(True),
                     Branch.is_deleted.is_(False),
                 )
@@ -190,6 +193,7 @@ async def list_tenant_options(
                 select(Branch)
                 .where(
                     Branch.company_id.in_(ready_comp_ids),
+                    Branch.is_default.is_(True),
                     Branch.is_active.is_(True),
                     Branch.is_deleted.is_(False),
                 )
@@ -200,6 +204,54 @@ async def list_tenant_options(
     return {
         "companies": [CompanyResponse.from_orm_model(c) for c in companies],
         "branches": [BranchResponse.from_orm_model(b) for b in branches],
+    }
+
+
+@router.put("/default-branch")
+async def set_company_default_branch(
+    req: SetCompanyDefaultBranchRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Set the one active default branch for a company; only SYSADMIN may change it."""
+    if current_user.role != UserRole.SYSADMIN:
+        raise HTTPException(status_code=403, detail="Only a system administrator can change the company default branch.")
+
+    company_res = await db.execute(
+        select(Company).where(
+            Company.id == req.company_id,
+            Company.is_active.is_(True),
+            Company.is_deleted.is_(False),
+        ).with_for_update()
+    )
+    if company_res.scalars().first() is None:
+        raise HTTPException(status_code=404, detail="Company not found or inactive.")
+
+    branch_res = await db.execute(
+        select(Branch).where(
+            Branch.id == req.branch_id,
+            Branch.company_id == req.company_id,
+            Branch.is_active.is_(True),
+            Branch.is_deleted.is_(False),
+        )
+    )
+    branch = branch_res.scalars().first()
+    if branch is None:
+        raise HTTPException(status_code=404, detail="Branch not found or inactive for this company.")
+
+    branches_res = await db.execute(
+        select(Branch).where(Branch.company_id == req.company_id)
+    )
+    for company_branch in branches_res.scalars().all():
+        company_branch.is_default = company_branch.id == branch.id
+
+    await db.commit()
+    return {
+        "company_id": req.company_id,
+        "branch_id": branch.id,
+        "branch_code": branch.code,
+        "branch_name": branch.name,
+        "is_default": True,
     }
 
 
@@ -351,4 +403,3 @@ async def verify_supervisor_pin(
         authorized_at=datetime.now(timezone.utc).isoformat(),
         reason=req.reason or "Store Manager On-Duty Authorization",
     )
-

@@ -79,6 +79,7 @@ class BranchResponse(BaseModel):
     name: str
     code: str
     company: str  # Maps to company_id
+    is_default: bool = False
 
     @classmethod
     def from_orm_model(cls, obj):
@@ -86,7 +87,8 @@ class BranchResponse(BaseModel):
             id=obj.id,
             name=obj.name,
             code=obj.code,
-            company=obj.company_id
+            company=obj.company_id,
+            is_default=bool(getattr(obj, "is_default", False)),
         )
 
 

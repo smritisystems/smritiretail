@@ -93,6 +93,11 @@ class TenantContextSwitchRequest(BaseModel):
     target_branch_id: str
 
 
+class SetCompanyDefaultBranchRequest(BaseModel):
+    company_id: str
+    branch_id: str
+
+
 class SupervisorPinVerifyRequest(BaseModel):
     username: str = "manager"
     pin: str
@@ -109,4 +114,3 @@ class SupervisorPinVerifyResponse(BaseModel):
     authorized_at: Optional[str] = None
     reason: Optional[str] = None
     message: Optional[str] = None
-

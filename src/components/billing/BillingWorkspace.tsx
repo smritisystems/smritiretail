@@ -181,7 +181,7 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
   }, [showHotkeysModal, showToast]);
 
   return (
-    <div className="h-full flex flex-col overflow-hidden font-sans transition-colors duration-300 bg-[#f8f9fa] dark:bg-[#191c1e] text-[#191c1e] dark:text-[#eff1f3]">
+    <div className="h-full min-w-0 flex flex-col overflow-hidden font-sans transition-colors duration-300 bg-[#f8f9fa] dark:bg-[#191c1e] text-[#191c1e] dark:text-[#eff1f3]">
       {/* ── Top Unified Billing Navigation Header (Only shown when viewing auxiliary modules) ── */}
       {auxView !== "WORKSPACE" && !salesOrderWorkspaceOpen && (
       <header className="border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-[#131b2e] flex flex-wrap justify-between items-center px-4 py-2 shrink-0 z-20 shadow-2xs gap-2 transition-colors duration-300">
@@ -343,7 +343,7 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
       )}
 
       {/* ── Main Workspace Body ── */}
-      <div className="flex-1 overflow-hidden relative">
+      <div className="flex-1 min-w-0 overflow-hidden relative">
         {auxView === "SALES_MANAGEMENT" ? (
           <div className="h-full overflow-auto">
             <SalesStudioTab
@@ -364,7 +364,7 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
         ) : auxView === "SHIFT_REPORTS" ? (
           <SmritiDailyReportsDashboard />
         ) : (
-          <div className="h-full overflow-hidden">
+          <div className="h-full min-w-0 overflow-hidden">
             <BillingTerm
               key={initialMode}
               products={products}

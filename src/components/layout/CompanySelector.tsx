@@ -28,6 +28,7 @@ export interface BranchOption {
   name: string;
   code: string;
   company: string;
+  is_default: boolean;
 }
 
 export const CompanySelector: React.FC = () => {
@@ -39,6 +40,7 @@ export const CompanySelector: React.FC = () => {
   const [selectedBranchId, setSelectedBranchId] = useState<string>(() => {
     return localStorage.getItem("smriti_branch_id") || "";
   });
+  const [userRole, setUserRole] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [switching, setSwitching] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -47,7 +49,11 @@ export const CompanySelector: React.FC = () => {
     let isMounted = true;
     const loadCompanyRegistry = async () => {
       try {
-        const data = await apiFetchV1('/auth/tenants');
+        const [data, user] = await Promise.all([
+          apiFetchV1('/auth/tenants'),
+          apiFetchV1<any>('/auth/me'),
+        ]);
+        if (isMounted) setUserRole(String(user?.role || "").toUpperCase());
         if (isMounted && data && Array.isArray(data.companies) && data.companies.length > 0) {
           const mapped: CompanyOption[] = data.companies
             .filter((item: any) => Boolean(item?.id))
@@ -93,7 +99,46 @@ export const CompanySelector: React.FC = () => {
     };
   }, []);
 
+  const handleSetDefaultBranch = async (comp: CompanyOption, branch: BranchOption) => {
+    if (userRole !== "SYSADMIN" || branch.is_default) return;
+    setSwitching(true);
+    setError(null);
+    try {
+      await apiFetchV1('/auth/default-branch', {
+        method: 'PUT',
+        body: JSON.stringify({ company_id: comp.company_id, branch_id: branch.id }),
+      });
+
+      if (comp.company_id === selectedCompanyId) {
+        const res = await apiFetchV1<any>('/auth/switch-context', {
+          method: 'POST',
+          body: JSON.stringify({ target_company_id: comp.company_id, target_branch_id: branch.id }),
+        });
+        if (!res?.access_token) throw new Error("The new default branch could not be activated.");
+        localStorage.setItem("smriti_jwt_token", res.access_token);
+        localStorage.setItem("smriti_company_id", comp.company_id);
+        localStorage.setItem("smriti_company_code", comp.company_code);
+        localStorage.setItem("smriti_company_name", comp.company_name);
+        localStorage.setItem("smriti_branch_id", branch.id);
+        localStorage.setItem("smriti_branch_name", branch.name);
+        localStorage.setItem("smriti_branch_code", branch.code);
+        window.dispatchEvent(new CustomEvent("smriti_company_context_updated"));
+        window.location.reload();
+        return;
+      }
+
+      const data = await apiFetchV1<any>('/auth/tenants');
+      setBranches(Array.isArray(data?.branches) ? data.branches : []);
+    } catch (err: any) {
+      console.error("[CompanySelector] Default branch update failed:", err);
+      setError(err?.message || "Unable to update the company default branch.");
+    } finally {
+      setSwitching(false);
+    }
+  };
+
   const handleSelectBranch = async (comp: CompanyOption, targetBranch: BranchOption) => {
+    if (!targetBranch.is_default) return;
     if (comp.company_id === selectedCompanyId && targetBranch.id === selectedBranchId) {
       setIsOpen(false);
       return;
@@ -235,27 +280,44 @@ export const CompanySelector: React.FC = () => {
                           No branches registered
                         </div>
                       ) : (
-                        compBranches.map((br) => {
+                        (userRole === "SYSADMIN" ? compBranches : compBranches.filter(branch => branch.is_default)).map((br) => {
                           const isBranchSelected = isCompActive && br.id === selectedBranchId;
                           return (
-                            <button
+                            <div
                               key={br.id}
-                              disabled={switching}
-                              aria-pressed={isBranchSelected}
-                              onClick={() => handleSelectBranch(comp, br)}
-                              className={`w-full text-left px-2.5 py-1.5 rounded-md text-xs flex items-center justify-between hover:bg-theme-surface-hover transition-colors cursor-pointer ${
-                                isBranchSelected
-                                  ? 'text-blue-700 font-bold bg-blue-50 border-l-2 border-blue-600'
-                                  : 'text-theme-muted hover:text-theme-body'
-                              } ${switching ? 'opacity-50 cursor-not-allowed' : ''}`}
+                              className="flex items-center gap-1"
                             >
-                              <div className="flex items-center gap-1.5 min-w-0 pr-2">
-                                <GitBranch className={`w-3 h-3 ${isBranchSelected ? 'text-blue-600' : 'text-theme-muted'}`} />
-                                <span className="truncate">{br.name}</span>
-                                <span className="text-[9px] font-mono opacity-70">({br.code})</span>
-                              </div>
-                              {isBranchSelected && <Check className="w-3.5 h-3.5 text-blue-600 shrink-0" />}
-                            </button>
+                              <button
+                                type="button"
+                                disabled={switching || !br.is_default}
+                                aria-pressed={isBranchSelected}
+                                onClick={() => handleSelectBranch(comp, br)}
+                                title={br.is_default ? "Company default branch" : "Only the company default branch can be activated"}
+                                className={`flex-1 min-w-0 text-left px-2.5 py-1.5 rounded-md text-xs flex items-center justify-between transition-colors ${
+                                  isBranchSelected
+                                    ? 'text-blue-700 font-bold bg-blue-50 border-l-2 border-blue-600'
+                                    : br.is_default ? 'text-theme-muted hover:text-theme-body hover:bg-theme-surface-hover' : 'text-theme-muted opacity-60 cursor-not-allowed'
+                                } ${switching ? 'opacity-50 cursor-not-allowed' : ''}`}
+                              >
+                                <span className="flex items-center gap-1.5 min-w-0 pr-2">
+                                  <GitBranch className={`w-3 h-3 ${br.is_default ? 'text-blue-600' : 'text-theme-muted'}`} />
+                                  <span className="truncate">{br.name}</span>
+                                  <span className="text-[9px] font-mono opacity-70">({br.code})</span>
+                                </span>
+                                {br.is_default && <span className="text-[9px] font-semibold text-emerald-600">DEFAULT</span>}
+                              </button>
+                              {userRole === "SYSADMIN" && (
+                                <button
+                                  type="button"
+                                  disabled={switching || br.is_default}
+                                  onClick={() => void handleSetDefaultBranch(comp, br)}
+                                  className="shrink-0 rounded px-1.5 py-1 text-[9px] font-semibold text-blue-600 hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                  aria-label={`Set ${br.name} as company default branch`}
+                                >
+                                  {br.is_default ? <Check className="w-3 h-3" /> : "Set default"}
+                                </button>
+                              )}
+                            </div>
                           );
                         })
                       )}

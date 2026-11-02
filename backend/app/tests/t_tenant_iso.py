@@ -54,6 +54,7 @@ async def _create_tenant_and_user(db_session, suffix: str, role: UserRole = User
         name=f"MultiBranch {suffix}",
         code=f"BRMC-{suffix}",
         is_active=True,
+        is_default=True,
     )
     db_session.add_all([company, branch])
     await db_session.commit()
@@ -98,7 +99,7 @@ async def test_default_tenant_resolution_on_login(db_session):
     """Verify that login resolves default company/branch assignments when user fields are empty."""
     suffix = uuid.uuid4().hex[:6]
     company = Company(id=f"comp-def-{suffix}", name=f"Default Comp {suffix}", gst_number="27ABCDE1234F1Z5", is_active=True)
-    branch = Branch(id=f"br-def-{suffix}", company_id=company.id, name=f"Default Branch {suffix}", code=f"BRDEF-{suffix}", is_active=True)
+    branch = Branch(id=f"br-def-{suffix}", company_id=company.id, name=f"Default Branch {suffix}", code=f"BRDEF-{suffix}", is_active=True, is_default=True)
     db_session.add_all([company, branch])
     await db_session.commit()
 
@@ -140,7 +141,7 @@ async def test_context_switch_to_assigned_company(db_session):
 
     # Create second company and branch, and assign to user
     comp_b = Company(id=f"comp-mc-{s_b}", name=f"MultiComp {s_b}", gst_number="27ABCDE1234F2Z6", is_active=True)
-    br_b = Branch(id=f"br-mc-{s_b}", company_id=comp_b.id, name=f"MultiBranch {s_b}", code=f"BRMC-{s_b}", is_active=True)
+    br_b = Branch(id=f"br-mc-{s_b}", company_id=comp_b.id, name=f"MultiBranch {s_b}", code=f"BRMC-{s_b}", is_active=True, is_default=True)
     db_session.add_all([comp_b, br_b])
     await db_session.commit()
 
@@ -171,7 +172,7 @@ async def test_context_switch_denied_for_unassigned_company(db_session):
 
     # Company C is unassigned
     comp_unassigned = Company(id=f"comp-un-{s_u}", name=f"Unassigned Comp {s_u}", gst_number="27ABCDE1234F3Z7", is_active=True)
-    br_unassigned = Branch(id=f"br-un-{s_u}", company_id=comp_unassigned.id, name=f"Unassigned Branch {s_u}", code=f"BRUN-{s_u}", is_active=True)
+    br_unassigned = Branch(id=f"br-un-{s_u}", company_id=comp_unassigned.id, name=f"Unassigned Branch {s_u}", code=f"BRUN-{s_u}", is_active=True, is_default=True)
     db_session.add_all([comp_unassigned, br_unassigned])
     await db_session.commit()
 
