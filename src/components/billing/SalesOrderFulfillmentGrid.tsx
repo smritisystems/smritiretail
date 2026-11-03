@@ -97,10 +97,10 @@ export function SalesOrderFulfillmentGrid({
           <span className="text-slate-500">SO Qty:</span><strong>{itemTotals.ordered}</strong>
         </div>
         <div className="flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] dark:border-slate-700 dark:bg-slate-800">
-          <span className="text-slate-500">Fulfilled:</span><strong>{itemTotals.fulfilled}</strong>
+          <span className="text-slate-500">SO Fulfilled:</span><strong>{itemTotals.fulfilled}</strong>
         </div>
         <div className="flex items-center gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
-          <span>Pending:</span><strong>{itemTotals.pending}</strong>
+          <span>SO Pending:</span><strong>{itemTotals.pending}</strong>
         </div>
         <span className="mx-1 hidden h-6 border-l border-slate-300 md:block dark:border-slate-700" />
         <button
@@ -289,8 +289,20 @@ export function SalesOrderFulfillmentGrid({
                 <td className="border-r border-rose-200 text-center dark:border-rose-900"><input type="checkbox" disabled aria-label={`Invalid barcode ${row.barcode}`} /></td>
                 <td className="border-r border-rose-200 px-1 text-center dark:border-rose-900">{preparedLines.length + index + 1}</td>
                 <td className="border-r border-rose-200 px-1 dark:border-rose-900">—</td>
-                <td className="border-r border-rose-200 px-1 font-mono dark:border-rose-900">{row.barcode}</td>
-                <td colSpan={6} className="border-r border-rose-200 px-1 dark:border-rose-900">{row.reason}</td>
+                <td className="overflow-hidden text-ellipsis border-r border-rose-200 px-1 font-mono dark:border-rose-900" title={row.reason}>{row.barcode}</td>
+                <td colSpan={6} className="overflow-hidden text-ellipsis border-r border-rose-200 px-2 dark:border-rose-900" title={row.reason}>
+                  {row.status === "NOT_IN_SO"
+                    ? "Barcode is not on the selected Sales Order"
+                    : row.reason.includes("exceeds total SO Pending Qty")
+                      ? "Requested quantity exceeds SO Pending Qty"
+                      : row.reason.includes("matches different Sales Order items")
+                        ? "Barcode matches multiple Sales Order items"
+                        : row.reason.includes("quantity must be positive")
+                          ? "Quantity must be positive (max 4 decimal places)"
+                          : row.reason.includes("not eligible for billing")
+                            ? "Sales Order item is not eligible for billing"
+                            : "Invalid barcode or quantity"}
+                </td>
                 <td className="border-r border-rose-200 px-1 text-right dark:border-rose-900">—</td>
                 <td className="px-1"><span className="inline-flex items-center gap-1 rounded bg-rose-100 px-1.5 py-0.5 font-bold dark:bg-rose-900/50"><X size={12} />{row.status === "NOT_IN_SO" ? "Not in SO" : "Invalid"}</span></td>
               </tr>

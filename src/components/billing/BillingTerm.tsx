@@ -581,6 +581,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     if (choice === "DIRECT") {
       if (sourceBillingSelection) {
         setSourceBillingSelection(null);
+        setShowBillSummaryBreakdown(true);
         setSourceOrderValidationEnabled(true);
         setSourceOrderRejectedRows([]);
         setItems([]);
@@ -720,6 +721,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     }
     setSourceOrderValidationEnabled(true);
     setSourceOrderRejectedRows([]);
+    setShowBillSummaryBreakdown(source.sourceType !== "SALES_ORDER");
     setSourceBillingSelection(source);
     setItems(sourceLines);
     setBillLevelPromo({
@@ -1143,6 +1145,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   const [activeFooterDrawer, setActiveFooterDrawer] = useState<"none" | "transporter" | "payment" | "addons" | "remarks">("none");
   const [showMoreDetails, setShowMoreDetails] = useState<boolean>(false);
   const [showBillingHeaderDetails, setShowBillingHeaderDetails] = useState<boolean>(true);
+  const [showBillSummaryBreakdown, setShowBillSummaryBreakdown] = useState(true);
   const [showMoreMenu, setShowMoreMenu] = useState<boolean>(false);
   const [transporterRows, setTransporterRows] = useState<TransporterRow[]>(() =>
     DEFAULT_TRANSPORTER_ROWS.map(r => ({ ...r }))
@@ -4937,7 +4940,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
           <div id="billing-header-details" className="grid grid-cols-1 lg:grid-cols-12 gap-2 items-start">
             
             {/* Column 1: Customer Identification (4 cols) */}
-            <div className={`flex flex-col gap-1.5 ${!showBillingHeaderDetails ? "lg:col-span-12 lg:flex-row lg:items-center" : showMoreDetails ? "lg:col-span-4" : "lg:col-span-9 lg:flex-row lg:items-center"}`}>
+            <div className={`flex flex-col gap-1.5 ${!showBillingHeaderDetails ? "lg:col-span-12 lg:flex-row lg:items-center" : showMoreDetails ? "lg:col-span-4" : "lg:col-span-5 lg:flex-row lg:items-center"}`}>
               <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 shrink-0">
                 <Users size={14} className="text-blue-600 dark:text-blue-400" />
                 <span>Customer</span>
@@ -5184,7 +5187,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
 
             {/* Column 2: Transaction Parameters & Settings (5 cols) */}
             {showBillingHeaderDetails && (
-            <div className={`${showMoreDetails ? "lg:col-span-5" : "lg:col-span-3"} flex flex-col gap-1`}>
+            <div className={`${showMoreDetails ? "lg:col-span-5" : "lg:col-span-7"} flex flex-col gap-1`}>
               {headerState.customer && (
                 <div className="mb-1 rounded-lg border border-slate-200 bg-slate-50 p-2 dark:border-slate-700 dark:bg-slate-900/60">
                   <div className="mb-1.5 flex flex-wrap items-center justify-between gap-1">
@@ -5253,9 +5256,14 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                     {permittedSources.includes("SALES_ORDER") && (
                       <button
                         type="button"
+                        aria-pressed={sourceBillingSelection?.sourceType === "SALES_ORDER"}
                         onClick={() => handleBillingSourceChoice("SALES_ORDER")}
                         disabled={isReadOnlyView || Boolean(sourceBillingSelection)}
-                        className="min-h-9 rounded-md border border-slate-300 bg-white px-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                        className={`min-h-9 rounded-md border px-2.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-100 ${
+                          sourceBillingSelection?.sourceType === "SALES_ORDER"
+                            ? "border-blue-500 bg-blue-50 text-blue-800 dark:bg-blue-950/40 dark:text-blue-200"
+                            : "border-slate-300 bg-white text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                        }`}
                         title="Choose one order for a source draft, or select multiple eligible orders for one atomic consolidated invoice"
                       >
                         Sales Order
@@ -5264,9 +5272,14 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                     {permittedSources.includes("PACKING_SLIP_CONSOLIDATED") && (
                       <button
                         type="button"
+                        aria-pressed={sourceBillingSelection?.sourceType === "PACKING_SLIP"}
                         onClick={() => handleBillingSourceChoice("PACKING_SLIP")}
                         disabled={isReadOnlyView || Boolean(sourceBillingSelection)}
-                        className="min-h-9 rounded-md border border-slate-300 bg-white px-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                        className={`min-h-9 rounded-md border px-2.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-100 ${
+                          sourceBillingSelection?.sourceType === "PACKING_SLIP"
+                            ? "border-blue-500 bg-blue-50 text-blue-800 dark:bg-blue-950/40 dark:text-blue-200"
+                            : "border-slate-300 bg-white text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                        }`}
                         title="Prefill remaining packed quantities from this Packing Slip, then save an unposted draft"
                       >
                         Packing Slip
@@ -6164,22 +6177,35 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
           </section>
 
           {/* ZONE D: BILL SUMMARY & NET PAYABLE CARD (~26% width / w-80 to w-96) */}
-          <aside className="w-full xl:w-[320px] bg-white dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-xl flex flex-col p-2.5 shadow-xs shrink-0 justify-between gap-2">
+          <aside className={`w-full ${showBillSummaryBreakdown ? "xl:w-[320px]" : "xl:w-[190px]"} bg-white dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-xl flex flex-col p-2.5 shadow-xs shrink-0 justify-between gap-2 transition-[width]`}>
             
             {/* Header & Stats */}
             <div className="flex flex-col gap-1.5">
-            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-1.5">
+              <div className="flex items-center justify-between gap-1 border-b border-slate-200 dark:border-slate-700 pb-1.5">
               <span className="text-[11px] font-bold text-slate-800 dark:text-slate-100 tracking-wide flex items-center gap-1.5">
                   <Receipt size={14} className="text-blue-600" />
                   <span>Bill Summary</span>
                 </span>
-              <span className="text-[10px] font-semibold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/60 px-1.5 py-0.5 rounded-full border border-blue-200 dark:border-blue-800">
-                  {summaryTotals.itemCount} {summaryTotals.itemCount === 1 ? "item" : "items"} · {summaryTotals.totalQty.toFixed(1)} qty
-                </span>
+                <div className="flex items-center gap-1">
+                  <span className="text-[10px] font-semibold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/60 px-1.5 py-0.5 rounded-full border border-blue-200 dark:border-blue-800">
+                      {summaryTotals.itemCount} {summaryTotals.itemCount === 1 ? "item" : "items"} · {summaryTotals.totalQty.toFixed(1)} qty
+                    </span>
+                  <button
+                    type="button"
+                    aria-expanded={showBillSummaryBreakdown}
+                    aria-controls="billing-summary-breakdown"
+                    onClick={() => setShowBillSummaryBreakdown(value => !value)}
+                    className="inline-flex h-7 items-center gap-1 rounded-md border border-slate-200 px-2 text-[10px] font-semibold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                    title={showBillSummaryBreakdown ? "Hide financial breakdown" : "Show financial breakdown"}
+                  >
+                    {showBillSummaryBreakdown ? "Hide" : "Details"}
+                    {showBillSummaryBreakdown ? <ChevronDown size={12} /> : <ChevronUp size={12} />}
+                  </button>
+                </div>
               </div>
 
-              {/* Financial Breakdown Table */}
-              <div className="flex flex-col divide-y divide-slate-100 dark:divide-slate-800 text-[11px]">
+                {/* Financial Breakdown Table */}
+                <div id="billing-summary-breakdown" hidden={!showBillSummaryBreakdown} className="flex flex-col divide-y divide-slate-100 dark:divide-slate-800 text-[11px]">
                 {items.length > 0 && (
                   <div
                     role={currentPreviewError ? "alert" : "status"}
