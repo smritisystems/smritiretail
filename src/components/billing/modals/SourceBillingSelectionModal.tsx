@@ -398,9 +398,9 @@ export function SourceBillingSelectionModal({
                 Order lines remain separate so each invoice line keeps its source Sales Order and order-line allocation.
               </p>
             )}
-            {prepared && eligibleLines.length > 0 && prepared.source_documents?.length !== 1 && prepared.source_type === "SALES_ORDER" && !commitEnabled && (
+            {prepared && eligibleLines.length > 0 && prepared.source_type === "SALES_ORDER" && !commitEnabled && (
               <p role="status" className="mb-2 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
-                Consolidated posting is currently disabled by the server rollout setting. You can review this selection, but cannot finalize it yet.
+                Sales Order posting is currently disabled by the server rollout setting. You can review this selection, but cannot finalize it yet.
               </p>
             )}
             {capabilityError && (
@@ -408,8 +408,8 @@ export function SourceBillingSelectionModal({
                 Posting capability could not be verified: {capabilityError}
               </p>
             )}
-            {capabilityLoading && sourceType === "SALES_ORDER" && selectedDocumentIds.length > 1 && (
-              <p role="status" className="mb-2 text-xs text-slate-500">Checking consolidated posting capability…</p>
+            {capabilityLoading && sourceType === "SALES_ORDER" && selectedDocumentIds.length > 0 && (
+              <p role="status" className="mb-2 text-xs text-slate-500">Checking Sales Order posting capability…</p>
             )}
             {stockWarnings.length > 0 && (
               <div role="status" className="mb-3 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
@@ -513,7 +513,7 @@ export function SourceBillingSelectionModal({
           <button
             type="button"
             onClick={usePreparedSource}
-            disabled={!prepared || (sourceType !== "SALES_ORDER" && eligibleLines.length === 0) || (prepared.source_documents?.length || 0) > 1 && capabilityLoading}
+            disabled={!prepared || (sourceType !== "SALES_ORDER" && eligibleLines.length === 0) || sourceType === "SALES_ORDER" && capabilityLoading}
             className="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
           >
             Use selected lines

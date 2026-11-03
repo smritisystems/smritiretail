@@ -73,20 +73,20 @@ Terminal commands executed:
 
 ## 9. Multi-Sales-Order Consolidated Billing Addendum
 
-This is a separate source-billing workflow from the multi-Packing-Slip compiler described above. In Billing Workspace, select a customer, choose **Sales Order**, select two or more eligible orders, prepare them, and enter a positive invoice quantity for at least one line from each selected order. A line stays tied to its source order and order-line allocation; matching SKUs are not merged across orders.
+This is a separate source-billing workflow from the multi-Packing-Slip compiler described above. In Billing Workspace, select a customer, choose **Sales Order**, select one or more eligible orders, prepare them, and enter bill quantities. For a consolidated invoice, at least one positive line quantity is required from every selected order. A line stays tied to its source order and order-line allocation; matching SKUs are not merged across orders.
 
-The backend rechecks customer/company/branch ownership, order status, remaining quantities, and Packing Slip conflicts while locking the selected orders and lines. It posts one invoice through the canonical sales writer and records each source allocation in the same transaction. The source preview also shows current stock and warns when selected quantities exceed it; canonical inventory validation remains the final posting guard.
+Use **Settle & Post Sales Order Invoice** for one order or **Settle & Post Consolidated Invoice** for multiple orders. Both paths use the canonical sales writer and atomically record invoice-to-order allocations, billed/pending quantities, order status, and reservation consumption. The backend rechecks customer/company/branch ownership, order status, remaining quantities, and Packing Slip conflicts while locking the selected orders and lines. The source preview also shows current stock and warns when selected quantities exceed it; canonical inventory validation remains the final posting guard. Sales Order drafts remain unposted review documents and do not update order allocations; re-prepare the order and use settlement to complete posting.
 
-Consolidated posting is controlled by `SMRITI_SOURCE_BILLING_ENABLED` and remains disabled unless the deployment has completed its migration, reconciliation, and rollout validation. The capability endpoint reports whether posting is available; the UI preserves the selection for review when it is off. No live invoice is created by this implementation.
+Sales Order posting is controlled by `SMRITI_SOURCE_BILLING_ENABLED` and remains disabled unless the deployment has completed its migration, reconciliation, and rollout validation. The capability endpoint reports whether posting is available; the UI preserves the selection for review when it is off. No live invoice is created by this implementation.
 
 ## 10. Verification Results
 
-The multi-Sales-Order addendum was validated with focused backend tests for preparation, same-customer checks, request validation, atomic commit/allocation, and the disabled-by-default rollout gate. The consolidated-commit test also covers reconciling an order line's billed quantity with its committed allocation balance.
+The Sales Order billing flow has focused checks for atomic order allocation, the disabled-by-default rollout gate, and the distinct single-order and multi-order commit request shapes. The consolidated-commit test also covers reconciling an order line's billed quantity with its committed allocation balance.
 
-- Focused source-billing backend tests: 8 passed; consolidated commit regression rerun: 1 passed.
-- Source-billing discount frontend tests: 5 passed.
-- Frontend production build: passed.
-- TypeScript check remains blocked only by existing errors in `ReportDesignerTab.tsx` and `DistTaxInvoice.tsx`.
+- Focused source-billing backend tests: 12 passed.
+- Focused frontend source-billing tests: 9 passed.
+- Frontend production build: passed; Vite reports an existing circular manual-chunk warning.
+- `npm run lint` remains blocked by existing errors in `ReportDesignerTab.tsx` and `DistTaxInvoice.tsx`.
 
 The earlier Packing-Slip verification results follow:
 

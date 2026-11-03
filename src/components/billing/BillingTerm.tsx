@@ -28,6 +28,7 @@ import {
   prepareBillingPostingLines,
 } from "./billingPreview.ts";
 import { calculateSourceDiscountAmount } from "../../utils/sourceBillingDiscount.ts";
+import { buildSalesOrderBillingCommitRequest } from "../../utils/sourceBillingCommit.ts";
 import { 
   searchBackendCustomers, 
   searchBackendProducts, 
@@ -305,8 +306,9 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   const [sourceBillingSelection, setSourceBillingSelection] = useState<SelectedSourceBilling | null>(null);
   const [sourceOrderValidationEnabled, setSourceOrderValidationEnabled] = useState(true);
   const [sourceOrderRejectedRows, setSourceOrderRejectedRows] = useState<SourceBarcodeQuantityResult["rejectedRows"]>([]);
+  const isSalesOrderSourceBilling = sourceBillingSelection?.sourceType === "SALES_ORDER";
   const isConsolidatedSalesOrderBilling = Boolean(
-    sourceBillingSelection?.sourceType === "SALES_ORDER"
+    isSalesOrderSourceBilling
     && sourceBillingSelection.documentIds.length > 1
   );
   const selectedSourceStockWarnings = useMemo(() => {
@@ -1450,16 +1452,16 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   );
 
   const openSettlement = () => {
-    if (sourceBillingSelection?.sourceType === "SALES_ORDER" && !sourceOrderValidationEnabled) {
+    if (isSalesOrderSourceBilling && !sourceOrderValidationEnabled) {
       onNotification?.("Sales Order Validation Required", "Turn on Sales Order validation before billing or posting these order lines.", "error");
       return;
     }
-    if (sourceBillingSelection && !isConsolidatedSalesOrderBilling) {
+    if (sourceBillingSelection && !isSalesOrderSourceBilling) {
       onNotification?.("Source Billing Is Draft-Only", "Save this source-backed invoice as a draft. Posting is not available from this workflow.", "info");
       return;
     }
-    if (isConsolidatedSalesOrderBilling && !sourceBillingSelection?.commitEnabled) {
-      onNotification?.("Consolidated Posting Disabled", "The server rollout setting has not enabled consolidated Sales Order posting. Your reviewed cart is preserved.", "info");
+    if (isSalesOrderSourceBilling && !sourceBillingSelection?.commitEnabled) {
+      onNotification?.("Sales Order Posting Disabled", "The server rollout setting has not enabled Sales Order posting. Your reviewed cart is preserved.", "info");
       return;
     }
     if (items.length === 0) {
@@ -3740,7 +3742,13 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       return;
     }
     if (sourceBillingSelection) {
-      onNotification?.("Source Billing Is Draft-Only", "Save this source-backed invoice as a draft; settlement and posting are disabled for this workflow.", "info");
+      onNotification?.(
+        "Source Draft Preview",
+        sourceBillingSelection.sourceType === "SALES_ORDER"
+          ? "This saved draft is not linked to the Sales Order allocation ledger. Re-prepare the Sales Order and use Settle & Post to complete billing."
+          : "Save this Packing Slip invoice as a draft; settlement and posting are disabled for this workflow.",
+        "info",
+      );
       return;
     }
 
@@ -4029,18 +4037,18 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     changeDue: number,
     denominations?: any
   ) => {
-    if (sourceBillingSelection?.sourceType === "SALES_ORDER" && !sourceOrderValidationEnabled) {
+    if (isSalesOrderSourceBilling && !sourceOrderValidationEnabled) {
       onNotification?.("Sales Order Validation Required", "Turn on Sales Order validation before billing or posting these order lines.", "error");
       return;
     }
     const isCreditTx = headerState.transaction === "Credit" || payments.some(p => (p.mode || "").toUpperCase() === "CREDIT");
-    if (sourceBillingSelection && !isConsolidatedSalesOrderBilling) {
+    if (sourceBillingSelection && !isSalesOrderSourceBilling) {
       setShowSettlementModal(false);
       await handleSaveDraftInvoice();
       return;
     }
-    if (isConsolidatedSalesOrderBilling && !sourceBillingSelection?.commitEnabled) {
-      onNotification?.("Consolidated Posting Disabled", "The server rollout setting has not enabled consolidated Sales Order posting. Your invoice is preserved for review.", "error");
+    if (isSalesOrderSourceBilling && !sourceBillingSelection?.commitEnabled) {
+      onNotification?.("Sales Order Posting Disabled", "The server rollout setting has not enabled Sales Order posting. Your invoice is preserved for review.", "error");
       return;
     }
     console.error("[SETTLEMENT CHECK] handleCompleteSettlement invoked", {
@@ -4289,24 +4297,15 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         });
         setActiveDraftId(null);
       } else {
-        const consolidatedSourceBody = isConsolidatedSalesOrderBilling && sourceBillingSelection
-          ? {
-            source_type: sourceBillingSelection.sourceType,
-            source_document_ids: sourceBillingSelection.documentIds,
-            lines: sourceBillingSelection.lines.map(line => ({
-              source_document_id: line.sourceDocumentId,
-              source_line_id: line.sourceLineId,
-              quantity: line.quantity,
-            })),
-            invoice: invoicePayload,
-          }
+        const sourceOrderCommitBody = isSalesOrderSourceBilling && sourceBillingSelection
+          ? buildSalesOrderBillingCommitRequest(sourceBillingSelection, invoicePayload)
           : null;
-        const saveUrl = consolidatedSourceBody
+        const saveUrl = sourceOrderCommitBody
           ? "/billing/sources/commit"
           : headerState.billingSource === "CUSTOMER_PO" && headerState.customerPoId
             ? `/sales/customer-pos/${headerState.customerPoId}/bill`
             : "/sales/invoices";
-        const saveBody = consolidatedSourceBody
+        const saveBody = sourceOrderCommitBody
           || (headerState.billingSource === "CUSTOMER_PO" && headerState.customerPoId
             ? { invoice: invoicePayload, lines: items.map(item => ({ customer_po_line_id: item.customerPoLineId, quantity: item.qty })) }
             : invoicePayload);
@@ -4322,7 +4321,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
           headers: { "Idempotency-Key": settlementIdempotencyKeyRef.current.key },
           body: JSON.stringify(saveBody)
         });
-        saved = consolidatedSourceBody
+        saved = sourceOrderCommitBody
           ? {
             id: result.invoice_id,
             invoice_no: result.invoice_no,
@@ -4449,12 +4448,12 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
 
   // Enterprise Retail: F7 Exact Cash Instant Checkout
   const handleExactCashSettlement = async () => {
-    if (sourceBillingSelection && !isConsolidatedSalesOrderBilling) {
+    if (sourceBillingSelection && !isSalesOrderSourceBilling) {
       await handleSaveDraftInvoice();
       return;
     }
-    if (isConsolidatedSalesOrderBilling && !sourceBillingSelection?.commitEnabled) {
-      onNotification?.("Consolidated Posting Disabled", "The server rollout setting has not enabled consolidated Sales Order posting.", "error");
+    if (isSalesOrderSourceBilling && !sourceBillingSelection?.commitEnabled) {
+      onNotification?.("Sales Order Posting Disabled", "The server rollout setting has not enabled Sales Order posting.", "error");
       return;
     }
     if (items.length === 0) {
@@ -5380,7 +5379,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                     </p>
                   )}
                   <p className="mt-1 text-[9px] text-slate-600 dark:text-slate-400">
-                    Single-source bills remain draft-only. Consolidated Sales Order invoices are finalized atomically after review.
+                    Sales Order invoices are posted atomically after review. Packing Slip invoices remain draft-only.
                   </p>
                 </section>
               )}
@@ -5411,9 +5410,9 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                           Clear source
                         </button>
                       </div>
-                      {isConsolidatedSalesOrderBilling && !sourceBillingSelection.commitEnabled && (
+                      {isSalesOrderSourceBilling && !sourceBillingSelection.commitEnabled && (
                         <p role="status" className="mb-2 rounded border border-amber-300 bg-amber-50 px-2.5 py-2 text-[11px] font-medium text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
-                          Consolidated posting is disabled by the server rollout setting. Review only; finalization is unavailable.
+                          Sales Order posting is disabled by the server rollout setting. Review only; finalization is unavailable.
                         </p>
                       )}
                       {selectedSourceStockWarnings.length > 0 && (
@@ -6817,18 +6816,20 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
             )}
             <button
               type="button"
-              onClick={sourceBillingSelection && !isConsolidatedSalesOrderBilling ? handleSaveDraftInvoice : openSettlement}
-              disabled={isReadOnlyView || items.length === 0 || (Boolean(activeDraftId) && Boolean(sourceBillingSelection)) || (isConsolidatedSalesOrderBilling && !sourceBillingSelection?.commitEnabled)}
+              onClick={sourceBillingSelection && !isSalesOrderSourceBilling ? handleSaveDraftInvoice : openSettlement}
+              disabled={isReadOnlyView || items.length === 0 || (Boolean(activeDraftId) && Boolean(sourceBillingSelection)) || (isSalesOrderSourceBilling && !sourceBillingSelection?.commitEnabled)}
               className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-2 cursor-pointer shadow-md hover:shadow-lg disabled:opacity-40 disabled:cursor-not-allowed"
-              title={isConsolidatedSalesOrderBilling
+              title={isSalesOrderSourceBilling
                 ? sourceBillingSelection?.commitEnabled
-                  ? "Settle and atomically post one invoice across the selected Sales Orders"
-                  : "Consolidated posting is disabled by the server rollout setting"
+                  ? isConsolidatedSalesOrderBilling
+                    ? "Settle and atomically post one invoice across the selected Sales Orders"
+                    : "Settle and atomically post this Sales Order invoice"
+                  : "Sales Order posting is disabled by the server rollout setting"
                 : sourceBillingSelection ? "Save source-backed invoice as a draft (no posting)" : "Settle & Save Invoice (F8)"}
             >
               <Check size={16} />
-              <span>{isConsolidatedSalesOrderBilling
-                ? "Settle & Post Consolidated Invoice"
+              <span>{isSalesOrderSourceBilling
+                ? isConsolidatedSalesOrderBilling ? "Settle & Post Consolidated Invoice" : "Settle & Post Sales Order Invoice"
                 : sourceBillingSelection
                 ? activeDraftId ? "Source Draft Saved" : "Save Source Draft"
                 : <>Settle &amp; Save (F8)</>}</span>
