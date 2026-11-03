@@ -12,6 +12,8 @@ import type { BillingPreviewResult } from "./billingPreview.ts";
 interface Props {
   source: SelectedSourceBilling;
   layout: BillingGridLayout;
+  columnsSettings: React.ReactNode;
+  layoutDirty: boolean;
   previewLines?: Record<string, BillingPreviewResult["lines"][number]>;
   validationEnabled: boolean;
   readOnly: boolean;
@@ -24,6 +26,8 @@ interface Props {
 export function SalesOrderFulfillmentGrid({
   source,
   layout,
+  columnsSettings,
+  layoutDirty,
   previewLines = {},
   validationEnabled,
   readOnly,
@@ -194,24 +198,30 @@ export function SalesOrderFulfillmentGrid({
             <X size={12} />Clear invalid
           </button>
         )}
-        <div className="relative ml-auto">
-          <button
-            type="button"
-            aria-expanded={showItems}
-            onClick={() => setShowItems(value => !value)}
-            className="inline-flex h-8 items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 text-[11px] font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
-          >
-            Items ({selectedCount}) <ChevronDown size={13} />
-          </button>
-          {showItems && (
-            <div className="absolute right-0 top-full z-30 mt-1 max-h-56 w-64 overflow-auto rounded-md border border-slate-200 bg-white p-2 text-[11px] shadow-lg dark:border-slate-700 dark:bg-slate-900">
-              <p className="mb-1 font-semibold text-slate-500">Selected Sales Orders</p>
-              {currentOrderNumbers.map(number => <p key={number} className="truncate py-0.5">{number}</p>)}
-              <p className="mt-1 border-t border-slate-200 pt-1 font-semibold dark:border-slate-700">
-                {selectedCount} billable item line(s)
-              </p>
-            </div>
-          )}
+        <div className="ml-auto flex items-center gap-2">
+          {columnsSettings}
+          <div className="relative">
+            <button
+              type="button"
+              aria-expanded={showItems}
+              onClick={() => setShowItems(value => !value)}
+              className="inline-flex h-8 items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 text-[11px] font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+            >
+              Items ({selectedCount}) <ChevronDown size={13} />
+            </button>
+            {showItems && (
+              <div className="absolute right-0 top-full z-30 mt-1 max-h-56 w-64 overflow-auto rounded-md border border-slate-200 bg-white p-2 text-[11px] shadow-lg dark:border-slate-700 dark:bg-slate-900">
+                <p className="mb-1 font-semibold text-slate-500">Selected Sales Orders</p>
+                {currentOrderNumbers.map(number => <p key={number} className="truncate py-0.5">{number}</p>)}
+                <p className="mt-1 border-t border-slate-200 pt-1 font-semibold dark:border-slate-700">
+                  {selectedCount} billable item line(s)
+                </p>
+              </div>
+            )}
+          </div>
+          <span className="sr-only" aria-live="polite">
+            {layoutDirty ? "Billing grid layout has unsaved changes" : "Billing grid layout is saved"}
+          </span>
         </div>
       </div>
 

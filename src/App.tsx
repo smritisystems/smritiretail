@@ -123,7 +123,7 @@ const AppContent: React.FC = () => {
   const { globalZoom, popOutTab } = useWorkspace();
   const { addNotification: addSystemNotification } = useNotifications();
   
-  const [currentUser, setCurrentUser] = useState<{ role: string; name: string; passwordResetRequired?: boolean; companyId?: string; branchId?: string } | null>(null);
+  const [currentUser, setCurrentUser] = useState<{ id?: string; role: string; name: string; passwordResetRequired?: boolean; companyId?: string; branchId?: string } | null>(null);
   const [companyContextResolved, setCompanyContextResolved] = useState<boolean>(() => {
     return Boolean(localStorage.getItem("smriti_company_id") && localStorage.getItem("smriti_jwt_token"));
   });
@@ -190,6 +190,7 @@ const AppContent: React.FC = () => {
         }
 
         setCurrentUser({
+          id: data.id,
           role: data.role ?? "",
           name: data.display_name || data.full_name || data.username || "",
           companyId: normalizedCompanyId,
@@ -215,7 +216,7 @@ const AppContent: React.FC = () => {
     checkAuth();
   }, []);
 
-  const handleLoginSuccess = (user: { role: string; name: string; passwordResetRequired?: boolean; companyId?: string; branchId?: string }) => {
+  const handleLoginSuccess = (user: { id?: string; role: string; name: string; passwordResetRequired?: boolean; companyId?: string; branchId?: string }) => {
     setCurrentUser(user);
     setCompanyContextResolved(Boolean(user.companyId && user.branchId));
   };

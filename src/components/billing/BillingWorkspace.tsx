@@ -380,7 +380,7 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
               shifts={shifts}
               currentUser={currentUser}
               onRefreshData={onRefreshData}
-              onNotification={(title, message, type) => showToast(title, message, type)}
+              onNotification={showToast}
               isStandaloneTab={isStandaloneTab}
               initialTransaction={getBillingDefaults(initialMode).transaction}
               initialSalesChannel={getBillingDefaults(initialMode).salesChannel}

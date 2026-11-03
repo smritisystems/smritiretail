@@ -299,6 +299,7 @@ export const mapModuleId = (id: string): string => {
 
 export interface TabRendererContextProps {
   currentUser: {
+    id?: string;
     role: string;
     name: string;
     passwordResetRequired?: boolean;

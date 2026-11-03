@@ -273,6 +273,8 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   onOpenHotkeys,
 }) => {
   const settlementIdempotencyKeyRef = useRef<{ key: string; fingerprint: string } | null>(null);
+  const onNotificationRef = useRef(onNotification);
+  onNotificationRef.current = onNotification;
   const [systemParametersVersion, setSystemParametersVersion] = useState(0);
 
   // Main Line Items Table State
@@ -286,6 +288,8 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     () => normalizeBillingGridLayout(DEFAULT_BILLING_GRID_LAYOUT)
   );
   const [billingPreferenceUserId, setBillingPreferenceUserId] = useState<string | null>(() => currentUser?.id || null);
+  const currentUserId = currentUser?.id;
+  const hasAuthenticatedUser = Boolean(currentUser);
   const [savingBillingGridLayout, setSavingBillingGridLayout] = useState(false);
   const [customerPOs, setCustomerPOs] = useState<any[]>([]);
   const [selectedCustomerPO, setSelectedCustomerPO] = useState<any | null>(null);
@@ -329,7 +333,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   const [transactionBrowserOpenVersion, setTransactionBrowserOpenVersion] = useState(0);
 
   useEffect(() => {
-    if (!currentUser) {
+    if (!hasAuthenticatedUser) {
       setBillingPreferenceUserId(null);
       return;
     }
@@ -339,8 +343,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     let active = true;
     const loadPreferences = async () => {
       try {
-        const userId = currentUser?.id
-          || (await apiFetchV1<{ id?: string }>("/auth/me")).id;
+        const userId = currentUserId || (await apiFetchV1<{ id?: string }>("/auth/me")).id;
         if (!userId) throw new Error("The authenticated user ID was not returned.");
         if (!active) return;
         setBillingPreferenceUserId(userId);
@@ -358,7 +361,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       } catch (error) {
         if (!active) return;
         console.error("[BillingTerm] Billing grid preferences could not be loaded:", error);
-        onNotification?.(
+        onNotificationRef.current?.(
           "Grid Layout Could Not Be Loaded",
           "The default billing grid layout is active. Check your connection or user permissions.",
           "error"
@@ -367,7 +370,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     };
     void loadPreferences();
     return () => { active = false; };
-  }, [currentUser, onNotification]);
+  }, [currentUserId, hasAuthenticatedUser]);
 
   const persistBillingGridLayout = async (layout: BillingGridLayout) => {
     const userId = billingPreferenceUserId || currentUser?.id;
@@ -613,6 +616,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       if (sourceBillingSelection) {
         setSourceBillingSelection(null);
         setShowBillSummaryBreakdown(true);
+        setShowBillingHeaderDetails(true);
         setSourceOrderValidationEnabled(true);
         setSourceOrderRejectedRows([]);
         setItems([]);
@@ -753,6 +757,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     setSourceOrderValidationEnabled(true);
     setSourceOrderRejectedRows([]);
     setShowBillSummaryBreakdown(source.sourceType !== "SALES_ORDER");
+    if (source.sourceType === "SALES_ORDER") setShowBillingHeaderDetails(false);
     setSourceBillingSelection(source);
     setItems(sourceLines);
     setBillLevelPromo({
@@ -1440,6 +1445,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   );
   const transactionModeConflict = Boolean(
     configuredTransactionType
+    && permittedTransactions.length > 0
     && (!configuredTransactionIsPermitted || configuredTransactionType !== permittedTransactionType)
   );
 
@@ -4606,6 +4612,8 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     }
   };
 
+  const isSalesOrderBilling = sourceBillingSelection?.sourceType === "SALES_ORDER";
+
   return (
     <div 
       ref={terminalContainerRef}
@@ -5023,19 +5031,85 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         
         {/* ZONE B: TRANSACTION & CUSTOMER CARD (3-Column Clean Desk Layout) */}
         <section className="bg-white dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-xl p-2 shadow-xs shrink-0">
-          <div className="mb-2 flex justify-end">
-            <button
-              type="button"
-              onClick={() => setShowBillingHeaderDetails(value => !value)}
-              aria-expanded={showBillingHeaderDetails}
-              aria-controls="billing-header-details"
-              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold text-blue-700 hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-blue-950/40"
-            >
-              {showBillingHeaderDetails ? "Hide setup" : "Show setup"}
-              <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showBillingHeaderDetails ? "rotate-180" : ""}`} />
-            </button>
-          </div>
-          <div id="billing-header-details" className="grid grid-cols-1 lg:grid-cols-12 gap-2 items-start">
+          {!isSalesOrderBilling && (
+            <div className="mb-2 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowBillingHeaderDetails(value => !value)}
+                aria-expanded={showBillingHeaderDetails}
+                aria-controls="billing-header-details"
+                className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold text-blue-700 hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-blue-950/40"
+              >
+                {showBillingHeaderDetails ? "Hide setup" : "Show setup"}
+                <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showBillingHeaderDetails ? "rotate-180" : ""}`} />
+              </button>
+            </div>
+          )}
+          {isSalesOrderBilling && (
+            <div className="mb-2 grid grid-cols-2 gap-2 md:grid-cols-6 xl:grid-cols-12" data-testid="sales-order-billing-header">
+              <div className="min-w-0 rounded-md border border-slate-200 bg-slate-50 px-2 py-1 dark:border-slate-700 dark:bg-slate-900 xl:col-span-3">
+                <span className="block text-[9px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Customer</span>
+                <span className="block truncate text-xs font-semibold text-slate-800 dark:text-slate-100" title={headerState.customer?.name || "Select customer"}>
+                  {headerState.customer?.name || "Select customer"}
+                </span>
+              </div>
+              <div className="min-w-0 rounded-md border border-blue-200 bg-blue-50/70 px-2 py-1 dark:border-blue-900 dark:bg-blue-950/30 md:col-span-2 xl:col-span-4">
+                <span className="block text-[9px] font-bold uppercase tracking-wide text-blue-700 dark:text-blue-300">Sales Orders</span>
+                <div className="flex min-w-0 items-center gap-1 overflow-x-auto whitespace-nowrap">
+                  {(sourceBillingSelection?.prepared.source_documents || [{ number: sourceBillingSelection?.documentNumber || "Sales Order" }]).map((document, index) => (
+                    <span key={`${document.number}-${index}`} className="shrink-0 rounded border border-blue-200 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-blue-900 dark:border-blue-800 dark:bg-slate-900 dark:text-blue-100">
+                      {document.number}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <div className="min-w-0 rounded-md border border-slate-200 bg-slate-50 px-2 py-1 dark:border-slate-700 dark:bg-slate-900 xl:col-span-1">
+                <span className="block text-[9px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Bill Date</span>
+                <span className="block truncate text-xs font-semibold text-slate-800 dark:text-slate-100">{headerState.billDate || "—"}</span>
+              </div>
+              <div className="min-w-0 rounded-md border border-slate-200 bg-slate-50 px-2 py-1 dark:border-slate-700 dark:bg-slate-900 xl:col-span-1">
+                <span className="block text-[9px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Bill No.</span>
+                <span className="block truncate font-mono text-xs font-semibold text-slate-800 dark:text-slate-100">
+                  {headerState.docPrefix}{headerState.docNo || "0001"}
+                </span>
+              </div>
+              <label className="min-w-0 rounded-md border border-slate-200 bg-slate-50 px-2 py-1 dark:border-slate-700 dark:bg-slate-900 xl:col-span-2">
+                <span className="block text-[9px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Salesperson</span>
+                <select
+                  aria-label="Billing salesperson"
+                  data-testid="billing-salesperson-select"
+                  value={headerState.salesStaff}
+                  onChange={event => {
+                    const selectedStaff = event.target.value;
+                    setHeaderState(prev => ({ ...prev, salesStaff: selectedStaff }));
+                    setDirectEntry(prev => ({
+                      ...prev,
+                      staff: prev.staff === headerState.salesStaff ? selectedStaff : prev.staff
+                    }));
+                  }}
+                  className="h-5 w-full min-w-0 bg-transparent text-xs font-semibold text-slate-800 outline-none dark:text-slate-100"
+                >
+                  <option value="">Select staff</option>
+                  {salesStaffOptions.map(option => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </label>
+              <button
+                type="button"
+                onClick={() => setShowBillingHeaderDetails(value => !value)}
+                aria-expanded={showBillingHeaderDetails}
+                aria-controls="billing-header-details"
+                className="inline-flex min-h-9 items-center justify-center gap-1 rounded-md border border-slate-300 bg-white px-2 text-[11px] font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 xl:col-span-1"
+              >
+                Options <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showBillingHeaderDetails ? "rotate-180" : ""}`} />
+              </button>
+            </div>
+          )}
+          <div
+            id="billing-header-details"
+            className={`grid grid-cols-1 gap-2 items-start lg:grid-cols-12 ${isSalesOrderBilling && !showBillingHeaderDetails ? "hidden" : ""}`}
+          >
             
             {/* Column 1: Customer Identification (4 cols) */}
             <div className={`flex flex-col gap-1.5 ${!showBillingHeaderDetails ? "lg:col-span-12 lg:flex-row lg:items-center" : showMoreDetails ? "lg:col-span-4" : "lg:col-span-6"}`}>
@@ -5507,14 +5581,21 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                 <div className="mt-1 rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-2 text-[11px] text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200" role="status" data-testid="billing-policy-notice">
                   {billingPolicyLoading && <span>Resolving company, branch, and customer billing defaults…</span>}
                   {!billingPolicyLoading && billingPolicyError && <span>Billing policy is unavailable. Settlement is paused until it can be loaded.</span>}
-                  {!billingPolicyLoading && !billingPolicyError && transactionCustomerPolicy?.channel_conflict && <span>The customer&apos;s default sales channel is not permitted by company or branch policy. Ask an administrator to resolve this configuration.</span>}
-                  {!billingPolicyLoading && !billingPolicyError && transactionCustomerPolicy?.configuration_warning && <span>{transactionCustomerPolicy.configuration_warning}</span>}
-                  {!billingPolicyLoading && !billingPolicyError && billingTransactionPolicy?.configuration_warning && <span>{billingTransactionPolicy.configuration_warning}</span>}
-                  {!billingPolicyLoading && !billingPolicyError && permittedTransactions.length === 0 && <span>Cash and credit billing are both prohibited by customer or company/branch policy. Settlement is blocked.</span>}
-                  {!billingPolicyLoading && !billingPolicyError && transactionModeConflict && <span>The customer&apos;s configured billing mode conflicts with current eligibility. Update the customer profile or billing policy before continuing.</span>}
-                  {!billingPolicyLoading && !billingPolicyError && !configuredTransactionIsPermitted && permittedTransactions.length > 0 && !transactionCustomerPolicy?.configuration_warning && <span>The customer&apos;s configured billing mode is not permitted. Update the customer profile or billing policy before continuing.</span>}
-                  {!billingPolicyLoading && !billingPolicyError && transactionCustomerPolicy?.require_po_number && !headerState.poReference?.trim() && !headerState.customerPoId && <span>A customer purchase-order reference is required by the active policy.</span>}
-                  {!billingPolicyLoading && !billingPolicyError && requiresCreditOverride && (
+                  {!billingPolicyLoading && !billingPolicyError && permittedTransactions.length === 0 && (
+                    <span>
+                      {transactionCustomerPolicy?.configuration_warning
+                        || billingTransactionPolicy?.configuration_warning
+                        || "No cash or credit transaction is permitted by the active customer, company, or branch policy."}
+                      {" "}Settlement is blocked. Ask an administrator to review the applicable billing policy.
+                    </span>
+                  )}
+                  {!billingPolicyLoading && !billingPolicyError && permittedTransactions.length > 0 && transactionCustomerPolicy?.channel_conflict && <span>The customer&apos;s default sales channel is not permitted by company or branch policy. Ask an administrator to resolve this configuration.</span>}
+                  {!billingPolicyLoading && !billingPolicyError && permittedTransactions.length > 0 && !transactionCustomerPolicy?.channel_conflict && transactionCustomerPolicy?.configuration_warning && <span>{transactionCustomerPolicy.configuration_warning}</span>}
+                  {!billingPolicyLoading && !billingPolicyError && permittedTransactions.length > 0 && !transactionCustomerPolicy?.configuration_warning && billingTransactionPolicy?.configuration_warning && <span>{billingTransactionPolicy.configuration_warning}</span>}
+                  {!billingPolicyLoading && !billingPolicyError && permittedTransactions.length > 0 && transactionModeConflict && <span>The customer&apos;s configured billing mode conflicts with current eligibility. Update the customer profile or billing policy before continuing.</span>}
+                  {!billingPolicyLoading && !billingPolicyError && permittedTransactions.length > 0 && !configuredTransactionIsPermitted && !transactionCustomerPolicy?.configuration_warning && <span>The customer&apos;s configured billing mode is not permitted. Update the customer profile or billing policy before continuing.</span>}
+                  {!billingPolicyLoading && !billingPolicyError && permittedTransactions.length > 0 && transactionCustomerPolicy?.require_po_number && !headerState.poReference?.trim() && !headerState.customerPoId && <span>A customer purchase-order reference is required by the active policy.</span>}
+                  {!billingPolicyLoading && !billingPolicyError && permittedTransactions.length > 0 && requiresCreditOverride && (
                     <div className="flex flex-wrap items-center gap-2">
                       <span>
                         {transactionCustomerPolicy?.can_override_credit && transactionCustomerPolicy.allow_credit_override
@@ -5588,7 +5669,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
               )}
             </div>}
           </div>
-          {!showBillingHeaderDetails && (
+          {!showBillingHeaderDetails && !isSalesOrderBilling && (
             <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-slate-200 pt-2 text-[11px] text-slate-600 dark:border-slate-700 dark:text-slate-300">
               <span>
                 Billing source: <strong className="text-slate-800 dark:text-slate-100">
@@ -5664,23 +5745,25 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
           
           {/* ZONE C: LINE ITEMS GRID & DIRECT ENTRY (~74% width) */}
           <section className="relative flex-1 min-w-0 bg-white dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-xl flex flex-col overflow-hidden shadow-xs min-h-0">
-            <div className="flex items-center justify-between gap-2 px-3 py-1.5 border-b border-slate-200 dark:border-slate-700 shrink-0">
-              <span className="text-[10px] font-bold uppercase tracking-wide text-slate-600 dark:text-slate-300">
-                {sourceBillingSelection?.sourceType === "SALES_ORDER" ? "Sales Order Fulfillment" : "Item Details"}
-              </span>
-              <BillingGridColumnSettings
-                view={activeBillingGridView}
-                layout={billingGridLayout}
-                dirty={isBillingGridLayoutDirty}
-                saving={savingBillingGridLayout}
-                onChange={setBillingGridLayout}
-                onSave={() => void persistBillingGridLayout(billingGridLayout)}
-                onReset={() => void persistBillingGridLayout({
-                  ...billingGridLayout,
-                  [activeBillingGridView]: normalizeBillingGridLayout(DEFAULT_BILLING_GRID_LAYOUT)[activeBillingGridView],
-                })}
-              />
-            </div>
+            {sourceBillingSelection?.sourceType !== "SALES_ORDER" && (
+              <div className="flex items-center justify-between gap-2 px-3 py-1.5 border-b border-slate-200 dark:border-slate-700 shrink-0">
+                <span className="text-[10px] font-bold uppercase tracking-wide text-slate-600 dark:text-slate-300">
+                  Item Details
+                </span>
+                <BillingGridColumnSettings
+                  view={activeBillingGridView}
+                  layout={billingGridLayout}
+                  dirty={isBillingGridLayoutDirty}
+                  saving={savingBillingGridLayout}
+                  onChange={setBillingGridLayout}
+                  onSave={() => void persistBillingGridLayout(billingGridLayout)}
+                  onReset={() => void persistBillingGridLayout({
+                    ...billingGridLayout,
+                    [activeBillingGridView]: normalizeBillingGridLayout(DEFAULT_BILLING_GRID_LAYOUT)[activeBillingGridView],
+                  })}
+                />
+              </div>
+            )}
 
             {sourceBillingSelection?.sourceType === "SALES_ORDER" ? (
               <SalesOrderFulfillmentGrid
@@ -5691,6 +5774,21 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                 validationEnabled={sourceOrderValidationEnabled}
                 readOnly={isReadOnlyView}
                 rejectedRows={sourceOrderRejectedRows}
+                columnsSettings={(
+                  <BillingGridColumnSettings
+                    view={activeBillingGridView}
+                    layout={billingGridLayout}
+                    dirty={isBillingGridLayoutDirty}
+                    saving={savingBillingGridLayout}
+                    onChange={setBillingGridLayout}
+                    onSave={() => void persistBillingGridLayout(billingGridLayout)}
+                    onReset={() => void persistBillingGridLayout({
+                      ...billingGridLayout,
+                      [activeBillingGridView]: normalizeBillingGridLayout(DEFAULT_BILLING_GRID_LAYOUT)[activeBillingGridView],
+                    })}
+                  />
+                )}
+                layoutDirty={isBillingGridLayoutDirty}
                 onValidationEnabledChange={setSourceOrderValidationEnabled}
                 onQuantitiesChange={updateSourceBillingQuantities}
                 onRejectedRowsChange={setSourceOrderRejectedRows}

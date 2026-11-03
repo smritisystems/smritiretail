@@ -29,6 +29,7 @@ import {
 
 export interface LoginScreenProps {
   onLoginSuccess: (user: {
+    id?: string;
     role: string;
     name: string;
     passwordResetRequired?: boolean;
@@ -101,6 +102,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           branchName:  data.branch_name ?? user.branch_name,
         });
         onLoginSuccess({
+          id: user.id,
           role: user.role ?? "",
           name: user.display_name || user.full_name || user.username || username,
           passwordResetRequired: data.password_reset_required ?? false,
