@@ -50,6 +50,9 @@ class SourceBillingPrepareLine(BaseModel):
     variant_id: Optional[str] = None
     code: str
     barcodes: list[str] = Field(default_factory=list)
+    article_no: Optional[str] = None
+    color: Optional[str] = None
+    size: Optional[str] = None
     name: str
     ordered_quantity: Decimal
     po_quantity: Decimal = Decimal("0")

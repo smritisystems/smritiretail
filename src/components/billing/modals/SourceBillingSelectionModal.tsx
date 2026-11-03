@@ -1,10 +1,8 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { apiFetchV1 } from "../../../lib/apiFetchV1.ts";
 import { calculateSourceDiscountAmount } from "../../../utils/sourceBillingDiscount.ts";
 import {
-  applySourceBarcodeQuantityRows,
   initialSourceBillingQuantities,
-  parseSourceBarcodeQuantityCsv,
 } from "../../../utils/sourceBillingQuantities.ts";
 
 type SourceType = "SALES_ORDER" | "PACKING_SLIP";
@@ -16,7 +14,7 @@ interface SourceDocumentOption {
   customer_id?: string;
 }
 
-interface PreparedLine {
+export interface PreparedLine {
   source_line_id: string;
   source_document_id?: string | null;
   source_document_number?: string | null;
@@ -24,6 +22,9 @@ interface PreparedLine {
   code: string;
   name: string;
   barcodes?: string[];
+  article_no?: string | null;
+  color?: string | null;
+  size?: string | null;
   ordered_quantity?: number | string;
   remaining_quantity: number | string;
   po_quantity?: number | string;
@@ -41,7 +42,7 @@ interface PreparedLine {
   reason?: string | null;
 }
 
-interface PreparedSource {
+export interface PreparedSource {
   source_type: SourceType;
   source_document_id?: string | null;
   source_document_number?: string | null;
@@ -93,9 +94,6 @@ export function SourceBillingSelectionModal({
   const [prepared, setPrepared] = useState<PreparedSource | null>(null);
   const [preparingId, setPreparingId] = useState<string | null>(null);
   const [quantities, setQuantities] = useState<Record<string, string>>({});
-  const [scanValue, setScanValue] = useState("");
-  const [barcodeImport, setBarcodeImport] = useState("");
-  const scanInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     let active = true;
@@ -151,6 +149,10 @@ export function SourceBillingSelectionModal({
     () => (prepared?.lines || []).filter(line => line.eligible && Number(line.remaining_quantity) > 0),
     [prepared],
   );
+  const displayLines = useMemo(
+    () => sourceType === "SALES_ORDER" ? prepared?.lines || [] : eligibleLines,
+    [eligibleLines, prepared, sourceType],
+  );
   const stockWarnings = useMemo(() => {
     if (!prepared) return [];
     const byProduct = new Map<string, { code: string; required: number; onHand: number }>();
@@ -170,10 +172,6 @@ export function SourceBillingSelectionModal({
       .map(stock => `${stock.code}: selected ${stock.required}, current stock ${stock.onHand}.`);
   }, [eligibleLines, prepared, quantities]);
 
-  useEffect(() => {
-    if (prepared && eligibleLines.length > 0) scanInputRef.current?.focus();
-  }, [prepared, eligibleLines.length]);
-
   const prepareDocument = async (document: SourceDocumentOption) => {
     setPreparingId(document.id);
     setPrepared(null);
@@ -190,8 +188,6 @@ export function SourceBillingSelectionModal({
       setPrepared(result);
       setSelectedDocumentIds([document.id]);
       setQuantities(initialSourceBillingQuantities(sourceType, result.lines));
-      setBarcodeImport("");
-      setScanValue("");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Source document could not be prepared.");
     } finally {
@@ -255,41 +251,10 @@ export function SourceBillingSelectionModal({
       if (result.customer_id !== customerId) throw new Error("The selected Sales Orders do not belong to this customer.");
       setPrepared(result);
       setQuantities(initialSourceBillingQuantities("SALES_ORDER", result.lines));
-      setBarcodeImport("");
-      setScanValue("");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Selected Sales Orders could not be prepared.");
     } finally {
       setPreparingId(null);
-    }
-  };
-
-  const applyBarcodeRows = (rows: Array<[string, string]>) => {
-    try {
-      const updated = applySourceBarcodeQuantityRows(rows, eligibleLines, quantities);
-      setQuantities(updated);
-      setError(null);
-      return true;
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Barcode quantities could not be applied.");
-      return false;
-    }
-  };
-
-  const handleScanSubmit = (event: React.FormEvent) => {
-    event.preventDefault();
-    const barcode = scanValue.trim();
-    if (!barcode) return;
-    if (applyBarcodeRows([[barcode, "1"]])) setScanValue("");
-    scanInputRef.current?.focus();
-  };
-
-  const handleBarcodeImport = () => {
-    try {
-      const rows = parseSourceBarcodeQuantityCsv(barcodeImport);
-      if (applyBarcodeRows(rows)) setBarcodeImport("");
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Barcode quantities could not be imported.");
     }
   };
 
@@ -325,11 +290,11 @@ export function SourceBillingSelectionModal({
         }]
         : [];
     });
-    if (!lines.length) {
+    if (!lines.length && sourceType !== "SALES_ORDER") {
       setError("Enter a positive quantity for at least one eligible line, within its remaining quantity.");
       return;
     }
-    if (documentIds.length > 1) {
+    if (lines.length > 0 && documentIds.length > 1) {
       const allocatedOrderIds = new Set(lines.map(line => line.sourceDocumentId));
       const unallocatedOrder = preparedDocuments.find(document => !allocatedOrderIds.has(document.id));
       if (unallocatedOrder) {
@@ -454,46 +419,7 @@ export function SourceBillingSelectionModal({
                 </ul>
               </div>
             )}
-            {prepared && eligibleLines.length > 0 && !(prepared.source_type === "SALES_ORDER" && (prepared.source_documents?.length || 0) > 1) && (
-              <div className="mb-3 grid gap-2 rounded-md border border-slate-200 p-3 dark:border-slate-700 sm:grid-cols-2">
-                <form onSubmit={handleScanSubmit} className="flex items-end gap-2">
-                  <label className="min-w-0 flex-1 text-[11px] font-medium text-slate-600 dark:text-slate-300">
-                    Scan barcode · each scan adds 1 to Bill Qty
-                    <input
-                      ref={scanInputRef}
-                      aria-label="Scan source item barcode"
-                      value={scanValue}
-                      onChange={event => setScanValue(event.target.value)}
-                      placeholder="Scan, then press Enter"
-                      className="mt-1 h-8 w-full rounded border border-slate-300 bg-white px-2 text-xs dark:border-slate-600 dark:bg-slate-950"
-                    />
-                  </label>
-                  <button type="submit" className="h-8 rounded bg-blue-600 px-3 text-xs font-semibold text-white">Add</button>
-                </form>
-                <div className="flex items-end gap-2">
-                  <label className="min-w-0 flex-1 text-[11px] font-medium text-slate-600 dark:text-slate-300">
-                    Paste barcode,qty CSV
-                    <textarea
-                      aria-label="Paste barcode and quantity CSV"
-                      value={barcodeImport}
-                      onChange={event => setBarcodeImport(event.target.value)}
-                      placeholder={"Barcode,Qty\n8901234567890,3"}
-                      rows={2}
-                      className="mt-1 w-full resize-y rounded border border-slate-300 bg-white px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-950"
-                    />
-                  </label>
-                  <button
-                    type="button"
-                    onClick={handleBarcodeImport}
-                    disabled={!barcodeImport.trim()}
-                    className="h-8 rounded border border-slate-300 px-3 text-xs font-semibold disabled:opacity-50 dark:border-slate-600"
-                  >
-                    Import
-                  </button>
-                </div>
-              </div>
-            )}
-            {eligibleLines.length > 0 && (
+            {displayLines.length > 0 && (
               <div className="overflow-x-auto rounded-md border border-slate-200 dark:border-slate-700">
                 <table className="w-full text-left text-xs">
                   <thead className="bg-slate-50 dark:bg-slate-800">
@@ -502,16 +428,25 @@ export function SourceBillingSelectionModal({
                       {prepared?.source_documents && prepared.source_documents.length > 1 && <th className="p-2">Sales Order</th>}
                       <th className="p-2 text-right">Rate</th>
                       <th className="p-2 text-right">SO Disc.</th>
-                      <th className="p-2 text-right">PO Qty</th>
+                      <th className="p-2 text-right">{sourceType === "SALES_ORDER" ? "SO Qty" : "PO Qty"}</th>
                       {sourceType === "PACKING_SLIP" && <th className="p-2 text-right">Doc Qty</th>}
-                      <th className="p-2 text-right">Previously Billed</th>
-                      <th className="p-2 text-right">Remaining</th>
+                      {sourceType === "SALES_ORDER" ? (
+                        <>
+                          <th className="p-2 text-right">SO Fulfilled Qty</th>
+                          <th className="p-2 text-right">SO Pending Qty</th>
+                        </>
+                      ) : (
+                        <>
+                          <th className="p-2 text-right">Previously Billed</th>
+                          <th className="p-2 text-right">Remaining</th>
+                        </>
+                      )}
                       <th className="p-2 text-right">Stock</th>
                       <th className="p-2 text-right">Bill Qty</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {eligibleLines.map(line => (
+                    {displayLines.map(line => (
                       <tr key={line.source_line_id} className="border-t border-slate-100 dark:border-slate-800">
                         <td className="p-2"><span className="font-medium">{line.name}</span><span className="block text-slate-500">{line.code}</span></td>
                         {prepared?.source_documents && prepared.source_documents.length > 1 && (
@@ -529,7 +464,7 @@ export function SourceBillingSelectionModal({
                               previouslyBilledQuantity: Number(line.previously_billed_order_quantity || 0),
                             }).toFixed(2)}`}
                         </td>
-                        <td className="p-2 text-right">{Number(line.po_quantity ?? line.ordered_quantity)}</td>
+                        <td className="p-2 text-right">{Number(line.po_quantity ?? line.ordered_quantity ?? 0)}</td>
                         {sourceType === "PACKING_SLIP" && (
                           <td className="p-2 text-right">{Number(line.document_quantity ?? line.ordered_quantity)}</td>
                         )}
@@ -543,7 +478,8 @@ export function SourceBillingSelectionModal({
                             min="0"
                             max={Number(line.remaining_quantity)}
                             step="0.0001"
-                            value={quantities[line.source_line_id] || ""}
+                            value={quantities[line.source_line_id] ?? ""}
+                            disabled={!line.eligible || Number(line.remaining_quantity) <= 0}
                             onChange={event => setQuantities(previous => ({ ...previous, [line.source_line_id]: event.target.value }))}
                             className="w-24 rounded border border-slate-300 bg-white px-2 py-1 text-right dark:border-slate-600 dark:bg-slate-950"
                           />
@@ -577,7 +513,7 @@ export function SourceBillingSelectionModal({
           <button
             type="button"
             onClick={usePreparedSource}
-            disabled={!prepared || eligibleLines.length === 0 || (prepared.source_documents?.length || 0) > 1 && capabilityLoading}
+            disabled={!prepared || (sourceType !== "SALES_ORDER" && eligibleLines.length === 0) || (prepared.source_documents?.length || 0) > 1 && capabilityLoading}
             className="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
           >
             Use selected lines

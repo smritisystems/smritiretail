@@ -119,4 +119,3 @@ volumes:
     name: ${POSTGRES_VOLUME_NAME:-smriti_db_volume}
   smriti_mssql_volume:
     name: ${MSSQL_VOLUME_NAME:-smriti_mssql_volume}
-

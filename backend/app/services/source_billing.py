@@ -224,7 +224,10 @@ class SourceBillingService:
             )).scalars().first()
         barcodes = list(dict.fromkeys(
             str(value).strip()
-            for value in ([getattr(product, "barcode", None)] + list(getattr(product, "secondary_barcodes", None) or []))
+            for value in (
+                [getattr(item, "ean", None), getattr(product, "barcode", None)]
+                + list(getattr(product, "secondary_barcodes", None) or [])
+            )
             if value and str(value).strip()
         ))
         return SourceBillingPrepareLine(
@@ -237,6 +240,9 @@ class SourceBillingService:
             variant_id=item.variant_id,
             code=item.code,
             barcodes=barcodes or [item.code],
+            article_no=item.article_no,
+            color=item.color,
+            size=item.size,
             name=item.name,
             ordered_quantity=package_quantity if package_quantity is not None else ordered,
             po_quantity=ordered,

@@ -78,6 +78,11 @@ import {
   SourceBillingSelectionModal,
   type SelectedSourceBilling,
 } from "./modals/SourceBillingSelectionModal.tsx";
+import { SalesOrderFulfillmentGrid } from "./SalesOrderFulfillmentGrid.tsx";
+import {
+  applySourceBarcodeQuantityRows,
+  type SourceBarcodeQuantityResult,
+} from "../../utils/sourceBillingQuantities.ts";
 import { PrintPreviewModal } from "../PrintPreviewModal.tsx";
 import { InvoicingTransactionBrowserModal, InvoicingBrowserTab } from "./InvoicingTransactionBrowserModal.tsx";
 import { TransactionAttachmentPanel } from "../common/TransactionAttachmentPanel.tsx";
@@ -317,6 +322,8 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   }>({ loading: false, counts: { salesOrders: 0, packingSlips: 0, parkedCarts: 0, drafts: 0 }, errors: [] });
   const [sourceBillingModalType, setSourceBillingModalType] = useState<"SALES_ORDER" | "PACKING_SLIP" | null>(null);
   const [sourceBillingSelection, setSourceBillingSelection] = useState<SelectedSourceBilling | null>(null);
+  const [sourceOrderValidationEnabled, setSourceOrderValidationEnabled] = useState(true);
+  const [sourceOrderRejectedRows, setSourceOrderRejectedRows] = useState<SourceBarcodeQuantityResult["rejectedRows"]>([]);
   const isConsolidatedSalesOrderBilling = Boolean(
     sourceBillingSelection?.sourceType === "SALES_ORDER"
     && sourceBillingSelection.documentIds.length > 1
@@ -574,6 +581,8 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     if (choice === "DIRECT") {
       if (sourceBillingSelection) {
         setSourceBillingSelection(null);
+        setSourceOrderValidationEnabled(true);
+        setSourceOrderRejectedRows([]);
         setItems([]);
         setSelectedCustomerPO(null);
         setHeaderState(prev => ({ ...prev, billingSource: "DIRECT", customerPoId: null, poReference: "" }));
@@ -639,9 +648,9 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     setSourceBillingModalType("PACKING_SLIP");
   };
 
-  const usePreparedBillingSource = (source: SelectedSourceBilling) => {
+  const buildSourceCartItems = (source: SelectedSourceBilling): BillingLineItem[] => {
     const linesById = new Map(source.prepared.lines.map(line => [line.source_line_id, line]));
-    const sourceLines = source.lines.flatMap((selected, index) => {
+    return source.lines.flatMap((selected, index) => {
       const line = linesById.get(selected.sourceLineId);
       if (!line) return [];
       const quantity = selected.quantity;
@@ -660,7 +669,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         id: `source-${source.sourceType}-${selected.sourceLineId}`,
         sNo: index + 1,
         stockNo: line.code,
-        barcode: line.code,
+        barcode: line.barcodes?.[0] || line.code,
         itemDescription: line.name,
         rate,
         qty: quantity,
@@ -674,15 +683,43 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         productId: line.product_id,
         hsnCode: line.hsn_code || undefined,
         gstPercentage: Number(line.gst_rate || 0),
+        article: line.article_no || undefined,
+        color: line.color || undefined,
+        size: line.size || undefined,
         isTaxInclusive: false,
         sourceLineId: selected.sourceLineId,
         sourceLineType: source.sourceType,
       }];
     });
-    if (!sourceLines.length) {
+  };
+
+  const updateSourceBillingQuantities = (quantities: Record<string, string>) => {
+    if (!sourceBillingSelection) return;
+    const lines = sourceBillingSelection.prepared.lines.flatMap(line => {
+      const quantity = Number(quantities[line.source_line_id] || 0);
+      if (!line.eligible || !Number.isFinite(quantity) || quantity <= 0
+        || quantity > Number(line.remaining_quantity)) return [];
+      return [{
+        sourceLineId: line.source_line_id,
+        sourceDocumentId: line.source_document_id
+          || sourceBillingSelection.documentIds[0]
+          || sourceBillingSelection.documentId,
+        quantity,
+      }];
+    });
+    const updatedSource = { ...sourceBillingSelection, lines };
+    setSourceBillingSelection(updatedSource);
+    setItems(buildSourceCartItems(updatedSource));
+  };
+
+  const usePreparedBillingSource = (source: SelectedSourceBilling) => {
+    const sourceLines = buildSourceCartItems(source);
+    if (!sourceLines.length && source.sourceType !== "SALES_ORDER") {
       onNotification?.("Source Lines Unavailable", "The prepared source has no valid selected lines. Prepare it again.", "error");
       return;
     }
+    setSourceOrderValidationEnabled(true);
+    setSourceOrderRejectedRows([]);
     setSourceBillingSelection(source);
     setItems(sourceLines);
     setBillLevelPromo({
@@ -1373,6 +1410,10 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   );
 
   const openSettlement = () => {
+    if (sourceBillingSelection?.sourceType === "SALES_ORDER" && !sourceOrderValidationEnabled) {
+      onNotification?.("Sales Order Validation Required", "Turn on Sales Order validation before billing or posting these order lines.", "error");
+      return;
+    }
     if (sourceBillingSelection && !isConsolidatedSalesOrderBilling) {
       onNotification?.("Source Billing Is Draft-Only", "Save this source-backed invoice as a draft. Posting is not available from this workflow.", "info");
       return;
@@ -1523,6 +1564,8 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     setActiveDraftId(null);
     setItems([]);
     setSourceBillingSelection(null);
+    setSourceOrderValidationEnabled(true);
+    setSourceOrderRejectedRows([]);
     setSourceBillingModalType(null);
     setHeaderState(prev => ({
       ...prev,
@@ -2691,6 +2734,44 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     } = {}
   ) => {
     if (sourceBillingSelection) {
+      if (sourceBillingSelection.sourceType === "SALES_ORDER") {
+        if (!sourceOrderValidationEnabled) {
+          onNotification?.("Sales Order Validation Required", "Turn on Sales Order validation before adding a barcode to this order bill.", "error");
+          return false;
+        }
+        const code = (entry.barcode || entry.stockNo).trim();
+        const quantity = Number(entry.qty);
+        if (!code || !Number.isFinite(quantity) || quantity <= 0 || Number(quantity.toFixed(4)) !== quantity) {
+          onNotification?.("Sales Order Barcode Required", "Enter a Sales Order barcode and a positive quantity with at most four decimal places.", "error");
+          return false;
+        }
+        const currentQuantities = Object.fromEntries(
+          sourceBillingSelection.lines.map(line => [line.sourceLineId, String(line.quantity)])
+        );
+        const result = applySourceBarcodeQuantityRows(
+          [[code, String(quantity)]],
+          sourceBillingSelection.prepared.lines,
+          currentQuantities,
+        );
+        updateSourceBillingQuantities(result.quantities);
+        if (result.rejectedRows.length) {
+          setSourceOrderRejectedRows(previous => [...previous, ...result.rejectedRows]);
+          onNotification?.("Sales Order Barcode Rejected", result.rejectedRows[0].reason, "error");
+          return false;
+        }
+        setDirectEntry(previous => ({
+          ...previous,
+          barcode: "",
+          stockNo: "",
+          itemDescription: "",
+          rate: "",
+          qty: "1",
+          discCode: "",
+          discQty: "",
+          discPercent: "",
+        }));
+        return true;
+      }
       onNotification?.("Source Lines Locked", "Source-backed invoice lines can only be changed in the source review before they are added to the bill.", "error");
       return false;
     }
@@ -3893,6 +3974,10 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
     changeDue: number,
     denominations?: any
   ) => {
+    if (sourceBillingSelection?.sourceType === "SALES_ORDER" && !sourceOrderValidationEnabled) {
+      onNotification?.("Sales Order Validation Required", "Turn on Sales Order validation before billing or posting these order lines.", "error");
+      return;
+    }
     const isCreditTx = headerState.transaction === "Credit" || payments.some(p => (p.mode || "").toUpperCase() === "CREDIT");
     if (sourceBillingSelection && !isConsolidatedSalesOrderBilling) {
       setShowSettlementModal(false);
@@ -4222,6 +4307,8 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       // Reset for next invoice
       setItems([]);
       setSourceBillingSelection(null);
+      setSourceOrderValidationEnabled(true);
+      setSourceOrderRejectedRows([]);
       setHeaderState(prev => ({ ...prev, billingSource: "DIRECT", customerPoId: null }));
         settlementIdempotencyKeyRef.current = null;
       // Re-resolve the next prefix from the server after a successful save —
@@ -5467,8 +5554,10 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
           {/* ZONE C: LINE ITEMS GRID & DIRECT ENTRY (~74% width) */}
           <section className="relative flex-1 min-w-0 bg-white dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-xl flex flex-col overflow-hidden shadow-xs min-h-0">
             <div className="flex items-center justify-between gap-2 px-3 py-1.5 border-b border-slate-200 dark:border-slate-700 shrink-0">
-              <span className="text-[10px] font-bold uppercase tracking-wide text-slate-600 dark:text-slate-300">Item Details</span>
-              <div className="relative">
+              <span className="text-[10px] font-bold uppercase tracking-wide text-slate-600 dark:text-slate-300">
+                {sourceBillingSelection?.sourceType === "SALES_ORDER" ? "Sales Order Fulfillment" : "Item Details"}
+              </span>
+              {sourceBillingSelection?.sourceType !== "SALES_ORDER" && <div className="relative">
                 <button
                   type="button"
                   aria-expanded={showGridColumnMenu}
@@ -5499,9 +5588,22 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                     <p className="px-2 pt-1 text-[9px] text-slate-400">Saved for this operator in this browser.</p>
                   </div>
                 )}
-              </div>
+              </div>}
             </div>
 
+            {sourceBillingSelection?.sourceType === "SALES_ORDER" ? (
+              <SalesOrderFulfillmentGrid
+                key={sourceBillingSelection.documentIds.join(":")}
+                source={sourceBillingSelection}
+                validationEnabled={sourceOrderValidationEnabled}
+                readOnly={isReadOnlyView}
+                rejectedRows={sourceOrderRejectedRows}
+                onValidationEnabledChange={setSourceOrderValidationEnabled}
+                onQuantitiesChange={updateSourceBillingQuantities}
+                onRejectedRowsChange={setSourceOrderRejectedRows}
+              />
+            ) : (
+            <>
             {/* Multi-attribute quick inspector ribbon */}
             {selectedItemProductMeta && (
               <div className="bg-blue-50 dark:bg-blue-950/40 border-b border-blue-200 dark:border-blue-800 px-3 py-2 text-xs flex items-start justify-between gap-2 text-blue-900 dark:text-cyan-200 shrink-0">
@@ -5861,6 +5963,9 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
               </div>
             )}
 
+            </>
+            )}
+
             {/* Direct Entry Row (F11) at Bottom of Item Card */}
             <div className="bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 p-2 flex flex-wrap md:flex-nowrap gap-2 items-center shrink-0">
               <span className="text-[10px] font-mono font-bold text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-950/80 px-2 py-1 rounded shrink-0">
@@ -6104,14 +6209,23 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                 )}
                 {/* Subtotal / Sales Value */}
                 <div className="flex items-center justify-between py-1">
-                  <span className="text-slate-600 dark:text-slate-400 font-medium">Sales Value (Gross)</span>
+                  <span className="text-slate-600 dark:text-slate-400 font-medium">
+                    {sourceBillingSelection?.sourceType === "SALES_ORDER" ? "Sales Value (Before Disc)" : "Sales Value (Gross)"}
+                  </span>
                   <span className="font-mono font-medium text-slate-800 dark:text-slate-200">
                     ₹{summaryTotals.salesValue.toFixed(2)}
                   </span>
                 </div>
 
                 {/* Line Item Discounts */}
-                {summaryTotals.itemDiscount > 0 && (
+                {sourceBillingSelection?.sourceType === "SALES_ORDER" ? (
+                  <div className="flex items-center justify-between py-1">
+                    <span className="text-slate-600 dark:text-slate-400 font-medium">Discount</span>
+                    <span className="font-mono font-semibold text-emerald-600 dark:text-emerald-400">
+                      -₹{(summaryTotals.itemDiscount + summaryTotals.billDiscount).toFixed(2)}
+                    </span>
+                  </div>
+                ) : summaryTotals.itemDiscount > 0 && (
                   <div className="flex items-center justify-between py-1">
                     <span className="text-slate-600 dark:text-slate-400 font-medium">Line Discounts</span>
                     <span className="font-mono font-semibold text-emerald-600 dark:text-emerald-400">
@@ -6163,7 +6277,8 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                 )}
 
                 {/* Bill Discount (Direct Editable / Alt+D / F6 Promo) */}
-                <div className="py-1.5 px-1.5 rounded bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/80 transition mb-1">
+                {sourceBillingSelection?.sourceType !== "SALES_ORDER" && (
+                  <div className="py-1.5 px-1.5 rounded bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/80 transition mb-1">
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-slate-600 dark:text-slate-400 font-medium flex items-center gap-1 text-xs">
                       <span>Bill Discount</span>
@@ -6250,11 +6365,23 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                       )}
                     </div>
                   </div>
-                </div>
+                  </div>
+                )}
+
+                {sourceBillingSelection?.sourceType === "SALES_ORDER" && (
+                  <div className="flex items-center justify-between py-1">
+                    <span className="text-slate-700 dark:text-slate-300 font-semibold">Taxable Value</span>
+                    <span className="font-mono font-semibold text-slate-800 dark:text-slate-200">
+                      ₹{(previewIsCurrent && billingPreview?.result?.lines
+                        ? billingPreview.result.lines.reduce((total, line) => total + Number(line.taxable_value || 0), 0)
+                        : summaryTotals.salesValue - summaryTotals.itemDiscount - summaryTotals.billDiscount).toFixed(2)}
+                    </span>
+                  </div>
+                )}
 
                 {/* GST / Taxes */}
                 <div className="flex items-center justify-between py-1">
-                  <span className="text-slate-600 dark:text-slate-400 font-medium">Sales Tax (GST)</span>
+                  <span className="text-slate-600 dark:text-slate-400 font-medium">{sourceBillingSelection?.sourceType === "SALES_ORDER" ? "GST" : "Sales Tax (GST)"}</span>
                   <span className="font-mono font-semibold text-slate-800 dark:text-slate-200">
                     +₹{summaryTotals.totalTax.toFixed(2)}
                   </span>
@@ -6291,16 +6418,18 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
             </div>
 
             {/* Net Payable Banner matching proposed premium UX */}
-            <div className="pt-2 px-2 py-1.5 border-t border-slate-200 dark:border-slate-700/80 bg-blue-50 dark:bg-blue-950/30 rounded-lg flex items-center justify-between">
+            <div className={`pt-2 px-2 py-1.5 border-t border-slate-200 dark:border-slate-700/80 rounded-lg flex items-center justify-between ${
+              sourceBillingSelection?.sourceType === "SALES_ORDER" ? "bg-slate-900 text-white dark:bg-slate-950" : "bg-blue-50 dark:bg-blue-950/30"
+            }`}>
               <div className="flex flex-col">
-                <span className="text-base font-bold text-blue-600 dark:text-blue-400">
+                <span className={`text-base font-bold ${sourceBillingSelection?.sourceType === "SALES_ORDER" ? "text-white" : "text-blue-600 dark:text-blue-400"}`}>
                   Net Payable
                 </span>
-                <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                <span className={`text-[10px] ${sourceBillingSelection?.sourceType === "SALES_ORDER" ? "text-slate-300" : "text-slate-500 dark:text-slate-400"}`}>
                   {headerState.transaction === "Credit" ? "B2B Credit" : "Counter Cash"} · GST Inc.
                 </span>
               </div>
-              <span className="text-2xl font-black tracking-tight font-mono text-blue-600 dark:text-blue-400">
+              <span className={`text-2xl font-black tracking-tight font-mono ${sourceBillingSelection?.sourceType === "SALES_ORDER" ? "text-white" : "text-blue-600 dark:text-blue-400"}`}>
                 ₹{summaryTotals.netAmount.toFixed(2)}
               </span>
             </div>

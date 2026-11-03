@@ -21,25 +21,46 @@ describe("calculateSourceDiscountAmount", () => {
   it("adds scanned barcode quantities against verified source lines", () => {
     const lines = [{
       source_line_id: "line-1",
+      product_id: "product-1",
       code: "SKU-1",
       barcodes: ["8901234567890"],
       remaining_quantity: 4,
       eligible: true,
     }];
     const once = applySourceBarcodeQuantityRows([["8901234567890", "1"]], lines, { "line-1": "0" });
-    const twice = applySourceBarcodeQuantityRows([["SKU-1", "2"]], lines, once);
+    const twice = applySourceBarcodeQuantityRows([["SKU-1", "2"]], lines, once.quantities);
 
-    expect(twice).toEqual({ "line-1": "3" });
+    expect(twice).toEqual({ quantities: { "line-1": "3" }, issues: [], rejectedRows: [] });
   });
 
-  it("parses headered barcode quantity CSV and rejects overbilling atomically", () => {
+  it("parses barcode-only and headered barcode quantity rows", () => {
     expect(parseSourceBarcodeQuantityCsv("Barcode,Qty\nSKU-1,2")).toEqual([["SKU-1", "2"]]);
-    const lines = [{ source_line_id: "line-1", code: "SKU-1", remaining_quantity: 2, eligible: true }];
-    expect(() => applySourceBarcodeQuantityRows(
-      [["SKU-1", "3"]],
+    expect(parseSourceBarcodeQuantityCsv("Barcode\nSKU-1\nSKU-2,2")).toEqual([["SKU-1", "1"], ["SKU-2", "2"]]);
+  });
+
+  it("applies valid barcodes and reports unknown or over-pending rows without adding them", () => {
+    const lines = [{ source_line_id: "line-1", product_id: "product-1", code: "SKU-1", remaining_quantity: 2, eligible: true }];
+    const result = applySourceBarcodeQuantityRows(
+      [["SKU-1", "1"], ["NOT-ON-SO", "1"], ["SKU-1", "2"]],
       lines,
       { "line-1": "0" },
-    )).toThrow(/exceeds remaining quantity/);
+    );
+
+    expect(result.quantities).toEqual({ "line-1": "1" });
+    expect(result.issues).toHaveLength(2);
+    expect(result.issues[0]).toContain("NOT-ON-SO");
+    expect(result.issues[0]).toContain("not on the selected Sales Order");
+    expect(result.issues[1]).toContain("SO Pending Qty");
+  });
+
+  it("distributes duplicate barcodes for the same item across consolidated Sales Order lines", () => {
+    const lines = [
+      { source_line_id: "line-1", product_id: "product-1", code: "SKU-1", barcodes: ["EAN-1"], remaining_quantity: 1, eligible: true },
+      { source_line_id: "line-2", product_id: "product-1", code: "SKU-1", barcodes: ["EAN-1"], remaining_quantity: 2, eligible: true },
+    ];
+    const result = applySourceBarcodeQuantityRows([["EAN-1", "2"]], lines, {});
+
+    expect(result).toEqual({ quantities: { "line-1": "1", "line-2": "1" }, issues: [], rejectedRows: [] });
   });
 
   it("uses the source percentage on the selected partial quantity", () => {
