@@ -306,6 +306,7 @@ class MatrixVariantGenRequest(BaseModel):
 class ItemResolutionResponse(BaseModel):
     matched_by: str  # BARCODE, VARIANT_SKU, BUYER_CODE, ITEM_CODE, SERIAL
     item_id: str
+    product_id: Optional[str] = None
     item_code: str
     item_name: str
     variant_id: Optional[str] = None

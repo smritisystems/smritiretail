@@ -189,10 +189,19 @@ async def test_invoice_save_as_draft_to_submit_and_post_lifecycle(db_session):
         status="Draft",
         customer_name="ShopperStop Flagship Store",
         payment_mode="CREDIT",
+        items=[{
+            "product_id": "unmapped-canonical-item-id",
+            "code": prod.code,
+            "name": prod.name,
+            "quantity": Decimal("2.00"),
+            "price": Decimal("150.00"),
+            "gst_rate": Decimal("18.00"),
+        }],
     )
     updated_inv = await sales_svc.update_sales_invoice(invoice.id, update_payload)
     assert updated_inv.customer_name == "ShopperStop Flagship Store"
     assert updated_inv.status == "Draft"
+    assert updated_inv.items[0].product_id == prod.id
 
     # 4. Check Lifecycle State & Available Actions
     state_res = await UniversalLifecycleEngine.get_lifecycle_state(

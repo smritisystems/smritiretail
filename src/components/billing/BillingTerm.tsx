@@ -1947,6 +1947,8 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
           total: Number(it.total_amount || (Number(it.price || 0) * Number(it.quantity || 1))),
           salesStaff: inv.salesperson_name || "Staff",
           productId: it.product_id,
+          itemId: it.item_id,
+          variantId: it.variant_id,
           gstPercentage: Number(it.gst_rate || 18),
           taxAmount: Number(it.tax_amount || 0)
         })),
@@ -2865,7 +2867,8 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         if (uniRes && (uniRes.item_id || uniRes.variant_id)) {
           resolvedItem = {
             success: true,
-            product_id: uniRes.item_id,
+            product_id: uniRes.product_id || null,
+            item_id: uniRes.item_id,
             variant_id: uniRes.variant_id,
             product_name: uniRes.item_name,
             sku: uniRes.variant_sku || uniRes.item_code,
@@ -3113,6 +3116,9 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
             return {
               ...it,
               stockNo: matched.sku || it.stockNo,
+              productId: matched.product_id || undefined,
+              itemId: matched.item_id || undefined,
+              variantId: matched.variant_id || undefined,
               barcode: matched.barcode || it.barcode,
               itemDescription: matched.product_name || it.itemDescription,
               article: matched.article_no || matched.articleNo || matched.style_code || matched.styleCode || matched.article || matched.style || entry.article || it.article,
@@ -3234,7 +3240,9 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         discAmt: Number(computedLine.discAmt ?? lineDiscAmt),
         total: computedLine.total,
         salesStaff: entry.staff,
-        productId: matched.product_id,
+        productId: matched.product_id || undefined,
+        itemId: matched.item_id || undefined,
+        variantId: matched.variant_id || undefined,
         hsnCode: matched.hsn_code,
         gstPercentage: Number(computedLine.taxPercent ?? matched.tax_rate ?? 18),
         taxAmount: Number(computedLine.taxAmount ?? 0),
@@ -3651,6 +3659,8 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       remarks: headerState.remarks || "Draft Sales Invoice",
       items: items.map((it, idx) => ({
         product_id: it.productId || it.stockNo,
+        item_id: it.itemId || null,
+        variant_id: it.variantId || null,
         code: it.stockNo,
         name: it.itemDescription,
         quantity: it.qty,
@@ -3743,9 +3753,10 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       invoiceId: activeDraftId || undefined,
       invoiceNumber: draftDocNo,
       date: headerState.billDate || new Date().toISOString().split("T")[0],
-      customerName: headerState.customer?.name || (typeof headerState.customer === "string" ? headerState.customer : "Retail Cash Customer"),
+      customerName: headerState.customer?.name || (typeof headerState.customer === "string" ? headerState.customer : ""),
       customerMobile: (headerState.customer as any)?.phone || (headerState.customer as any)?.mobile || "",
       customerGstin: headerState.billedGstin || (headerState.customer as any)?.gstin || (headerState.customer as any)?.gstNumber || "",
+      shippingGstin: headerState.deliveryGstin || "",
       billingAddress: headerState.billingAddress || (headerState.customer as any)?.address || "",
       shippingAddress: headerState.shippingAddress || (headerState.customer as any)?.address || headerState.billingAddress || "",
       items: items.map((it, idx) => ({
@@ -3754,13 +3765,14 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         description: it.itemDescription,
         quantity: it.qty,
         rate: it.rate,
-        mrp: it.mrp || it.rate,
+        mrp: it.mrp,
         discount: postingLines[idx]?.discountAmount ?? 0,
-        tax: 0,
-        amount: it.total || it.value || (it.rate * it.qty),
-        hsn: it.hsnCode || "64041990",
-        hsnCode: it.hsnCode || "64041990",
+        tax: it.taxAmount || 0,
+        amount: it.total,
+        hsn: it.hsnCode || "",
+        hsnCode: it.hsnCode || "",
         gstRate: it.gstPercentage,
+        disc_pct: it.discPercent,
       })),
       subtotal: summaryTotals.salesValue,
       discount: summaryTotals.itemDiscount + summaryTotals.billDiscount,
@@ -3771,8 +3783,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       paymentMode: headerState.transaction === "Credit" ? "CREDIT" : "DRAFT",
       status: "Draft",
       isDraft: true,
-      salesStaff: headerState.salesStaff || "POS Cashier",
-      terms: "DRAFT TAX INVOICE — FOR VERIFICATION ONLY. Subject to final review and statutory numbering."
+      salesStaff: headerState.salesStaff || "",
     });
 
     setShowPrintModal(true);
@@ -3842,6 +3853,8 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
           customer_id: headerState.customer?.id || null,
           items: items.map(it => ({
             product_id: it.productId || it.stockNo,
+            item_id: it.itemId || null,
+            variant_id: it.variantId || null,
             code: it.stockNo,
             name: it.itemDescription,
             quantity: it.qty,
@@ -3948,6 +3961,8 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
           total,
           salesStaff: headerState.salesStaff,
           productId: it.product_id,
+          itemId: it.item_id,
+          variantId: it.variant_id,
           hsnCode: it.hsn_code,
           gstPercentage: Number(it.gst_rate || 0),
           taxAmount: Number(it.tax_amount || 0),
@@ -4215,6 +4230,8 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
       adjustments: previewRequest.adjustments || [],
       items: items.map((it, idx) => ({
         product_id: it.productId || it.stockNo,
+        item_id: it.itemId || null,
+        variant_id: it.variantId || null,
         code: it.stockNo,
         name: it.itemDescription,
         quantity: it.qty,
@@ -4316,11 +4333,15 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
 
       const completedInvoice = {
         invoiceId: saved.id,
-        invoiceNumber: saved.invoice_no || "INV-CONFIRMED",
+        invoiceNumber: saved.invoice_no || "",
         date: saved.date || headerState.billDate,
-        customerName: headerState.customer?.name || "Counter Cash Sale",
+        customerName: headerState.customer?.name || "",
         customerMobile: headerState.customer?.mobile || "",
         customerGstin: headerState.billedGstin || headerState.customer?.gstNumber || "",
+        shippingGstin: headerState.deliveryGstin || "",
+        billingAddress: headerState.billingAddress || "",
+        shippingAddress: headerState.shippingAddress || "",
+        shippingName: headerState.customer?.name || "",
         items: items.map(it => ({
           sku: it.stockNo,
           description: it.itemDescription,
@@ -4328,7 +4349,11 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
           rate: it.rate,
           discount: it.discAmt,
           tax: it.taxAmount || 0,
-          amount: it.total
+          amount: it.total,
+          mrp: it.mrp,
+          hsnCode: it.hsnCode || "",
+          gstRate: it.gstPercentage,
+          disc_pct: it.discPercent,
         })),
         subtotal: summaryTotals.salesValue,
         discount: summaryTotals.itemDiscount + summaryTotals.billDiscount,
@@ -4548,6 +4573,10 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   const isBillingGridLayoutDirty = JSON.stringify(billingGridLayout[activeBillingGridView])
     !== JSON.stringify(savedBillingGridLayout[activeBillingGridView]);
   const visibleInvoiceColumns = getVisibleBillingGridColumns("invoice", billingGridLayout);
+  const invoiceGridWidth = visibleInvoiceColumns.reduce(
+    (width, column) => width + Number.parseFloat(column.width),
+    0
+  );
   const sourceOrderPreviewLines = useMemo(() => {
     if (sourceBillingSelection?.sourceType !== "SALES_ORDER"
       || billingPreview?.fingerprint !== previewFingerprint
@@ -5940,8 +5969,12 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
             </div>
 
             {/* Single-line item rows for all screen sizes. */}
-            <div className="flex flex-1 items-start overflow-x-auto overflow-y-auto min-h-0">
-              <table className="h-auto w-full min-w-max table-fixed self-start text-left border-collapse whitespace-nowrap tabular-nums">
+            <div className="min-h-0 min-w-0 flex-1 overflow-auto">
+              <table
+                aria-label="Invoice item grid"
+                style={{ width: `${invoiceGridWidth}px`, minWidth: "100%" }}
+                className="table-fixed self-start text-left border-collapse whitespace-nowrap tabular-nums"
+              >
                 <colgroup>
                   {visibleInvoiceColumns.map(column => <col key={column.key} style={{ width: column.width }} />)}
                 </colgroup>
@@ -5983,7 +6016,6 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
 
                   {items.length === 0 && (
                     <tr className="h-8 border-b border-slate-100 bg-white dark:border-slate-700/70 dark:bg-[#1e293b]">
-                      <td className="px-2 py-1 text-center font-mono text-slate-400 text-[10px]">1</td>
                       <td
                         colSpan={visibleInvoiceColumns.length}
                         className="px-2.5 py-1 text-slate-400 italic text-[11px]"
@@ -7127,38 +7159,52 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
           isOpen={showPrintModal}
           activeTabId="sales"
           data={{
-            companyName: "SMRITI Retail OS",
-            companyAddress: "Central Warehouse, Distribution Center",
-            companyGst: "27AAACS1981P1Z1",
+            companyName: getTenantCompanyContext().companyName,
+            companyAddress: getTenantCompanyContext().companyAddress,
+            companyGst: getTenantCompanyContext().companyGstin,
+            companyPhone: getTenantCompanyContext().companyPhone,
+            companyEmail: getTenantCompanyContext().companyEmail,
+            logoUrl: getTenantCompanyContext().companyLogoUrl,
             invoiceNo: lastCompletedInvoice.invoiceNumber,
             invoiceNumber: lastCompletedInvoice.invoiceNumber,
             date: lastCompletedInvoice.date,
             customerName: lastCompletedInvoice.customerName,
             customerPhone: lastCompletedInvoice.customerMobile || "",
-            customerGstin: lastCompletedInvoice.customerGstin || "27AAACR1921R1Z5",
+            customerGst: lastCompletedInvoice.customerGstin || "",
             items: (lastCompletedInvoice.items || []).map((it: any) => ({
               name: it.description || it.name || it.sku,
               qty: it.quantity,
               rate: it.rate,
+              mrp: it.mrp,
+              hsnCode: it.hsnCode || "",
+              gstRate: it.gstRate,
+              disc_pct: it.disc_pct,
               discount: it.discount || 0,
               tax: it.tax || 0,
-              amount: it.amount
+              taxAmount: it.tax || 0,
+              amount: it.amount,
+              lineTotal: it.amount,
             })),
             subtotal: lastCompletedInvoice.subtotal,
             discount: lastCompletedInvoice.discount,
             tax: lastCompletedInvoice.tax,
+            taxTotal: lastCompletedInvoice.tax,
             total: lastCompletedInvoice.total,
+            grandTotal: lastCompletedInvoice.total,
             paid: lastCompletedInvoice.totalTendered,
             change: lastCompletedInvoice.changeDue,
             customerAddress: lastCompletedInvoice.billingAddress || "",
-            shippingName: lastCompletedInvoice.customerName,
-            shippingAddress: lastCompletedInvoice.shippingAddress || lastCompletedInvoice.billingAddress || "",
-            shippingGst: lastCompletedInvoice.customerGstin || "",
-            cashier: headerState.salesStaff || "POS Cashier",
+            shippingName: lastCompletedInvoice.shippingName || "",
+            shippingAddress: lastCompletedInvoice.shippingAddress || "",
+            shippingGst: lastCompletedInvoice.shippingGstin || "",
+            cashier: headerState.salesStaff || "",
             paymentMethod: lastCompletedInvoice.paymentMode,
             isDraft: Boolean(lastCompletedInvoice.isDraft || lastCompletedInvoice.status === "Draft"),
             status: lastCompletedInvoice.status || (lastCompletedInvoice.isDraft ? "Draft" : "Submitted"),
-            terms: lastCompletedInvoice.terms || "Subject to local jurisdiction. Goods once sold will not be taken back without valid invoice."
+            terms: lastCompletedInvoice.terms || "",
+            notes: lastCompletedInvoice.terms || "",
+            isInterstate: lastCompletedInvoice.isInterstate,
+            sisCode: headerState.billingStoreCode || headerState.deliveryStoreCode || "",
           }}
           onClose={() => setShowPrintModal(false)}
         />

@@ -52,6 +52,32 @@ describe("Frontend Print Engine Fail-Closed Statutory Verification", () => {
     expect(html).not.toContain("<table");
   });
 
+  it("StandardInvoiceA4 prints only supplied invoice and customer details", () => {
+    const invoice: InvoiceData = {
+      invoiceNo: "INV-REAL-001",
+      date: "2026-10-18",
+      companyName: "Configured Retail Pvt Ltd",
+      companyAddress: "",
+      companyGst: "27REALGSTIN1234Z1",
+      customerName: "Walk-in Customer",
+      items: [{ name: "Cotton Shirt", quantity: 1, rate: 100 }],
+    };
+
+    const html = renderToStaticMarkup(<StandardInvoiceA4 data={invoice} />);
+
+    expect(html).toContain("Configured Retail Pvt Ltd");
+    expect(html).toContain("INV-REAL-001");
+    expect(html).toContain("Cotton Shirt");
+    expect(html).not.toContain("Central Warehouse");
+    expect(html).not.toContain("Reliance Retail Limited");
+    expect(html).not.toContain("Building 4");
+    expect(html).not.toContain("27AAACR0293P1ZT");
+    expect(html).not.toContain("64041990");
+    expect(html).not.toContain("Maharashtra (27)");
+    expect(html).not.toContain("Nagpur");
+    expect(html).not.toContain("TT2026-2027/18");
+  });
+
   it("2. PurchaseOrderPrintA4 blocks rendering completely if company name is missing", () => {
     const unconfiguredPO: PurchaseOrderPrintData = {
       poNumber: "PO-SECRET-001",

@@ -31,6 +31,8 @@ export interface BillingLineItem {
   total: number; // value - discAmt + tax
   salesStaff: string;
   productId?: string;
+  itemId?: string;
+  variantId?: string;
   hsnCode?: string;
   gstPercentage?: number;
   taxAmount?: number;

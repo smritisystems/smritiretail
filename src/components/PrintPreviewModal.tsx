@@ -632,7 +632,19 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ isOpen, on
       // Attach default SBI bank details to invoice data if not specified
       if (!initData.bankDetails) {
         const defaultBank = availableBanks.find(b => b.id === selectedBankId) || DEFAULT_SBI_BANK_ACCOUNT;
-        initData.bankDetails = defaultBank;
+        const hasConfiguredBank = [
+          defaultBank.bankName,
+          defaultBank.accountName,
+          defaultBank.accountNo,
+          defaultBank.accountNumber,
+          defaultBank.ifsc,
+          defaultBank.ifscCode,
+          defaultBank.branch,
+          defaultBank.branchName,
+          defaultBank.upi,
+          defaultBank.upiId,
+        ].some(value => String(value || "").trim());
+        if (hasConfiguredBank) initData.bankDetails = defaultBank;
       }
 
       setDocumentData(initData);

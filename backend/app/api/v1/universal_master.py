@@ -397,6 +397,7 @@ async def resolve_item(
         return ItemResolutionResponse(
             matched_by=matched_by,
             item_id=res.item_id or res.product_id or "",
+            product_id=res.product_id,
             item_code=item_code_val,
             item_name=res.name or "",
             variant_id=res.variant_id,

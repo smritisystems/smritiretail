@@ -1848,14 +1848,55 @@ class SalesService:
             grand_total = Decimal("0.00")
             new_items   = []
             for item in update_in.items:
-                product_res = await self.db.execute(select(Product).where(
-                    (Product.id == item.product_id) | (Product.code == item.product_id),
+                product = None
+                product_scope = (
                     Product.company_id == self.tenant_ctx.company_id,
                     Product.is_deleted == False,
-                ))
-                product = product_res.scalars().first()
+                )
+                if item.variant_id:
+                    variant_res = await self.db.execute(
+                        select(Product).where(
+                            Product.item_variant_id == item.variant_id,
+                            *product_scope,
+                        )
+                    )
+                    product = variant_res.scalars().first()
+
                 if not product:
-                    raise HTTPException(status_code=400, detail=f"Item '{item.product_id}' was not found in the database.")
+                    identifiers = {
+                        str(value).strip()
+                        for value in (item.product_id, item.code)
+                        if value and str(value).strip()
+                    }
+                    if identifiers:
+                        product_res = await self.db.execute(
+                            select(Product).where(
+                                or_(
+                                    Product.id.in_(identifiers),
+                                    Product.code.in_(identifiers),
+                                ),
+                                *product_scope,
+                            )
+                        )
+                        product = product_res.scalars().first()
+
+                if not product and item.item_id and not item.variant_id:
+                    item_res = await self.db.execute(
+                        select(Product).where(
+                            Product.item_id == item.item_id,
+                            *product_scope,
+                        ).limit(2)
+                    )
+                    matching_products = item_res.scalars().all()
+                    if len(matching_products) == 1:
+                        product = matching_products[0]
+
+                if not product:
+                    unresolved_id = item.product_id or item.variant_id or item.item_id or item.code
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Item '{unresolved_id}' could not be matched to an active product. Refresh the item from the catalogue and retry.",
+                    )
                 gst_rate = item.gst_rate if item.gst_rate != Decimal("18.00") or not product.gst_percentage else Decimal(str(product.gst_percentage))
                 item_tax   = (item.quantity * item.price
                                * (gst_rate / Decimal("100.00"))).quantize(Decimal("0.01"))

@@ -71,6 +71,8 @@ export interface InvoiceData {
   deliveryLocation?: string;
   deliveryDate?: string;
   paymentTerms?: string;
+  terms?: string;
+  footerText?: string;
   supplierReference?: string;
   purchaser?: string;
   department?: string;
@@ -78,6 +80,8 @@ export interface InvoiceData {
   companyName?: string;
   companyAddress?: string;
   companyGst?: string;
+  companyPhone?: string;
+  customerPhone?: string;
   dispatchEmail?: string;
   accountsEmail?: string;
   website?: string;
@@ -98,6 +102,7 @@ export interface InvoiceData {
   shippingAddress?: string;
   shipping_address?: string;
   shippingGst?: string;
+  reverseCharge?: string;
   shipping_gstin?: string;
   sisCode?: string;
   posState?: string;
@@ -131,12 +136,12 @@ export interface ProcessedItem {
   description: string;
   hsn: string;
   qty: number;
-  mrp: number;
-  disc: number;
+  mrp: number | null;
+  disc: number | null;
   rateInclGst: number;
   taxableVal: number;
   lineGst: number;
-  gstRate: number;
+  gstRate: number | null;
   grossLineValue: number;
 }
 
@@ -308,6 +313,7 @@ export const StandardInvoiceA4: React.FC<{ data?: InvoiceData }> = ({ data = {} 
     : typeof data.bankDetails === "string" && data.bankDetails.trim()
     ? { bankName: data.bankDetails }
     : null;
+  const hasBankInfo = Boolean(bankInfo && Object.values(bankInfo).some(value => String(value || "").trim()));
 
   // Identity Validation
   const requiresGstin = !isPurchaseOrder && !isJobWorkOrder;
@@ -339,10 +345,10 @@ export const StandardInvoiceA4: React.FC<{ data?: InvoiceData }> = ({ data = {} 
   }
 
   // Invoice Number
-  const invoiceNo = data.invoiceNo || data.invoice_no || "TT2026-2027/18";
+  const invoiceNo = data.invoiceNo || data.invoice_no || "";
   
   // Dates
-  const invoiceDate = data.invoiceDate || data.invoice_date || data.date || "12-Aug-2026";
+  const invoiceDate = data.invoiceDate || data.invoice_date || data.date || "";
   // Format date as DD-MM-YYYY to match tax invoice reference format
   function formatDateDDMMYYYY(d: string): string {
     if (!d) return "";
@@ -353,19 +359,19 @@ export const StandardInvoiceA4: React.FC<{ data?: InvoiceData }> = ({ data = {} 
     }
     return s;
   }
-  const formattedDate = typeof invoiceDate === "string" ? formatDateDDMMYYYY(invoiceDate) : formatDateDDMMYYYY(new Date().toISOString());
+  const formattedDate = formatDateDDMMYYYY(invoiceDate);
 
   // Metadata
-  const sisCode = data.sisCode || parsed.sisCode || "1888";
-  const posState = data.posState || "Maharashtra (27)";
-  const poNumber = data.poNumber || parsed.poNumber || "5182778151";
+  const sisCode = data.sisCode || parsed.sisCode || "";
+  const posState = data.posState || "";
+  const poNumber = data.poNumber || parsed.poNumber || "";
   const rawEWayBill = data.ewayBillNo || (data as any).eWayBillNo || (data as any).eway_bill_no || "";
   const ewayBillNo = (rawEWayBill && rawEWayBill !== "null" && rawEWayBill !== "undefined" && rawEWayBill !== "0" && rawEWayBill !== "N/A") ? String(rawEWayBill).trim() : "";
 
   // Customer info
-  const customerName = data.customerName || "Reliance Retail Limited (RRL-TMW3)";
-  const customerAddress = data.customerAddress || "Building 4, Reliance Corporate Park, Thane Belapur Road, Navi Mumbai 400701";
-  const customerGst = data.customerGst || "27AAACR0293P1ZT";
+  const customerName = data.customerName || (isPurchaseOrder || isJobWorkOrder ? "" : "Walk-in Customer");
+  const customerAddress = data.customerAddress || "";
+  const customerGst = data.customerGst || "";
 
   // Items processing
   const rawItems = data.items || [];
@@ -380,11 +386,15 @@ export const StandardInvoiceA4: React.FC<{ data?: InvoiceData }> = ({ data = {} 
   const processedItems: ProcessedItem[] = rawItems.map((item, idx) => {
     const qty = Number(item.qty ?? item.quantity ?? 0);
     const rateInclGst = Number(item.rate ?? item.price ?? item.unitPrice ?? 0);
-    const hsn = item.hsnCode || item.hsn || item.hsn_code || "64041990";
-    const gstRate = Number(item.gstRate ?? item.gst_rate ?? 5);
+    const hsn = item.hsnCode || item.hsn || item.hsn_code || "";
+    const rawGstRate = item.gstRate ?? item.gst_rate;
+    const gstRate = rawGstRate === undefined || rawGstRate === null
+      ? null
+      : Number(rawGstRate);
+    const taxRate = gstRate ?? 0;
     
     const grossLineValue = qty * rateInclGst;
-    const taxableVal = Math.round((grossLineValue / (1 + gstRate / 100)) * 100) / 100;
+    const taxableVal = Math.round((grossLineValue / (1 + taxRate / 100)) * 100) / 100;
     const lineGst = Math.round((grossLineValue - taxableVal) * 100) / 100;
 
     totalPairs += qty;
@@ -399,18 +409,18 @@ export const StandardInvoiceA4: React.FC<{ data?: InvoiceData }> = ({ data = {} 
       totalSgst += Math.round((lineGst / 2) * 100) / 100;
     }
 
-    const mrp = (item.mrp !== undefined && item.mrp !== null && Number(item.mrp) > 0)
+    const mrp = item.mrp !== undefined && item.mrp !== null && Number(item.mrp) > 0
       ? Number(item.mrp)
-      : (rateInclGst === 1068 ? 1899 : rateInclGst === 1236.72 ? 2199 : rateInclGst === 1011.76 ? 1799 : rateInclGst === 899.28 ? 1599 : (rateInclGst > 0 ? Math.round(rateInclGst * 1.778) : 0));
+      : null;
 
     // disc = discount PERCENT (not amount) — computed from MRP vs rate
     // If disc_pct or discPct is passed directly (from API), use it
     const rawDiscPct = (item as any).disc_pct ?? (item as any).discPct;
     const disc = (rawDiscPct !== undefined && rawDiscPct !== null && Number(rawDiscPct) >= 0)
       ? Number(rawDiscPct)
-      : (mrp > 0 && mrp > rateInclGst
+      : (mrp !== null && mrp > rateInclGst
         ? Math.round(((mrp - rateInclGst) / mrp) * 10000) / 100
-        : 0);
+        : null);
 
     return {
       sno: idx + 1,
@@ -434,7 +444,7 @@ export const StandardInvoiceA4: React.FC<{ data?: InvoiceData }> = ({ data = {} 
     summary.set(item.hsn, existing);
     return summary;
   }, new Map<string, { hsn: string; taxable: number; tax: number }>()).values());
-  const isInterstate = data.isInterstate ?? data.is_interstate ?? (totalIgst > 0 || (totalCgst === 0 && totalSgst === 0));
+  const isInterstate = data.isInterstate ?? data.is_interstate ?? totalIgst > 0;
   const totalTax = isInterstate ? totalIgst : (totalCgst + totalSgst);
   const igstRate = totalTaxableVal > 0 ? (totalIgst / totalTaxableVal) * 100 : 0;
   const cgstRate = totalTaxableVal > 0 ? (totalCgst / totalTaxableVal) * 100 : 0;
@@ -492,6 +502,7 @@ export const StandardInvoiceA4: React.FC<{ data?: InvoiceData }> = ({ data = {} 
                       <p className="text-[10.5px] text-slate-600 mt-0.5 m-0 whitespace-pre-line">
                         {companyAddress}
                       </p>
+                      {data.companyPhone && <p className="text-[10.5px] text-slate-600 mt-0.5 m-0">{data.companyPhone}</p>}
                       <div className="text-[10.5px] text-slate-600 mt-0.5 font-mono leading-tight">
                         {website && <div>Web: {website}</div>}
                         {dispatchEmail && <div>Dispatch: {dispatchEmail}</div>}
@@ -559,13 +570,16 @@ export const StandardInvoiceA4: React.FC<{ data?: InvoiceData }> = ({ data = {} 
                         {isJobWorkOrder ? "Job Work Contractor" : isPurchaseOrder ? "Supplier Details" : "BILLED TO (RECIPIENT)"}
                       </p>
                       <p className="font-extrabold text-slate-950 text-[10.5px] m-0">{isPurchaseOrder || isJobWorkOrder ? (data.supplierName || customerName) : customerName}</p>
-                      <p className="text-slate-600 m-0 mt-0.5 leading-snug">{isPurchaseOrder || isJobWorkOrder ? (data.supplierAddress || customerAddress) : customerAddress}</p>
+                      {(isPurchaseOrder || isJobWorkOrder ? (data.supplierAddress || customerAddress) : customerAddress) && (
+                        <p className="text-slate-600 m-0 mt-0.5 leading-snug">{isPurchaseOrder || isJobWorkOrder ? (data.supplierAddress || customerAddress) : customerAddress}</p>
+                      )}
                       {(isPurchaseOrder || isJobWorkOrder ? (data.supplierGst || customerGst) : customerGst) && (
                         <p className="text-slate-900 font-bold m-0 mt-1">
                           GSTIN: <span className="font-mono">{isPurchaseOrder || isJobWorkOrder ? (data.supplierGst || customerGst) : customerGst}</span>
                         </p>
                       )}
                       {(isPurchaseOrder || isJobWorkOrder) && data.supplierPhone && <p className="text-slate-600 m-0 mt-0.5">{data.supplierPhone}</p>}
+                      {!isPurchaseOrder && !isJobWorkOrder && data.customerPhone && <p className="text-slate-600 m-0 mt-0.5">{data.customerPhone}</p>}
                     </div>
 
                     {/* BOX 2: SHIPPED TO (DELIVERY SITE) */}
@@ -573,15 +587,21 @@ export const StandardInvoiceA4: React.FC<{ data?: InvoiceData }> = ({ data = {} 
                       <p className="font-bold text-slate-800 border-b border-slate-200 pb-1 mb-1 uppercase text-[9px] tracking-wider">
                         {isJobWorkOrder ? "Work Delivery Details" : isPurchaseOrder ? "Delivery Details" : "SHIPPED TO (DELIVERY SITE)"}
                       </p>
-                      <p className="font-extrabold text-slate-950 text-[10.5px] m-0">
-                        {isPurchaseOrder || isJobWorkOrder ? (data.deliveryLocation || "Main Store") : (data.shippingName || data.shipping_name || `Reliance Retail Limited (RRL-${sisCode})`)}
-                      </p>
-                      <p className="text-slate-600 m-0 mt-0.5 leading-snug">
-                        {isPurchaseOrder || isJobWorkOrder ? `Due: ${data.deliveryDate || ""}` : (data.shippingAddress || data.shipping_address || customerAddress)}
-                      </p>
-                      <p className="text-slate-900 font-bold m-0 mt-1">
-                        GSTIN: <span className="font-mono">{data.shippingGst || data.shipping_gstin || customerGst || "27AAACR0293P1ZT"}</span>
-                      </p>
+                      {(isPurchaseOrder || isJobWorkOrder ? data.deliveryLocation : (data.shippingName || data.shipping_name || customerName)) && (
+                        <p className="font-extrabold text-slate-950 text-[10.5px] m-0">
+                          {isPurchaseOrder || isJobWorkOrder ? data.deliveryLocation : (data.shippingName || data.shipping_name || customerName)}
+                        </p>
+                      )}
+                      {(isPurchaseOrder || isJobWorkOrder ? data.deliveryDate : (data.shippingAddress || data.shipping_address || customerAddress)) && (
+                        <p className="text-slate-600 m-0 mt-0.5 leading-snug">
+                          {isPurchaseOrder || isJobWorkOrder ? `Due: ${data.deliveryDate}` : (data.shippingAddress || data.shipping_address || customerAddress)}
+                        </p>
+                      )}
+                      {(data.shippingGst || data.shipping_gstin) && (
+                        <p className="text-slate-900 font-bold m-0 mt-1">
+                          GSTIN: <span className="font-mono">{data.shippingGst || data.shipping_gstin}</span>
+                        </p>
+                      )}
                     </div>
 
                     {/* BOX 3: INVOICE METADATA */}
@@ -593,9 +613,9 @@ export const StandardInvoiceA4: React.FC<{ data?: InvoiceData }> = ({ data = {} 
                         <tbody>
                           <tr>
                             <td className="py-0.5 text-slate-500 font-medium w-24">{isPurchaseOrder || isJobWorkOrder ? "Delivery:" : "Store Code:"}</td>
-                            <td className="py-0.5 font-bold font-mono text-slate-900">{isPurchaseOrder || isJobWorkOrder ? (data.deliveryLocation || "Main Store (MAIN)") : sisCode}</td>
+                            <td className="py-0.5 font-bold font-mono text-slate-900">{isPurchaseOrder || isJobWorkOrder ? (data.deliveryLocation || "—") : (sisCode || "—")}</td>
                           </tr>
-                          {!isPurchaseOrder && (
+                          {!isPurchaseOrder && posState && (
                             <tr>
                               <td className="py-0.5 text-slate-500 font-medium">POS State:</td>
                               <td className="py-0.5 font-semibold text-slate-800">{posState}</td>
@@ -625,10 +645,10 @@ export const StandardInvoiceA4: React.FC<{ data?: InvoiceData }> = ({ data = {} 
                               <td className="py-0.5 font-semibold text-slate-800">{data.paymentTerms}</td>
                             </tr>
                           )}
-                          {!isPurchaseOrder && (
+                          {!isPurchaseOrder && data.reverseCharge && (
                             <tr>
                               <td className="py-0.5 text-slate-500 font-medium">Reverse Charge:</td>
-                              <td className="py-0.5 font-bold text-slate-900">No</td>
+                              <td className="py-0.5 font-bold text-slate-900">{data.reverseCharge}</td>
                             </tr>
                           )}
                           {!isPurchaseOrder && (
@@ -672,12 +692,12 @@ export const StandardInvoiceA4: React.FC<{ data?: InvoiceData }> = ({ data = {} 
                       <tr key={item.sno} className="border-b border-slate-200 odd:bg-white even:bg-slate-50/50 h-[20px] leading-tight">
                         <td className="p-1 border border-slate-200 text-center font-mono">{item.sno}</td>
                         <td className="p-1 border border-slate-200 font-bold text-slate-900">{item.description}</td>
-                        <td className="p-1 border border-slate-200 text-center font-mono text-slate-600">{item.hsn}</td>
+                        <td className="p-1 border border-slate-200 text-center font-mono text-slate-600">{item.hsn || "—"}</td>
                         <td className="p-1 border border-slate-200 text-right font-bold font-mono">{item.qty}</td>
-                        <td className="p-1 border border-slate-200 text-right font-mono text-slate-700">{currencySymbol}{item.mrp.toFixed(2)}</td>
-                        <td className="p-1 border border-slate-200 text-right font-mono text-slate-600">{item.disc.toFixed(2)}%</td>
+                        <td className="p-1 border border-slate-200 text-right font-mono text-slate-700">{item.mrp === null ? "—" : `${currencySymbol}${item.mrp.toFixed(2)}`}</td>
+                        <td className="p-1 border border-slate-200 text-right font-mono text-slate-600">{item.disc === null ? "—" : `${item.disc.toFixed(2)}%`}</td>
                         <td className="p-1 border border-slate-200 text-right font-mono">{currencySymbol}{item.taxableVal.toFixed(2)}</td>
-                        <td className="p-1 border border-slate-200 text-right font-mono text-slate-700">{item.gstRate.toFixed(0)}%</td>
+                        <td className="p-1 border border-slate-200 text-right font-mono text-slate-700">{item.gstRate === null ? "—" : `${item.gstRate.toFixed(0)}%`}</td>
                         <td className="p-1 border border-slate-200 text-right font-extrabold font-mono text-slate-950">{currencySymbol}{item.grossLineValue.toFixed(2)}</td>
                       </tr>
                     ))}
@@ -800,7 +820,7 @@ export const StandardInvoiceA4: React.FC<{ data?: InvoiceData }> = ({ data = {} 
                       <p className="font-bold text-slate-900 uppercase text-[8.5px] border-b border-slate-200 pb-0.5 mb-1 tracking-wider">
                         Bank Details (Payment Info)
                       </p>
-                      {bankInfo ? (
+                      {hasBankInfo && bankInfo ? (
                         <p className="m-0 text-slate-700 leading-snug font-medium text-[8.5px]">
                           <span className="font-semibold">Bank:</span> {bankInfo.bankName || ""}<br />
                           <span className="font-semibold">A/C Name:</span> {bankInfo.accountName || ""}<br />
@@ -815,23 +835,18 @@ export const StandardInvoiceA4: React.FC<{ data?: InvoiceData }> = ({ data = {} 
                       )}
                     </div>
 
-                    <div className="bg-slate-50 border border-slate-200 p-2 rounded">
-                      <p className="font-bold text-slate-900 uppercase text-[8.5px] border-b border-slate-200 pb-0.5 mb-1 tracking-wider">
-                        Terms & Conditions
-                      </p>
-                      <p className="m-0 text-slate-700 leading-snug font-medium text-[8.5px]">
-                        {isPurchaseOrder || isJobWorkOrder ? (
-                          <>
-                            {data.specialInstructions || "Goods to be delivered against this purchase order and accepted subject to inspection."}<br />
-                            Department: {data.department || "General Purchase"}<br />
-                            Payment Terms: {data.paymentTerms && data.paymentTerms !== "30 Days" ? data.paymentTerms : "120 Days"}
-                          </>
-                        ) : (
-                          <>1. Goods once sold will not be taken back without prior written approval.<br />
-                          2. All disputes subject to Nagpur Jurisdiction.</>
-                        )}
-                      </p>
-                    </div>
+                    {(data.terms || data.notes || data.footerText || data.specialInstructions || data.department || data.paymentTerms) && (
+                      <div className="bg-slate-50 border border-slate-200 p-2 rounded">
+                        <p className="font-bold text-slate-900 uppercase text-[8.5px] border-b border-slate-200 pb-0.5 mb-1 tracking-wider">
+                          Terms & Conditions
+                        </p>
+                        <p className="m-0 text-slate-700 leading-snug font-medium text-[8.5px] whitespace-pre-line">
+                          {data.terms || data.footerText || data.notes || data.specialInstructions}
+                          {data.department && <><br />Department: {data.department}</>}
+                          {data.paymentTerms && <><br />Payment Terms: {data.paymentTerms}</>}
+                        </p>
+                      </div>
+                    )}
 
                     <div className="bg-slate-50 border border-slate-200 p-2 rounded flex flex-col justify-between">
                       <p className="font-bold text-slate-900 uppercase text-[8.5px] border-b border-slate-200 pb-0.5 mb-1 tracking-wider">
@@ -864,10 +879,6 @@ export const StandardInvoiceA4: React.FC<{ data?: InvoiceData }> = ({ data = {} 
                   {/* STATUTORY DECLARATION & WATERMARK */}
                   <div className="mt-2 border-t border-slate-200 pt-1.5 text-center text-[8.5px] text-slate-500 font-medium leading-tight">
                     <p className="m-0">This is a computer-generated {isPurchaseOrder ? "purchase order" : "tax invoice"} and does not require a physical signature.</p>
-                    <p className="m-0 font-bold text-slate-700 tracking-wider">SUBJECT TO NAGPUR JURISDICTION.</p>
-                    <p className="m-0 text-[8.5px] text-slate-500 font-mono tracking-tight mt-0.5">
-                      <strong className="text-slate-800">SMRITISYS</strong> • SMRITI Retail OS • Enterprise Commerce Suite • smritibooks.com
-                    </p>
                   </div>
                   {isDraft && (
                     <div className="mt-1.5 py-1 px-3 bg-amber-50 border border-amber-300 text-amber-800 text-center font-mono text-[9px] font-extrabold rounded">
