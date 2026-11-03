@@ -827,7 +827,7 @@ class UserService:
             except Exception:
                 pass
         # Merge only the fields that were explicitly provided (exclude_none)
-        incoming = preferences.model_dump(exclude_none=True)
+        incoming = preferences.model_dump(mode="json", exclude_none=True)
         current.update(incoming)
         user.preferences_json = json.dumps(current)
         user.modified_at = datetime.now(timezone.utc)

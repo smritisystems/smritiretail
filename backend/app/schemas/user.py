@@ -150,6 +150,17 @@ VALID_DENSITIES  = {"compact", "comfortable", "spacious"}
 VALID_FONT_SCALES = {"sm", "md", "lg"}
 
 
+class BillingGridViewPreference(BaseModel):
+    order: List[str] = Field(default_factory=list)
+    visible: List[str] = Field(default_factory=list)
+
+
+class BillingGridLayoutPreference(BaseModel):
+    version: int = 1
+    invoice: BillingGridViewPreference = Field(default_factory=BillingGridViewPreference)
+    salesOrder: BillingGridViewPreference = Field(default_factory=BillingGridViewPreference)
+
+
 class UserPreferencesSchema(BaseModel):
     """User workspace visual and regional preferences."""
     # ── Base mode (legacy field — kept for backward compat) ──
@@ -162,6 +173,7 @@ class UserPreferencesSchema(BaseModel):
     # ── Regional ─────────────────────────────────────────────
     language: str = "English"
     timeZone: str = "Asia/Kolkata"
+    billingGridLayout: Optional[BillingGridLayoutPreference] = None
 
     @field_validator("presetId", mode="before")
     @classmethod
@@ -216,6 +228,7 @@ class PreferencesUpdate(BaseModel):
     accentOverride: Optional[str] = None
     language: Optional[str] = None
     timeZone: Optional[str] = None
+    billingGridLayout: Optional[BillingGridLayoutPreference] = None
 
     @field_validator("presetId", mode="before")
     @classmethod

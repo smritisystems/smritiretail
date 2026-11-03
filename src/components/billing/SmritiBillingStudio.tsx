@@ -77,7 +77,7 @@ export interface SmritiBillingStudioProps {
   customers?: Customer[];
   profiles?: POSProfile[];
   shifts?: Shift[];
-  currentUser?: { role: string; name: string; companyId?: string; branchId?: string; username?: string } | null;
+  currentUser?: { id?: string; role: string; name: string; companyId?: string; branchId?: string; username?: string } | null;
   mode?: BillingStudioMode;
   onModeChange?: (mode: BillingStudioMode) => void;
   onNotification?: (title: string, msg: string, type: "success" | "error" | "info" | "warning") => void;

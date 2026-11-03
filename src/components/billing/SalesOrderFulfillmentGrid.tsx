@@ -6,9 +6,13 @@ import {
   type SourceBarcodeQuantityResult,
 } from "../../utils/sourceBillingQuantities.ts";
 import type { SelectedSourceBilling } from "./modals/SourceBillingSelectionModal.tsx";
+import { getVisibleBillingGridColumns, type BillingGridLayout } from "./billingGridPreferences.ts";
+import type { BillingPreviewResult } from "./billingPreview.ts";
 
 interface Props {
   source: SelectedSourceBilling;
+  layout: BillingGridLayout;
+  previewLines?: Record<string, BillingPreviewResult["lines"][number]>;
   validationEnabled: boolean;
   readOnly: boolean;
   rejectedRows: SourceBarcodeQuantityResult["rejectedRows"];
@@ -19,6 +23,8 @@ interface Props {
 
 export function SalesOrderFulfillmentGrid({
   source,
+  layout,
+  previewLines = {},
   validationEnabled,
   readOnly,
   rejectedRows,
@@ -31,6 +37,7 @@ export function SalesOrderFulfillmentGrid({
   const [showItems, setShowItems] = useState(false);
   const [status, setStatus] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const selectAllRef = useRef<HTMLInputElement>(null);
 
   const quantities = useMemo(
     () => Object.fromEntries(source.lines.map(line => [line.sourceLineId, String(line.quantity)])),
@@ -45,6 +52,7 @@ export function SalesOrderFulfillmentGrid({
   const selectedCount = source.lines.length;
   const currentOrderNumbers = source.prepared.source_documents?.map(document => document.number)
     ?? [source.documentNumber];
+  const visibleColumns = getVisibleBillingGridColumns("salesOrder", layout);
 
   const applyRows = (rows: Array<[string, string]>, label: string) => {
     const result = applySourceBarcodeQuantityRows(rows, preparedLines, quantities);
@@ -89,6 +97,51 @@ export function SalesOrderFulfillmentGrid({
   const allEligibleSelected = eligibleLines.length > 0 && eligibleLines.every(line =>
     Number(quantities[line.source_line_id] || 0) >= Number(line.remaining_quantity)
   );
+  const someEligibleSelected = eligibleLines.some(line => Number(quantities[line.source_line_id] || 0) > 0);
+
+  React.useEffect(() => {
+    if (selectAllRef.current) {
+      selectAllRef.current.indeterminate = someEligibleSelected && !allEligibleSelected;
+    }
+  }, [someEligibleSelected, allEligibleSelected]);
+  const renderPreparedCell = (key: string, line: typeof preparedLines[number], index: number) => {
+    const ordered = Number(line.po_quantity ?? line.ordered_quantity ?? 0);
+    const fulfilled = Number(line.previously_billed_order_quantity ?? line.previously_billed_quantity ?? 0);
+    const pending = Number(line.remaining_quantity ?? 0);
+    const quantity = Number(quantities[line.source_line_id] || 0);
+    const isFulfilled = pending <= 0;
+    const statusLabel = isFulfilled ? "Fulfilled" : line.eligible ? "Valid" : "Invalid";
+    const statusClass = isFulfilled
+      ? "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300"
+      : line.eligible
+        ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
+        : "bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300";
+    const preview = previewLines[line.source_line_id];
+    const textCell = "overflow-hidden text-ellipsis border-r border-slate-200 px-1 dark:border-slate-700";
+    switch (key) {
+      case "select": return <td key={key} className="border-r border-slate-200 text-center dark:border-slate-700"><input type="checkbox" aria-label={`Bill ${line.code}`} title={pending <= 0 ? "This Sales Order line is already fulfilled." : `Include ${line.code} in this bill`} checked={quantity > 0} disabled={readOnly || !validationEnabled || !line.eligible || pending <= 0} onChange={event => setLineQuantity(line.source_line_id, event.target.checked ? String(pending) : "0")} className="accent-blue-600" /></td>;
+      case "row": return <td key={key} className={`${textCell} text-center`}>{index + 1}</td>;
+      case "soNumber": return <td key={key} className={textCell}>{line.source_document_number || source.documentNumber}</td>;
+      case "barcode": return <td key={key} className={`${textCell} font-mono`}>{line.barcodes?.[0] || line.code}</td>;
+      case "article": return <td key={key} className={textCell}>{line.article_no || line.code}</td>;
+      case "description": return <td key={key} className={`${textCell} font-medium text-slate-800 dark:text-slate-100`} title={line.name}>{line.name}</td>;
+      case "color": return <td key={key} className={textCell}>{line.color || "—"}</td>;
+      case "size": return <td key={key} className={textCell}>{line.size || "—"}</td>;
+      case "soQty": return <td key={key} className={`${textCell} text-right`}>{ordered}</td>;
+      case "fulfilledQty": return <td key={key} className={`${textCell} text-right`}>{fulfilled}</td>;
+      case "pendingQty": return <td key={key} className={`${textCell} text-right`}><span className={`inline-block min-w-10 rounded px-1.5 py-0.5 font-bold ${pending > 0 ? "bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-200" : "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200"}`}>{pending}</span></td>;
+      case "billQty": return <td key={key} className={`${textCell} text-right`}><input aria-label={`Bill quantity for ${line.code}`} type="number" min="0" max={pending} step="0.0001" value={quantity} disabled={readOnly || !validationEnabled || !line.eligible || pending <= 0} onChange={event => setLineQuantity(line.source_line_id, event.target.value)} className="w-full rounded border border-blue-300 bg-white px-1.5 py-0.5 text-right font-semibold outline-none focus:ring-1 focus:ring-blue-500 disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 dark:border-blue-800 dark:bg-slate-950 dark:disabled:bg-slate-800" /></td>;
+      case "rate": return <td key={key} className={`${textCell} text-right font-mono`}>{Number(line.unit_price || 0).toFixed(2)}</td>;
+      case "discountPercent": return <td key={key} className={`${textCell} text-right font-mono`}>{Number(preview?.disc_pct ?? line.discount_percent ?? 0) > 0 ? `${Number(preview?.disc_pct ?? line.discount_percent).toFixed(2)}%` : "—"}</td>;
+      case "discountAmount": return <td key={key} className={`${textCell} text-right font-mono`}>{preview ? Number(preview.discount_amount).toFixed(2) : "—"}</td>;
+      case "taxable": return <td key={key} className={`${textCell} text-right font-mono`}>{preview ? Number(preview.taxable_value).toFixed(2) : "—"}</td>;
+      case "gst": return <td key={key} className={`${textCell} text-right font-mono`}>{Number(line.gst_rate || 0)}%</td>;
+      case "gstAmount": return <td key={key} className={`${textCell} text-right font-mono`}>{preview ? Number(preview.tax_amount).toFixed(2) : "—"}</td>;
+      case "total": return <td key={key} className={`${textCell} text-right font-mono font-semibold`}>{preview ? Number(preview.total_amount).toFixed(2) : "—"}</td>;
+      case "status": return <td key={key} className="px-1"><span className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-semibold ${statusClass}`}>{line.eligible || isFulfilled ? <Check size={12} /> : <X size={12} />}{statusLabel}</span></td>;
+      default: return null;
+    }
+  };
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -123,6 +176,7 @@ export function SalesOrderFulfillmentGrid({
         </button>
         <label className="ml-1 inline-flex h-8 cursor-pointer items-center gap-1.5 text-[11px] font-semibold text-slate-700 dark:text-slate-200">
           <input
+            ref={selectAllRef}
             type="checkbox"
             role="switch"
             aria-label="Sales Order validation"
@@ -191,124 +245,87 @@ export function SalesOrderFulfillmentGrid({
       {status && <p role="status" className="border-b border-slate-200 bg-white px-2 py-1 text-[10px] text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">{status}</p>}
 
       <div className="min-h-0 flex-1 overflow-auto">
-        <table className="w-full min-w-[980px] table-fixed border-collapse text-[11px] tabular-nums">
+        <table className="w-full min-w-max table-fixed border-collapse text-[11px] tabular-nums">
           <colgroup>
-            <col className="w-8" /><col className="w-9" /><col className="w-[9%]" /><col className="w-[13%]" />
-            <col className="w-[9%]" /><col className="w-[8%]" /><col className="w-[6%]" />
-            <col className="w-[7%]" /><col className="w-[7%]" /><col className="w-[7%]" />
-            <col className="w-[8%]" /><col className="w-[10%]" />
+            {visibleColumns.map(column => <col key={column.key} style={{ width: column.width }} />)}
           </colgroup>
           <thead className="sticky top-0 z-10 border-b border-slate-300 bg-slate-100 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
             <tr className="h-8">
-              <th className="border-r border-slate-200 px-1 text-center dark:border-slate-700">
-                <input
-                  type="checkbox"
-                  aria-label="Select all pending Sales Order items"
-                  checked={allEligibleSelected}
-                  disabled={readOnly || !validationEnabled || eligibleLines.length === 0}
-                  onChange={event => onQuantitiesChange(Object.fromEntries(preparedLines.map(line => [
-                    line.source_line_id,
-                    line.eligible && Number(line.remaining_quantity) > 0 && event.target.checked ? String(line.remaining_quantity) : "0",
-                  ])))}
-                  className="accent-blue-600"
-                />
-              </th>
-              <th className="border-r border-slate-200 px-1 dark:border-slate-700">#</th>
-              <th className="border-r border-slate-200 px-1">SO No.</th>
-              <th className="border-r border-slate-200 px-1">Barcode</th>
-              <th className="border-r border-slate-200 px-1">Article</th>
-              <th className="border-r border-slate-200 px-1">Color</th>
-              <th className="border-r border-slate-200 px-1">Size</th>
-              <th className="border-r border-slate-200 px-1 text-right">SO Qty</th>
-              <th className="border-r border-slate-200 px-1 text-right">Fulfilled</th>
-              <th className="border-r border-slate-200 px-1 text-right">Pending</th>
-              <th className="border-r border-slate-200 px-1 text-right">Bill Qty</th>
-              <th className="px-1">Status</th>
+              {visibleColumns.map(column => (
+                <th key={column.key} style={{ width: column.width }} className={`border-r border-slate-200 px-1 dark:border-slate-700 ${["select", "row"].includes(column.key) ? "text-center" : ""} ${["soQty", "fulfilledQty", "pendingQty", "billQty", "rate", "discountPercent", "discountAmount", "taxable", "gst", "gstAmount", "total"].includes(column.key) ? "text-right" : ""}`}>
+                  {column.key === "select" ? (
+                    <input
+                      type="checkbox"
+                      aria-label="Select all pending Sales Order items"
+                      checked={allEligibleSelected}
+                      disabled={readOnly || !validationEnabled || eligibleLines.length === 0}
+                      onChange={event => onQuantitiesChange(Object.fromEntries(preparedLines.map(line => [
+                        line.source_line_id,
+                        line.eligible && Number(line.remaining_quantity) > 0 && event.target.checked ? String(line.remaining_quantity) : "0",
+                      ])))}
+                      className="accent-blue-600"
+                    />
+                  ) : column.label}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
             {preparedLines.map((line, index) => {
-              const ordered = Number(line.po_quantity ?? line.ordered_quantity ?? 0);
-              const fulfilled = Number(line.previously_billed_order_quantity ?? line.previously_billed_quantity ?? 0);
               const pending = Number(line.remaining_quantity ?? 0);
-              const quantity = Number(quantities[line.source_line_id] || 0);
-              const isFulfilled = pending <= 0;
-              const statusLabel = isFulfilled ? "Fulfilled" : line.eligible ? "Valid" : "Invalid";
-              const statusClass = isFulfilled
-                ? "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300"
-                : line.eligible
-                  ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
-                  : "bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300";
               return (
                 <tr key={line.source_line_id} className={`h-8 border-b border-slate-200 dark:border-slate-700 ${line.eligible ? "bg-white dark:bg-slate-900" : "bg-rose-50/70 dark:bg-rose-950/20"}`}>
-                  <td className="border-r border-slate-200 text-center dark:border-slate-700">
-                    <input
-                      type="checkbox"
-                      aria-label={`Include ${line.code}`}
-                      checked={quantity > 0}
-                      disabled={readOnly || !validationEnabled || !line.eligible || pending <= 0}
-                      onChange={event => setLineQuantity(line.source_line_id, event.target.checked ? String(pending) : "0")}
-                      className="accent-blue-600"
-                    />
-                  </td>
-                  <td className="border-r border-slate-200 px-1 text-center dark:border-slate-700">{index + 1}</td>
-                  <td className="overflow-hidden text-ellipsis border-r border-slate-200 px-1 dark:border-slate-700">{line.source_document_number || source.documentNumber}</td>
-                  <td className="overflow-hidden text-ellipsis border-r border-slate-200 px-1 font-mono dark:border-slate-700">{line.barcodes?.[0] || line.code}</td>
-                  <td className="overflow-hidden text-ellipsis border-r border-slate-200 px-1 dark:border-slate-700">{line.article_no || line.code}</td>
-                  <td className="overflow-hidden text-ellipsis border-r border-slate-200 px-1 dark:border-slate-700">{line.color || "—"}</td>
-                  <td className="overflow-hidden text-ellipsis border-r border-slate-200 px-1 dark:border-slate-700">{line.size || "—"}</td>
-                  <td className="border-r border-slate-200 px-1 text-right dark:border-slate-700">{ordered}</td>
-                  <td className="border-r border-slate-200 px-1 text-right dark:border-slate-700">{fulfilled}</td>
-                  <td className="border-r border-slate-200 px-1 text-right dark:border-slate-700">
-                    <span className={`inline-block min-w-10 rounded px-1.5 py-0.5 font-bold ${pending > 0 ? "bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-200" : "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200"}`}>{pending}</span>
-                  </td>
-                  <td className="border-r border-slate-200 px-1 text-right dark:border-slate-700">
-                    <input
-                      aria-label={`Bill quantity for ${line.code}`}
-                      type="number"
-                      min="0"
-                      max={pending}
-                      step="0.0001"
-                      value={quantity}
-                      disabled={readOnly || !validationEnabled || !line.eligible || pending <= 0}
-                      onChange={event => setLineQuantity(line.source_line_id, event.target.value)}
-                      className="w-full rounded border border-blue-300 bg-white px-1.5 py-0.5 text-right font-semibold outline-none focus:ring-1 focus:ring-blue-500 disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 dark:border-blue-800 dark:bg-slate-950 dark:disabled:bg-slate-800"
-                    />
-                  </td>
-                  <td className="px-1">
-                    <span className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-semibold ${statusClass}`}>
-                      {line.eligible || isFulfilled ? <Check size={12} /> : <X size={12} />}
-                      {statusLabel}
-                    </span>
-                  </td>
+                  {visibleColumns.map(column => renderPreparedCell(column.key, line, index))}
                 </tr>
               );
             })}
             {rejectedRows.map((row, index) => (
-              <tr key={`rejected-${index}-${row.barcode}`} className="h-8 border-b border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200">
-                <td className="border-r border-rose-200 text-center dark:border-rose-900"><input type="checkbox" disabled aria-label={`Invalid barcode ${row.barcode}`} /></td>
-                <td className="border-r border-rose-200 px-1 text-center dark:border-rose-900">{preparedLines.length + index + 1}</td>
-                <td className="border-r border-rose-200 px-1 dark:border-rose-900">—</td>
-                <td className="overflow-hidden text-ellipsis border-r border-rose-200 px-1 font-mono dark:border-rose-900" title={row.reason}>{row.barcode}</td>
-                <td colSpan={6} className="overflow-hidden text-ellipsis border-r border-rose-200 px-2 dark:border-rose-900" title={row.reason}>
-                  {row.status === "NOT_IN_SO"
-                    ? "Barcode is not on the selected Sales Order"
-                    : row.reason.includes("exceeds total SO Pending Qty")
-                      ? "Requested quantity exceeds SO Pending Qty"
-                      : row.reason.includes("matches different Sales Order items")
-                        ? "Barcode matches multiple Sales Order items"
-                        : row.reason.includes("quantity must be positive")
-                          ? "Quantity must be positive (max 4 decimal places)"
-                          : row.reason.includes("not eligible for billing")
-                            ? "Sales Order item is not eligible for billing"
-                            : "Invalid barcode or quantity"}
-                </td>
-                <td className="border-r border-rose-200 px-1 text-right dark:border-rose-900">—</td>
-                <td className="px-1"><span className="inline-flex items-center gap-1 rounded bg-rose-100 px-1.5 py-0.5 font-bold dark:bg-rose-900/50"><X size={12} />{row.status === "NOT_IN_SO" ? "Not in SO" : "Invalid"}</span></td>
-              </tr>
+              <React.Fragment key={`rejected-${index}-${row.barcode}`}>
+                <tr className="h-8 border-b border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200">
+                  {visibleColumns.map(column => {
+                    switch (column.key) {
+                      case "select": return <td key={column.key} className="border-r border-rose-200 text-center dark:border-rose-900"><input type="checkbox" disabled aria-label={`Invalid barcode ${row.barcode}`} /></td>;
+                      case "row": return <td key={column.key} className="border-r border-rose-200 px-1 text-center dark:border-rose-900">{preparedLines.length + index + 1}</td>;
+                      case "barcode": return <td key={column.key} className="overflow-hidden text-ellipsis border-r border-rose-200 px-1 font-mono dark:border-rose-900" title={row.reason}>{row.barcode}</td>;
+                      case "status": return (
+                        <td key={column.key} className="px-1">
+                          <span title={row.reason} className="inline-flex items-center gap-1 rounded bg-rose-100 px-1.5 py-0.5 font-bold dark:bg-rose-900/50">
+                            <X size={12} />{row.status === "NOT_IN_SO" ? "Not in SO" : "Invalid"}
+                          </span>
+                          <button
+                            type="button"
+                            aria-label={`Remove invalid barcode ${row.barcode}`}
+                            title="Remove this invalid row"
+                            onClick={() => onRejectedRowsChange(rejectedRows.filter((_, rowIndex) => rowIndex !== index))}
+                            className="ml-1 rounded p-1 text-rose-700 hover:bg-rose-200 dark:text-rose-200 dark:hover:bg-rose-900"
+                          >
+                            <X size={12} />
+                          </button>
+                        </td>
+                      );
+                      default: return <td key={column.key} className="border-r border-rose-200 px-1 text-right dark:border-rose-900">—</td>;
+                    }
+                  })}
+                </tr>
+                <tr className="border-b border-rose-200 bg-rose-50 text-[10px] text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200">
+                  <td colSpan={visibleColumns.length} className="px-2 py-1" title={row.reason}>
+                    {row.status === "NOT_IN_SO"
+                      ? `Barcode ${row.barcode} is not on the selected Sales Order and was excluded.`
+                      : row.reason.includes("exceeds total SO Pending Qty")
+                        ? `Barcode ${row.barcode}: requested quantity exceeds SO Pending Qty and was excluded.`
+                        : row.reason.includes("matches different Sales Order items")
+                          ? `Barcode ${row.barcode} matches multiple Sales Order items and was excluded.`
+                          : row.reason.includes("quantity must be positive")
+                            ? `Barcode ${row.barcode}: quantity must be positive (max 4 decimal places).`
+                            : row.reason.includes("not eligible for billing")
+                              ? `Barcode ${row.barcode}: Sales Order item is not eligible for billing.`
+                              : `Barcode ${row.barcode}: invalid barcode or quantity; row was excluded.`}
+                  </td>
+                </tr>
+              </React.Fragment>
             ))}
             {preparedLines.length === 0 && rejectedRows.length === 0 && (
-              <tr><td colSpan={12} className="h-28 text-center text-slate-500">Scan a barcode or import/paste a list to select Sales Order items.</td></tr>
+              <tr><td colSpan={visibleColumns.length} className="h-28 text-center text-slate-500">Scan a barcode or import/paste a list to select Sales Order items.</td></tr>
             )}
           </tbody>
         </table>

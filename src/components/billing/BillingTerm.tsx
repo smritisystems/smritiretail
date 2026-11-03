@@ -78,6 +78,13 @@ import {
   SourceBillingSelectionModal,
   type SelectedSourceBilling,
 } from "./modals/SourceBillingSelectionModal.tsx";
+import { BillingGridColumnSettings } from "./BillingGridColumnSettings.tsx";
+import {
+  DEFAULT_BILLING_GRID_LAYOUT,
+  getVisibleBillingGridColumns,
+  normalizeBillingGridLayout,
+  type BillingGridLayout,
+} from "./billingGridPreferences.ts";
 import { SalesOrderFulfillmentGrid } from "./SalesOrderFulfillmentGrid.tsx";
 import {
   applySourceBarcodeQuantityRows,
@@ -132,7 +139,7 @@ interface SmritiBillingTerminalProps {
   customers?: Customer[];
   profiles?: POSProfile[];
   shifts?: Shift[];
-  currentUser?: { role: string; name: string; companyId?: string; branchId?: string } | null;
+  currentUser?: { id?: string; role: string; name: string; companyId?: string; branchId?: string } | null;
   onRefreshData?: () => void;
   onNotification?: (title: string, message: string, type: "success" | "error" | "info") => void;
   isStandaloneTab?: boolean;
@@ -148,50 +155,17 @@ interface SmritiBillingTerminalProps {
   onOpenHotkeys?: () => void;
 }
 
-const BILLING_GRID_COLUMNS = [
-  { key: "barcode", label: "Barcode" },
-  { key: "article", label: "Article" },
-  { key: "color", label: "Color" },
-  { key: "size", label: "Size" },
-] as const;
-type BillingGridColumnKey = typeof BILLING_GRID_COLUMNS[number]["key"];
-type BillingGridColumnVisibility = Record<BillingGridColumnKey, boolean>;
-
-const DEFAULT_BILLING_GRID_COLUMNS: BillingGridColumnVisibility = {
-  barcode: true,
-  article: true,
-  color: true,
-  size: true,
-};
-
-const readBillingGridColumns = (storageKey: string): BillingGridColumnVisibility => {
-  try {
-    const stored = localStorage.getItem(storageKey);
-    if (!stored) return DEFAULT_BILLING_GRID_COLUMNS;
-    const parsed: unknown = JSON.parse(stored);
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      return DEFAULT_BILLING_GRID_COLUMNS;
-    }
-    return Object.fromEntries(
-      BILLING_GRID_COLUMNS.map(({ key }) => [
-        key,
-        typeof (parsed as Record<string, unknown>)[key] === "boolean"
-          ? (parsed as Record<BillingGridColumnKey, boolean>)[key]
-          : DEFAULT_BILLING_GRID_COLUMNS[key],
-      ])
-    ) as BillingGridColumnVisibility;
-  } catch (error) {
-    console.error("[BillingTerm] Item grid column preferences could not be loaded:", error);
-    return DEFAULT_BILLING_GRID_COLUMNS;
-  }
-};
-
 interface BillingSalespersonOption {
   id: string;
   code: string;
   name: string;
   status?: string;
   role?: string;
+}
+
+interface BillingGridPreferencesResponse {
+  preferences?: { billingGridLayout?: unknown } | string;
+  preferences_json?: string;
 }
 
 interface ResolvedBillingTransactionPolicy {
@@ -299,17 +273,20 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   onOpenHotkeys,
 }) => {
   const settlementIdempotencyKeyRef = useRef<{ key: string; fingerprint: string } | null>(null);
-  const billingGridPreferenceKey = `smriti.billing.item-grid.v1:${encodeURIComponent(currentUser?.companyId || "default")}:${encodeURIComponent(currentUser?.name || "operator")}`;
   const [systemParametersVersion, setSystemParametersVersion] = useState(0);
 
   // Main Line Items Table State
   const [items, setItems] = useState<BillingLineItem[]>([]);
   const [selectedRowIndex, setSelectedRowIndex] = useState<number>(-1);
   const [editingLineId, setEditingLineId] = useState<string | null>(null);
-  const [gridColumnVisibility, setGridColumnVisibility] = useState<BillingGridColumnVisibility>(
-    () => readBillingGridColumns(billingGridPreferenceKey)
+  const [billingGridLayout, setBillingGridLayout] = useState<BillingGridLayout>(
+    () => normalizeBillingGridLayout(DEFAULT_BILLING_GRID_LAYOUT)
   );
-  const [showGridColumnMenu, setShowGridColumnMenu] = useState(false);
+  const [savedBillingGridLayout, setSavedBillingGridLayout] = useState<BillingGridLayout>(
+    () => normalizeBillingGridLayout(DEFAULT_BILLING_GRID_LAYOUT)
+  );
+  const [billingPreferenceUserId, setBillingPreferenceUserId] = useState<string | null>(() => currentUser?.id || null);
+  const [savingBillingGridLayout, setSavingBillingGridLayout] = useState(false);
   const [customerPOs, setCustomerPOs] = useState<any[]>([]);
   const [selectedCustomerPO, setSelectedCustomerPO] = useState<any | null>(null);
   const [isLoadingCustomerPOs, setIsLoadingCustomerPOs] = useState(false);
@@ -351,18 +328,72 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   const [transactionBrowserInvoiceStatus, setTransactionBrowserInvoiceStatus] = useState<string | undefined>();
   const [transactionBrowserOpenVersion, setTransactionBrowserOpenVersion] = useState(0);
 
-  const toggleGridColumn = (column: BillingGridColumnKey) => {
-    const updated = { ...gridColumnVisibility, [column]: !gridColumnVisibility[column] };
-    setGridColumnVisibility(updated);
+  useEffect(() => {
+    if (!currentUser) {
+      setBillingPreferenceUserId(null);
+      return;
+    }
+    const defaultLayout = normalizeBillingGridLayout(DEFAULT_BILLING_GRID_LAYOUT);
+    setBillingGridLayout(defaultLayout);
+    setSavedBillingGridLayout(defaultLayout);
+    let active = true;
+    const loadPreferences = async () => {
+      try {
+        const userId = currentUser?.id
+          || (await apiFetchV1<{ id?: string }>("/auth/me")).id;
+        if (!userId) throw new Error("The authenticated user ID was not returned.");
+        if (!active) return;
+        setBillingPreferenceUserId(userId);
+        const user = await apiFetchV1<BillingGridPreferencesResponse>(`/users/${encodeURIComponent(userId)}`);
+        if (!active) return;
+        const preferences = user?.preferences ?? user?.preferences_json ?? {};
+        const savedLayout = typeof preferences === "string"
+          ? JSON.parse(preferences).billingGridLayout
+          : preferences.billingGridLayout;
+        if (savedLayout) {
+          const normalizedLayout = normalizeBillingGridLayout(savedLayout);
+          setBillingGridLayout(normalizedLayout);
+          setSavedBillingGridLayout(normalizedLayout);
+        }
+      } catch (error) {
+        if (!active) return;
+        console.error("[BillingTerm] Billing grid preferences could not be loaded:", error);
+        onNotification?.(
+          "Grid Layout Could Not Be Loaded",
+          "The default billing grid layout is active. Check your connection or user permissions.",
+          "error"
+        );
+      }
+    };
+    void loadPreferences();
+    return () => { active = false; };
+  }, [currentUser, onNotification]);
+
+  const persistBillingGridLayout = async (layout: BillingGridLayout) => {
+    const userId = billingPreferenceUserId || currentUser?.id;
+    if (!userId) {
+      onNotification?.("Grid Layout Not Saved", "Your user profile is still loading. Retry after it finishes loading.", "error");
+      return;
+    }
+    setSavingBillingGridLayout(true);
     try {
-      localStorage.setItem(billingGridPreferenceKey, JSON.stringify(updated));
+      await apiFetchV1(`/users/${encodeURIComponent(userId)}/preferences`, {
+        method: "PUT",
+        body: JSON.stringify({ billingGridLayout: normalizeBillingGridLayout(layout) }),
+      });
+      const normalizedLayout = normalizeBillingGridLayout(layout);
+      setBillingGridLayout(normalizedLayout);
+      setSavedBillingGridLayout(normalizedLayout);
+      onNotification?.("Grid Layout Saved", "Your billing grid layout is saved to your user profile.", "success");
     } catch (error) {
-      console.error("[BillingTerm] Item grid column preferences could not be saved:", error);
+      console.error("[BillingTerm] Billing grid preferences could not be saved:", error);
       onNotification?.(
-        "Display Preference Not Saved",
-        "The column selection is active for this session, but browser storage is unavailable so it could not be saved.",
-        "info"
+        "Grid Layout Not Saved",
+        error instanceof Error ? error.message : "The server could not save your billing grid layout.",
+        "error"
       );
+    } finally {
+      setSavingBillingGridLayout(false);
     }
   };
 
@@ -4507,6 +4538,73 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
   const visibleSuspendedBills = headerState.customer?.isDependant
     ? suspendedBills.filter(bill => bill.header.customer?.id === headerState.customer?.id)
     : suspendedBills;
+  const activeBillingGridView = sourceBillingSelection?.sourceType === "SALES_ORDER" ? "salesOrder" : "invoice";
+  const isBillingGridLayoutDirty = JSON.stringify(billingGridLayout[activeBillingGridView])
+    !== JSON.stringify(savedBillingGridLayout[activeBillingGridView]);
+  const visibleInvoiceColumns = getVisibleBillingGridColumns("invoice", billingGridLayout);
+  const sourceOrderPreviewLines = useMemo(() => {
+    if (sourceBillingSelection?.sourceType !== "SALES_ORDER"
+      || billingPreview?.fingerprint !== previewFingerprint
+      || !billingPreview.result) return {};
+    return Object.fromEntries(items.flatMap((item, index) => {
+      const sourceLineId = item.sourceLineId;
+      const previewLine = billingPreview.result?.lines[index];
+      return sourceLineId && previewLine ? [[sourceLineId, previewLine]] : [];
+    }));
+  }, [sourceBillingSelection?.sourceType, billingPreview, previewFingerprint, items]);
+  const renderBillingGridCell = (key: string, item: BillingLineItem): React.ReactNode => {
+    const cellClass = "overflow-hidden text-ellipsis px-1 py-1 text-slate-600 dark:text-slate-400";
+    switch (key) {
+      case "row": return <td key={key} className="px-2 py-1 text-center font-mono text-slate-500 text-[10px]">{item.sNo}</td>;
+      case "barcode": return <td key={key} className={`${cellClass} font-mono`} title={item.barcode || ""}>{item.barcode || "—"}</td>;
+      case "article": return <td key={key} className={`${cellClass} font-mono`} title={item.article || ""}>{item.article || "—"}</td>;
+      case "color": return <td key={key} className={cellClass} title={item.color || ""}>{item.color || "—"}</td>;
+      case "size": return <td key={key} className={cellClass} title={item.size || ""}>{item.size || "—"}</td>;
+      case "description": return (
+        <td key={key} className={`${cellClass} px-1.5 font-medium text-slate-800 dark:text-slate-100`} title={item.itemDescription}>
+          <span>{item.itemDescription}</span>
+          {item.priceLevel && (
+            <span title={`Price Level: ${item.priceLevel} • Source: ${item.priceLevelSource ?? "COMPANY_POLICY"}`} className="ml-1.5 inline-flex items-center rounded bg-slate-100 px-1 py-px text-[9px] font-bold uppercase tracking-wide text-slate-600 dark:bg-slate-700 dark:text-slate-300">
+              {item.priceLevel === "SELLING_PRICE" ? "SP" : item.priceLevel === "WHOLESALE_PRICE" ? "WS" : item.priceLevel === "PRICE_BOOK" ? "PB" : "MRP"}
+            </span>
+          )}
+        </td>
+      );
+      case "rate": return <td key={key} className={`${cellClass} text-right font-mono`}>{Number(item.rate).toFixed(2)}</td>;
+      case "mrp": return <td key={key} className={`${cellClass} text-right font-mono`}>{item.mrp == null ? "—" : Number(item.mrp).toFixed(2)}</td>;
+      case "qty": return <td key={key} className={`${cellClass} text-right font-mono font-semibold text-slate-900 dark:text-slate-100`}>{item.qty}</td>;
+      case "gross": return <td key={key} className={`${cellClass} text-right font-mono`}>{Number(item.value).toFixed(2)}</td>;
+      case "discountPercent": return <td key={key} className={`${cellClass} text-right font-mono`}>{item.discPercent ? `${item.discPercent}%` : "—"}</td>;
+      case "discountAmount": return <td key={key} className={`${cellClass} text-right font-mono text-rose-600 dark:text-rose-400`}>{item.discAmt > 0 ? item.discAmt.toFixed(2) : "—"}</td>;
+      case "gst": return <td key={key} className={`${cellClass} text-right font-mono`} aria-label={`GST ${Number(item.gstPercentage ?? 0)} percent, read only`} title="Read-only tax rate from authoritative item tax configuration">{Number(item.gstPercentage ?? 0)}%</td>;
+      case "total": return <td key={key} className="overflow-hidden text-ellipsis px-1 py-1 text-right font-mono font-bold text-blue-700 dark:text-blue-300">{Number(item.total).toFixed(2)}</td>;
+      case "salesperson": return (
+        <td key={key} className="overflow-hidden px-1 py-0.5">
+          <select
+            aria-label={`Salesperson for ${item.stockNo}`}
+            data-testid={`line-salesperson-${item.id}`}
+            value={item.salesStaff || ""}
+            disabled={isReadOnlyView}
+            onClick={event => event.stopPropagation()}
+            onChange={event => {
+              const salesperson = event.target.value;
+              setItems(prev => prev.map(line => line.id === item.id ? { ...line, salesStaff: salesperson } : line));
+            }}
+            className="w-full min-w-0 rounded border border-transparent bg-transparent px-1 py-0.5 text-[10px] text-slate-600 hover:border-slate-200 hover:bg-white focus:border-blue-500 focus:bg-white focus:outline-none dark:text-slate-300 dark:hover:border-slate-700 dark:focus:bg-slate-900 disabled:cursor-default"
+          >
+            <option value="">Unassigned</option>
+            {salesStaffOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+          </select>
+        </td>
+      );
+      case "actions": return (
+        <td key={key} className="px-1.5 py-1 text-center">
+          {!isReadOnlyView && <button type="button" onClick={event => { event.stopPropagation(); handleRemoveItem(item.id); }} className="text-slate-400 hover:text-rose-600 transition-colors p-1 cursor-pointer" title="Delete Row"><Trash2 size={13} /></button>}
+        </td>
+      );
+      default: return null;
+    }
+  };
 
   return (
     <div 
@@ -4940,7 +5038,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
           <div id="billing-header-details" className="grid grid-cols-1 lg:grid-cols-12 gap-2 items-start">
             
             {/* Column 1: Customer Identification (4 cols) */}
-            <div className={`flex flex-col gap-1.5 ${!showBillingHeaderDetails ? "lg:col-span-12 lg:flex-row lg:items-center" : showMoreDetails ? "lg:col-span-4" : "lg:col-span-5 lg:flex-row lg:items-center"}`}>
+            <div className={`flex flex-col gap-1.5 ${!showBillingHeaderDetails ? "lg:col-span-12 lg:flex-row lg:items-center" : showMoreDetails ? "lg:col-span-4" : "lg:col-span-6"}`}>
               <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 shrink-0">
                 <Users size={14} className="text-blue-600 dark:text-blue-400" />
                 <span>Customer</span>
@@ -5111,7 +5209,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                 </div>
               )}
               {showBillingHeaderDetails && headerState.customer?.isDependant && (
-                <section aria-label="Child account billing sources" className="w-full basis-full rounded-lg border border-blue-200 bg-blue-50/70 p-2 dark:border-blue-900 dark:bg-blue-950/30">
+                <section aria-label="Child account billing sources" className="w-full min-w-0 rounded-lg border border-blue-200 bg-blue-50/70 p-2 dark:border-blue-900 dark:bg-blue-950/30">
                   <div className="mb-1 flex items-center justify-between gap-2">
                     <span className="text-[10px] font-bold uppercase tracking-wide text-blue-900 dark:text-blue-200">Available for this child account</span>
                     {sourceAvailability.loading && <span role="status" className="text-[10px] text-blue-700 dark:text-blue-300">Checking…</span>}
@@ -5187,7 +5285,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
 
             {/* Column 2: Transaction Parameters & Settings (5 cols) */}
             {showBillingHeaderDetails && (
-            <div className={`${showMoreDetails ? "lg:col-span-5" : "lg:col-span-7"} flex flex-col gap-1`}>
+            <div className={`${showMoreDetails ? "lg:col-span-5" : "lg:col-span-6"} flex flex-col gap-1`}>
               {headerState.customer && (
                 <div className="mb-1 rounded-lg border border-slate-200 bg-slate-50 p-2 dark:border-slate-700 dark:bg-slate-900/60">
                   <div className="mb-1.5 flex flex-wrap items-center justify-between gap-1">
@@ -5562,7 +5660,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
         </section>
 
         {/* ZONES C & D: ITEM GRID (~74%) & BILL SUMMARY (~26%) SIDE-BY-SIDE */}
-        <div className="flex-1 flex flex-col xl:flex-row gap-2.5 min-h-[360px] overflow-visible">
+        <div className={`flex-1 flex flex-col ${sourceBillingSelection?.sourceType === "SALES_ORDER" && !showBillSummaryBreakdown ? "xl:flex-col" : "xl:flex-row"} gap-2.5 min-h-[360px] overflow-visible`}>
           
           {/* ZONE C: LINE ITEMS GRID & DIRECT ENTRY (~74% width) */}
           <section className="relative flex-1 min-w-0 bg-white dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-xl flex flex-col overflow-hidden shadow-xs min-h-0">
@@ -5570,44 +5668,26 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
               <span className="text-[10px] font-bold uppercase tracking-wide text-slate-600 dark:text-slate-300">
                 {sourceBillingSelection?.sourceType === "SALES_ORDER" ? "Sales Order Fulfillment" : "Item Details"}
               </span>
-              {sourceBillingSelection?.sourceType !== "SALES_ORDER" && <div className="relative">
-                <button
-                  type="button"
-                  aria-expanded={showGridColumnMenu}
-                  aria-controls="billing-grid-column-menu"
-                  onClick={() => setShowGridColumnMenu(open => !open)}
-                  className="inline-flex items-center gap-1 rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1 text-[10px] font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
-                >
-                  <Settings size={12} />
-                  Columns
-                </button>
-                {showGridColumnMenu && (
-                  <div
-                    id="billing-grid-column-menu"
-                    role="group"
-                    aria-label="Item grid columns"
-                    className="absolute right-0 top-full z-30 mt-1 min-w-40 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-2 shadow-lg"
-                  >
-                    {BILLING_GRID_COLUMNS.map(({ key, label }) => (
-                      <label key={key} className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-xs text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800">
-                        <input
-                          type="checkbox"
-                          checked={gridColumnVisibility[key]}
-                          onChange={() => toggleGridColumn(key)}
-                        />
-                        {label}
-                      </label>
-                    ))}
-                    <p className="px-2 pt-1 text-[9px] text-slate-400">Saved for this operator in this browser.</p>
-                  </div>
-                )}
-              </div>}
+              <BillingGridColumnSettings
+                view={activeBillingGridView}
+                layout={billingGridLayout}
+                dirty={isBillingGridLayoutDirty}
+                saving={savingBillingGridLayout}
+                onChange={setBillingGridLayout}
+                onSave={() => void persistBillingGridLayout(billingGridLayout)}
+                onReset={() => void persistBillingGridLayout({
+                  ...billingGridLayout,
+                  [activeBillingGridView]: normalizeBillingGridLayout(DEFAULT_BILLING_GRID_LAYOUT)[activeBillingGridView],
+                })}
+              />
             </div>
 
             {sourceBillingSelection?.sourceType === "SALES_ORDER" ? (
               <SalesOrderFulfillmentGrid
                 key={sourceBillingSelection.documentIds.join(":")}
                 source={sourceBillingSelection}
+                layout={billingGridLayout}
+                previewLines={sourceOrderPreviewLines}
                 validationEnabled={sourceOrderValidationEnabled}
                 readOnly={isReadOnlyView}
                 rejectedRows={sourceOrderRejectedRows}
@@ -5702,27 +5782,27 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                     )}
                   </div>
 
-                  {(gridColumnVisibility.barcode || gridColumnVisibility.article || gridColumnVisibility.color || gridColumnVisibility.size) && (
+                  {(["barcode", "article", "color", "size"] as const).some(key => billingGridLayout.invoice.visible.includes(key)) && (
                     <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 sm:grid-cols-4">
-                      {gridColumnVisibility.barcode && (
+                      {billingGridLayout.invoice.visible.includes("barcode") && (
                         <div className="min-w-0">
                           <dt className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Barcode</dt>
                           <dd className="break-all font-mono text-xs font-medium text-slate-800 dark:text-slate-100">{item.barcode || "—"}</dd>
                         </div>
                       )}
-                      {gridColumnVisibility.article && (
+                      {billingGridLayout.invoice.visible.includes("article") && (
                         <div className="min-w-0">
                           <dt className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Article</dt>
                           <dd className="break-words text-xs font-medium text-slate-800 dark:text-slate-100">{item.article || "—"}</dd>
                         </div>
                       )}
-                      {gridColumnVisibility.color && (
+                      {billingGridLayout.invoice.visible.includes("color") && (
                         <div className="min-w-0">
                           <dt className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Color</dt>
                           <dd className="break-words text-xs font-medium text-slate-800 dark:text-slate-100">{item.color || "—"}</dd>
                         </div>
                       )}
-                      {gridColumnVisibility.size && (
+                      {billingGridLayout.invoice.visible.includes("size") && (
                         <div className="min-w-0">
                           <dt className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Size</dt>
                           <dd className="break-words text-xs font-medium text-slate-800 dark:text-slate-100">{item.size || "—"}</dd>
@@ -5763,24 +5843,22 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
 
             {/* Single-line item rows for all screen sizes. */}
             <div className="flex flex-1 items-start overflow-x-auto overflow-y-auto min-h-0">
-              <table className="h-auto w-full min-w-0 table-fixed self-start text-left border-collapse whitespace-nowrap tabular-nums">
+              <table className="h-auto w-full min-w-max table-fixed self-start text-left border-collapse whitespace-nowrap tabular-nums">
+                <colgroup>
+                  {visibleInvoiceColumns.map(column => <col key={column.key} style={{ width: column.width }} />)}
+                </colgroup>
                 <thead className="sticky top-0 bg-slate-50 dark:bg-slate-800/90 border-b border-slate-200 dark:border-slate-700 z-10 text-[10px] font-semibold text-slate-600 dark:text-slate-300">
                   <tr>
-                    <th className="w-[3%] px-1 py-1.5 text-center">#</th>
-                    {gridColumnVisibility.barcode && <th className="w-[9%] px-1 py-1.5">Barcode</th>}
-                    {gridColumnVisibility.article && <th className="w-[7%] px-1 py-1.5">Article</th>}
-                    {gridColumnVisibility.color && <th className="w-[5%] px-1 py-1.5">Color</th>}
-                    {gridColumnVisibility.size && <th className="w-[4%] px-1 py-1.5">Size</th>}
-                    <th className="w-[22%] px-1.5 py-1.5">Item Description</th>
-                    <th className="w-[6%] px-1 py-1.5 text-right">Rate (₹)</th>
-                    <th className="w-[5%] px-1 py-1.5 text-right">Qty</th>
-                    <th className="w-[7%] px-1 py-1.5 text-right">Gross (₹)</th>
-                    <th className="w-[5%] px-1 py-1.5 text-right">Disc %</th>
-                    <th className="w-[6%] px-1 py-1.5 text-right">Disc (₹)</th>
-                    <th className="w-[4%] px-1 py-1.5 text-right" title="Tax rate resolved from the item's authoritative tax configuration">GST</th>
-                    <th className="w-[7%] px-1 py-1.5 text-right font-bold text-blue-700 dark:text-blue-300">Total (₹)</th>
-                    <th className="w-[7%] px-1 py-1.5">Salesperson</th>
-                    <th className="w-[3%] px-1 py-1.5 text-center"></th>
+                    {visibleInvoiceColumns.map(column => (
+                      <th
+                        key={column.key}
+                        style={{ width: column.width }}
+                        className={`px-1 py-1.5 ${["row", "actions"].includes(column.key) ? "text-center" : ""} ${["rate", "mrp", "qty", "gross", "discountPercent", "discountAmount", "gst", "total"].includes(column.key) ? "text-right" : ""} ${column.key === "total" ? "font-bold text-blue-700 dark:text-blue-300" : ""}`}
+                        title={column.key === "gst" ? "Tax rate from authoritative item tax configuration" : undefined}
+                      >
+                        {column.label}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody className="text-[11px]">
@@ -5801,101 +5879,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                       }`}
                       title="Double-click to edit line in Direct Entry (Ctrl+D to delete)"
                     >
-                      <td className="px-2 py-1 text-center font-mono text-slate-500 text-[10px]">
-                        {item.sNo}
-                      </td>
-                      {gridColumnVisibility.barcode && (
-                        <td className="overflow-hidden text-ellipsis px-1 py-1 font-mono text-slate-600 dark:text-slate-400" title={item.barcode || ""}>{item.barcode || "—"}</td>
-                      )}
-                      {gridColumnVisibility.article && (
-                        <td className="overflow-hidden text-ellipsis px-1 py-1 font-mono text-slate-600 dark:text-slate-400" title={item.article || ""}>{item.article || "—"}</td>
-                      )}
-                      {gridColumnVisibility.color && (
-                        <td className="overflow-hidden text-ellipsis px-1 py-1 text-slate-600 dark:text-slate-400" title={item.color || ""}>{item.color || "—"}</td>
-                      )}
-                      {gridColumnVisibility.size && (
-                        <td className="overflow-hidden text-ellipsis px-1 py-1 text-slate-600 dark:text-slate-400" title={item.size || ""}>{item.size || "—"}</td>
-                      )}
-                      <td className="overflow-hidden text-ellipsis px-1.5 py-1 font-medium text-slate-800 dark:text-slate-100" title={item.itemDescription}>
-                        <span>{item.itemDescription}</span>
-                        {item.priceLevel && (
-                          <span
-                            title={`Price Level: ${item.priceLevel} • Source: ${item.priceLevelSource ?? "COMPANY_POLICY"}`}
-                            className={`ml-1.5 inline-flex items-center rounded px-1 py-px text-[9px] font-bold uppercase tracking-wide leading-none ${
-                              item.priceLevel === "MRP"
-                                ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
-                                : item.priceLevel === "WHOLESALE_PRICE"
-                                ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300"
-                                : item.priceLevel === "PRICE_BOOK"
-                                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
-                                : "bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-300"
-                            }`}
-                          >
-                            {item.priceLevel === "SELLING_PRICE" ? "SP" : item.priceLevel === "WHOLESALE_PRICE" ? "WS" : item.priceLevel === "PRICE_BOOK" ? "PB" : "MRP"}
-                          </span>
-                        )}
-                      </td>
-                      <td className="overflow-hidden text-ellipsis px-1 py-1 text-right font-mono text-slate-700 dark:text-slate-300">
-                        {Number(item.rate).toFixed(2)}
-                      </td>
-                      <td className="overflow-hidden text-ellipsis px-1 py-1 text-right font-mono font-semibold text-slate-900 dark:text-slate-100">
-                        {item.qty}
-                      </td>
-                      <td className="overflow-hidden text-ellipsis px-1 py-1 text-right font-mono text-slate-600 dark:text-slate-400">
-                        {Number(item.value).toFixed(2)}
-                      </td>
-                      <td className="overflow-hidden text-ellipsis px-1 py-1 text-right font-mono text-slate-600 dark:text-slate-400">
-                        {item.discPercent ? `${item.discPercent}%` : "-"}
-                      </td>
-                      <td className="overflow-hidden text-ellipsis px-1 py-1 text-right font-mono text-rose-600 dark:text-rose-400">
-                        {item.discAmt > 0 ? item.discAmt.toFixed(2) : "-"}
-                      </td>
-                      <td
-                        className="overflow-hidden text-ellipsis px-1 py-1 text-right font-mono text-slate-500 dark:text-slate-400"
-                        aria-label={`GST ${Number(item.gstPercentage ?? 0)} percent, read only`}
-                        title="Read-only tax rate from authoritative item tax configuration"
-                      >
-                        {Number(item.gstPercentage ?? 0)}%
-                      </td>
-                      <td className="overflow-hidden text-ellipsis px-1 py-1 text-right font-mono font-bold text-blue-700 dark:text-blue-300">
-                        {Number(item.total).toFixed(2)}
-                      </td>
-                      <td className="overflow-hidden px-1 py-0.5">
-                        <select
-                          aria-label={`Salesperson for ${item.stockNo}`}
-                          data-testid={`line-salesperson-${item.id}`}
-                          value={item.salesStaff || ""}
-                          disabled={isReadOnlyView}
-                          onClick={event => event.stopPropagation()}
-                          onChange={event => {
-                            const salesperson = event.target.value;
-                            setItems(prev => prev.map(line =>
-                              line.id === item.id ? { ...line, salesStaff: salesperson } : line
-                            ));
-                          }}
-                          className="w-full min-w-0 rounded border border-transparent bg-transparent px-1 py-0.5 text-[10px] text-slate-600 hover:border-slate-200 hover:bg-white focus:border-blue-500 focus:bg-white focus:outline-none dark:text-slate-300 dark:hover:border-slate-700 dark:focus:bg-slate-900 disabled:cursor-default"
-                        >
-                          <option value="">Unassigned</option>
-                          {salesStaffOptions.map(option => (
-                            <option key={option.value} value={option.value}>{option.label}</option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="px-1.5 py-1 text-center">
-                        {!isReadOnlyView && (
-                          <button
-                            type="button"
-                            onClick={e => {
-                              e.stopPropagation();
-                              handleRemoveItem(item.id);
-                            }}
-                            className="text-slate-400 hover:text-rose-600 transition-colors p-1 cursor-pointer"
-                            title="Delete Row"
-                          >
-                            <Trash2 size={13} />
-                          </button>
-                        )}
-                      </td>
+                      {visibleInvoiceColumns.map(column => renderBillingGridCell(column.key, item))}
                     </tr>
                   ))}
 
@@ -5903,7 +5887,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                     <tr className="h-8 border-b border-slate-100 bg-white dark:border-slate-700/70 dark:bg-[#1e293b]">
                       <td className="px-2 py-1 text-center font-mono text-slate-400 text-[10px]">1</td>
                       <td
-                        colSpan={11 + BILLING_GRID_COLUMNS.filter(({ key }) => gridColumnVisibility[key]).length}
+                        colSpan={visibleInvoiceColumns.length}
                         className="px-2.5 py-1 text-slate-400 italic text-[11px]"
                       >
                         {billingTransactionPolicy?.configuration?.default_scan_mode === "AUTO_ADD"
@@ -6177,10 +6161,10 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
           </section>
 
           {/* ZONE D: BILL SUMMARY & NET PAYABLE CARD (~26% width / w-80 to w-96) */}
-          <aside className={`w-full ${showBillSummaryBreakdown ? "xl:w-[320px]" : "xl:w-[190px]"} bg-white dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-xl flex flex-col p-2.5 shadow-xs shrink-0 justify-between gap-2 transition-[width]`}>
+          <aside className={`w-full ${sourceBillingSelection?.sourceType === "SALES_ORDER" && !showBillSummaryBreakdown ? "xl:flex-row xl:items-center xl:w-full" : "xl:w-[320px]"} bg-white dark:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-xl flex flex-col p-2.5 shadow-xs shrink-0 justify-between gap-2`}>
             
             {/* Header & Stats */}
-            <div className="flex flex-col gap-1.5">
+            <div className={`flex min-w-0 flex-col gap-1.5 ${sourceBillingSelection?.sourceType === "SALES_ORDER" && !showBillSummaryBreakdown ? "xl:flex-1" : ""}`}>
               <div className="flex items-center justify-between gap-1 border-b border-slate-200 dark:border-slate-700 pb-1.5">
               <span className="text-[11px] font-bold text-slate-800 dark:text-slate-100 tracking-wide flex items-center gap-1.5">
                   <Receipt size={14} className="text-blue-600" />
@@ -6446,7 +6430,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
             {/* Net Payable Banner matching proposed premium UX */}
             <div className={`pt-2 px-2 py-1.5 border-t border-slate-200 dark:border-slate-700/80 rounded-lg flex items-center justify-between ${
               sourceBillingSelection?.sourceType === "SALES_ORDER" ? "bg-slate-900 text-white dark:bg-slate-950" : "bg-blue-50 dark:bg-blue-950/30"
-            }`}>
+            } ${sourceBillingSelection?.sourceType === "SALES_ORDER" && !showBillSummaryBreakdown ? "xl:min-w-[320px]" : ""}`}>
               <div className="flex flex-col">
                 <span className={`text-base font-bold ${sourceBillingSelection?.sourceType === "SALES_ORDER" ? "text-white" : "text-blue-600 dark:text-blue-400"}`}>
                   Net Payable

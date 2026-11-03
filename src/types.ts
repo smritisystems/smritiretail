@@ -922,6 +922,11 @@ export interface UserPreferences {
   accentOverride?: string | null;
   language: string;
   timeZone: string;
+  billingGridLayout?: {
+    version: 2;
+    invoice: { order: string[]; visible: string[] };
+    salesOrder: { order: string[]; visible: string[] };
+  } | null;
 }
 
 

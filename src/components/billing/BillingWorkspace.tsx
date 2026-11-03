@@ -70,7 +70,7 @@ export interface BillingWorkspaceProps {
   customers?: Customer[];
   profiles?: POSProfile[];
   shifts?: Shift[];
-  currentUser?: { role: string; name: string; companyId?: string; branchId?: string; username?: string } | null;
+  currentUser?: { id?: string; role: string; name: string; companyId?: string; branchId?: string; username?: string } | null;
   onRefreshData?: () => void;
   onNotification?: (title: string, msg: string, type: "success" | "error" | "info" | "warning") => void;
   initialMode?: BillingWorkspaceMode;
