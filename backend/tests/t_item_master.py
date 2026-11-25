@@ -21,6 +21,7 @@ from httpx import ASGITransport, AsyncClient
 from app.core.security import create_access_token
 from app.db.session import get_company_sessionmaker
 from app.main import app
+from app.models.inventory import Warehouse
 from app.schemas.item_master import (
     ItemBarcodeItem,
     ItemBatchItem,
@@ -35,6 +36,23 @@ from app.services.catalog_validation import CatalogDimensionValidator, IM001Cont
 from app.services.item_master_svc import UniversalItemMasterService
 from app.services.master_lookup_import_service import extract_vendor_article_codes_from_po_text
 from app.services.vendor_code_allocator import allocate_next_vendor_code
+
+
+async def _ensure_test_warehouse(session):
+    warehouse = await session.get(Warehouse, "WH-MAIN")
+    if warehouse is None:
+        warehouse = Warehouse(
+            id="WH-MAIN",
+            code="WH-MAIN",
+            name="Main Test Warehouse",
+            company_id="COMP-001",
+            branch_id="BR-001",
+            is_active=True,
+            is_deleted=False,
+        )
+        session.add(warehouse)
+        await session.flush()
+    return warehouse
 
 
 @pytest.fixture(autouse=True)
@@ -192,6 +210,7 @@ async def test_create_item_with_variants_and_barcodes():
     )
 
     async with sessionmaker() as session:
+        await _ensure_test_warehouse(session)
         item = await UniversalItemMasterService.create_item(session, req)
         assert item is not None
         assert item.item_code == sku
