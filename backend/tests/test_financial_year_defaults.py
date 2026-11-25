@@ -1,6 +1,6 @@
 from datetime import date
 
-from backend.app.schemas.system import BusinessInfo, NumberingSeriesConfig, current_financial_year_defaults
+from app.schemas.system import BusinessInfo, NumberingSeriesConfig, current_financial_year_defaults
 
 
 def test_financial_year_defaults_follow_april_start_boundary():
