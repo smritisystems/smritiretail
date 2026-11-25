@@ -84,6 +84,14 @@ CONTROL_PLANE_URL = f"postgresql://postgres:postgres@localhost:{_PG_PORT}/smriti
 COMPANY_001_DB_URL = f"postgresql://postgres:postgres@localhost:{_PG_PORT}/smriti_test_001"
 
 
+@pytest.fixture(scope="session", autouse=True)
+def seed_company_reference_data():
+    """Seed shared reference tables in the isolated company test database."""
+    from app.db.seed_ctrl_ref import seed_control_reference_data
+
+    seed_control_reference_data("smriti_test_001", port=int(_PG_PORT))
+
+
 @pytest.fixture(autouse=True, scope="function")
 def seed_control_plane_test_assignments():
     """

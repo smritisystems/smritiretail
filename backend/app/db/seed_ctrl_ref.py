@@ -12,22 +12,31 @@ License      : Proprietary Commercial Software
 Classification: Internal
 """
 
-import asyncio
-import uuid
+import os
 from decimal import Decimal
-from datetime import datetime, timezone
+
 import psycopg2
 from psycopg2.extras import execute_values
 
+from .seed_contract import seed_contract
 
-def seed_control_reference_data():
+
+@seed_contract(target="shared")
+def seed_control_reference_data(database_name: str, port: int = 5432):
     """
-    Synchronous authoritative seeder for smritisys and tenant databases.
+    Synchronously seed shared reference data into one explicitly named database.
     """
-    for db_name in ["smritisys", "smriti001", "smriti002"]:
+    for db_name in (database_name,):
         print(f"\n--- Seeding Reference Master Data into [{db_name}] ---")
+        conn = None
         try:
-            conn = psycopg2.connect(f"postgresql://postgres:postgres@localhost:5432/{db_name}")
+            conn = psycopg2.connect(
+                host=os.getenv("POSTGRES_HOST", "localhost"),
+                port=port,
+                dbname=db_name,
+                user=os.getenv("POSTGRES_USER", "postgres"),
+                password=os.getenv("POSTGRES_PASSWORD", "postgres"),
+            )
             cur = conn.cursor()
 
             # 1. Countries
@@ -110,6 +119,21 @@ def seed_control_reference_data():
                     is_active = EXCLUDED.is_active;
                 """,
                 indian_states,
+            )
+
+            cur.execute(
+                """
+                INSERT INTO postal_codes_ref
+                    (id, country_code, state_code, postal_code, locality, city, is_active)
+                VALUES ('pin_in_400001', 'IN', 'MH', '400001', 'Fort', 'MUMBAI', true)
+                ON CONFLICT (id) DO UPDATE SET
+                    country_code = EXCLUDED.country_code,
+                    state_code = EXCLUDED.state_code,
+                    postal_code = EXCLUDED.postal_code,
+                    locality = EXCLUDED.locality,
+                    city = EXCLUDED.city,
+                    is_active = EXCLUDED.is_active;
+                """
             )
 
             # 3. Currencies
@@ -377,10 +401,16 @@ def seed_control_reference_data():
 
             conn.commit()
             conn.close()
+            conn = None
             print(f"Successfully seeded reference data into [{db_name}].")
         except Exception as e:
             print(f"Error seeding [{db_name}]: {e}")
+            if conn is not None:
+                conn.rollback()
+                conn.close()
+            raise RuntimeError(f"Failed to seed reference data into '{db_name}'.") from e
 
 
 if __name__ == "__main__":
-    seed_control_reference_data()
+    for database_name in ("smritisys", "smriti001", "smriti002"):
+        seed_control_reference_data(database_name)
