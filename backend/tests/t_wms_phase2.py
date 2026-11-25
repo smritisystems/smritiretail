@@ -25,6 +25,7 @@ from app.services.purchase import PurchaseService
 from app.services.sales import SalesService
 from app.services.inventory_wms import InventoryWmsService
 from app.models.inventory import Product, ProductBatchStock, Warehouse
+from app.models.item_master import Item, ItemVariant
 from app.models.purchase import Supplier
 from app.models.crm import Customer, CustomerGroup
 from conftest import utmih_delete_stock_movements
@@ -70,6 +71,8 @@ async def test_grn_inward_batch_stock_creation():
 
     unique_suffix = uuid.uuid4().hex[:8]
     prod_id = f"prod-grn-{unique_suffix}"
+    item_id = f"itm-grn-{unique_suffix}"
+    variant_id = f"var-grn-{unique_suffix}"
     receipt_id = f"pr-test-{unique_suffix}"
     receipt_no = f"GRN-TEST-{unique_suffix.upper()}"
     batch_no = f"BATCH-GRN-TEST-{unique_suffix.upper()}"
@@ -88,11 +91,34 @@ async def test_grn_inward_batch_stock_creation():
             supplier = res_supp.scalars().first()
             assert supplier is not None
 
+            item = Item(
+                id=item_id,
+                company_id="COMP-001",
+                item_code=f"GRN-ITEM-{unique_suffix.upper()}",
+                item_name=f"GRN Test Product {unique_suffix}",
+                category="Beverages",
+                primary_uom="PCS",
+            )
+            session.add(item)
+            await session.flush()
+
+            variant = ItemVariant(
+                id=variant_id,
+                company_id="COMP-001",
+                item_id=item.id,
+                variant_sku=f"GRN-{unique_suffix.upper()}",
+                variant_name=f"GRN Test Product {unique_suffix}",
+            )
+            session.add(variant)
+            await session.flush()
+
             prod = Product(
                 id=prod_id,
                 uuid=str(uuid.uuid4()),
                 company_id="COMP-001",
                 branch_id="BR-001",
+                item_id=item.id,
+                item_variant_id=variant.id,
                 name=f"GRN Test Product {unique_suffix}",
                 code=f"GRN-{unique_suffix.upper()}",
                 sku=f"SKU-GRN-{unique_suffix.upper()}",
@@ -151,6 +177,8 @@ async def test_grn_inward_batch_stock_creation():
             await utmih_delete_stock_movements(session, "product_id = :pid", {"pid": prod_id})
             await session.execute(text("DELETE FROM product_batch_stocks WHERE product_id = :pid"), {"pid": prod_id})
             await session.execute(text("DELETE FROM products WHERE id = :pid"), {"pid": prod_id})
+            await session.execute(text("DELETE FROM item_variants WHERE id = :vid"), {"vid": variant_id})
+            await session.execute(text("DELETE FROM items WHERE id = :iid"), {"iid": item_id})
             await session.commit()
 
 
