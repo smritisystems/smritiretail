@@ -353,11 +353,10 @@ async def test_api_fulfillment_endpoints_and_timeline():
     inv_id = f"inv_api_{unique_suffix}"
     sessionmaker = get_company_sessionmaker("smriti001")
     async with sessionmaker() as session:
-        await _seed_sales_invoice(session, inv_id, branch_id="BR-001")
+        await _seed_sales_invoice(session, inv_id)
         await _seed_product(
             session,
             f"prod_api_{unique_suffix}",
-            branch_id="BR-001",
             opening_stock=Decimal("10"),
         )
         await session.commit()
@@ -377,7 +376,7 @@ async def test_api_fulfillment_endpoints_and_timeline():
             },
             headers=_get_auth_headers(),
         )
-        assert pack_res.status_code == 201
+        assert pack_res.status_code == 201, pack_res.text
         ps_id = pack_res.json()["id"]
 
         # 2. Get packing slip via API
