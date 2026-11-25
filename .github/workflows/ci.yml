@@ -187,6 +187,8 @@ jobs:
         # Zero duplicate field IDs, zero broken DB mappings, zero generated TS drift,
         # and zero unauthorized hardcoded business metadata.
         run: python ../scripts/ci_ux_field_governance_guard.py
+        env:
+          POSTGRES_PORT: "5432"
 
       - name: Run Backend Tests
         run: >
