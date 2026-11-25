@@ -205,7 +205,7 @@ jobs:
           SMRITI_TENANT_DATABASES: "smriti_test_001,smriti_test_002"
 
       - name: Install Playwright Chromium for Backend PDF Tests
-        run: playwright install chromium --with-deps
+        run: playwright install chromium
 
       - name: Run Backend Tests
         run: >
