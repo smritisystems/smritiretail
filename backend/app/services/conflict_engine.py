@@ -16,12 +16,11 @@ import json
 import uuid
 from decimal import Decimal
 from datetime import datetime, timezone
-from typing import List, Dict, Any, Optional
-from sqlalchemy import select, update, text
+from typing import List, Optional
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.sales import SalesInvoice
-from ..models.payment_ledger import PaymentTransaction
 from ..models.crm import Customer
 from ..models.inventory import Product
 from ..models.sync import POSOfflineSyncQueue
@@ -138,10 +137,13 @@ class OfflineConflictResolutionEngine:
             is_deleted=False
         )
         session.add(queue_item)
-        # Use a savepoint so a concurrent invoice_no uniqueness violation on the
-        # later INSERT does not poison the entire session transaction. The except
-        # handler at the bottom catches the collision and returns DEDUPLICATED.
         await session.flush()
+
+        # Serialize retries for an invoice number that has not been committed yet.
+        await session.execute(
+            text("SELECT pg_advisory_xact_lock(hashtextextended(:invoice_key, 0))"),
+            {"invoice_key": f"{company_id}:{clean_inv_no}"},
+        )
 
         # =====================================================================
         # TIER 3: IDEMPOTENT DEDUPLICATION
@@ -149,7 +151,7 @@ class OfflineConflictResolutionEngine:
         existing_inv_stmt = select(SalesInvoice).where(
             SalesInvoice.company_id == company_id,
             SalesInvoice.invoice_no == clean_inv_no,
-            SalesInvoice.is_deleted == False
+            SalesInvoice.is_deleted.is_(False)
         )
         existing_inv = (await session.execute(existing_inv_stmt)).scalar_one_or_none()
         if existing_inv:
