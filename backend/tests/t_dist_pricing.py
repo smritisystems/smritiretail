@@ -265,7 +265,9 @@ async def test_distribution_order_dispatch_and_authoritative_stock_movement():
             barcode=item.item_code,
             sku=item.item_code,
         )
-        session.add_all([party, item, product])
+        session.add_all([party, item])
+        await session.flush()
+        session.add(product)
         await session.flush()
         await StockLedger.post_admin_opening_stock(
             session=session,
