@@ -14,19 +14,25 @@ Classification: Internal
 
 import os
 import sys
-import pytest
 import uuid
+from decimal import Decimal
+from urllib.parse import urlparse
+
 import httpx
+import pytest
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from app.main import app
 from app.api.deps import get_current_user
-from app.db.session import async_session
-from app.models.auth import User, UserRole
+from app.core.config import settings
 from app.core.security import create_access_token
-from sqlalchemy import text
-
+from app.db.session import async_session
+from app.main import app
+from app.models.auth import User, UserRole
+from app.models.item_master import Item, ItemVariant
 
 BASE_URL = "http://test/api/v1"
 
@@ -36,13 +42,7 @@ sysadmin_user_a = User(id="usr-super", username="usr_super", role=UserRole.SYSAD
 sysadmin_user_b = User(id="usr-super", username="usr_super", role=UserRole.SYSADMIN, company_id="COMP-SALES-002", branch_id="BR-SALES-002", is_active=True, is_deleted=False)
 cashier_user = User(id="usr-cashier", username="usr_cashier", role=UserRole.CASHIER, company_id="comp-default", branch_id="br-default", is_active=True, is_deleted=False)
 
-from sqlalchemy.pool import NullPool
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
-
 # Sales invoices are operational data; tests use the isolated Company 001 database.
-import os
-from urllib.parse import urlparse
-from app.core.config import settings
 _PG_PORT = urlparse(str(settings.DATABASE_URL)).port or int(os.getenv("POSTGRES_PORT", 5432))
 
 COMPANY_001_ASYNC_URL = f"postgresql+asyncpg://postgres:postgres@localhost:{_PG_PORT}/smriti_test_001"
@@ -51,6 +51,52 @@ test_sessionmaker = async_sessionmaker(bind=test_engine, class_=AsyncSession, ex
 
 _cleaned_once = False
 _created_invoice_id = None
+
+@pytest.fixture(scope="module", autouse=True)
+async def seed_sales_contract_product():
+    item_id = "item-sales-contract-04"
+    variant_id = "variant-sales-contract-04"
+    async with test_sessionmaker() as session:
+        item = Item(
+            id=item_id,
+            company_id="COMP-001",
+            item_code="TEST-SALES-CONTRACT-04",
+            item_name="CH-01-A CREAM 36",
+            item_type="FINISHED_GOOD",
+            category="Footwear",
+            brand="CH",
+            hsn_code="64041990",
+            tax_rate=Decimal("18.00"),
+            selling_price=Decimal("1000.00"),
+            mrp=Decimal("1000.00"),
+            cost_price=Decimal("500.00"),
+            status="ACTIVE",
+        )
+        variant = ItemVariant(
+            id=variant_id,
+            company_id="COMP-001",
+            item_id=item_id,
+            variant_sku="TEST-SALES-CONTRACT-04",
+            variant_name="CH-01-A CREAM 36",
+            hsn_code="64041990",
+            tax_rate=Decimal("18.00"),
+            selling_price=Decimal("1000.00"),
+            mrp=Decimal("1000.00"),
+            cost_price=Decimal("500.00"),
+        )
+        await session.merge(item)
+        await session.merge(variant)
+        await session.execute(
+            text("""
+                UPDATE products
+                SET item_id = :item_id, item_variant_id = :variant_id
+                WHERE id = 'prod-ch-01-a-cream-36'
+            """),
+            {"item_id": item_id, "variant_id": variant_id},
+        )
+        await session.commit()
+
+    yield
 
 @pytest.fixture(scope="module", autouse=True)
 async def seed_company_b_routing():
