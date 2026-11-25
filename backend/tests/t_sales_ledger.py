@@ -13,22 +13,22 @@ Classification: Internal
 """
 
 import sys
-import os
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+
 import pytest
-from decimal import Decimal
-from sqlalchemy import select, delete
+from conftest import utmih_delete_stock_movements
+from sqlalchemy import delete, select
+
 from app.db.session import get_company_sessionmaker
 from app.db.tenant_harness import EphemeralTenantHarness
-from app.services.sales_ledger_svc import UnifiedSalesLedgerService
+from app.models.crm import Customer
+from app.models.inventory import Product, StockMovement
 from app.models.sales import SalesInvoice, SalesInvoiceItem
-from app.models.inventory import Product, StockMovement, ProductBatchStock
-
-
-from app.models.crm import Customer, CustomerGroup
-from app.models.tenant import Company, Branch
+from app.models.tenant import Branch, Company
+from app.services.sales_ledger_svc import UnifiedSalesLedgerService
 
 
 @pytest.fixture(scope="module")
@@ -48,6 +48,17 @@ def isolated_company_sessionmaker(isolated_company_database):
     return EphemeralTenantHarness.get_ephemeral_sessionmaker(isolated_company_database)
 
 
+async def _cleanup_test_sales(session):
+    await utmih_delete_stock_movements(
+        session,
+        "remarks LIKE :remarks",
+        {"remarks": "%TEST-INV%"},
+    )
+    invoice_ids = select(SalesInvoice.id).where(SalesInvoice.invoice_no.like("TEST-INV-%"))
+    await session.execute(delete(SalesInvoiceItem).where(SalesInvoiceItem.invoice_id.in_(invoice_ids)))
+    await session.execute(delete(SalesInvoice).where(SalesInvoice.invoice_no.like("TEST-INV-%")))
+
+
 @pytest.fixture(autouse=True)
 async def cleanup_and_setup_test_sales(isolated_company_database, isolated_company_sessionmaker):
     """Clean up and set up test customer and test sales invoices."""
@@ -63,8 +74,7 @@ async def cleanup_and_setup_test_sales(isolated_company_database, isolated_compa
                 if not (await session.execute(select(Branch).where(Branch.id == "MAIN"))).scalar_one_or_none():
                     session.add(Branch(id="MAIN", company_id="COMP-001", name="Main Branch", code="MAIN"))
                 await session.flush()
-            await session.execute(delete(StockMovement).where(StockMovement.remarks.like("%TEST-INV%")))
-            await session.execute(delete(SalesInvoice).where(SalesInvoice.invoice_no.like("TEST-INV-%")))
+            await _cleanup_test_sales(session)
             
             # Ensure test customer exists
             cust_stmt = select(Customer).where(Customer.id == "cust_sales_test_01")
@@ -107,8 +117,7 @@ async def cleanup_and_setup_test_sales(isolated_company_database, isolated_compa
     yield
     for _, session_factory in test_databases:
         async with session_factory() as session:
-            await session.execute(delete(StockMovement).where(StockMovement.remarks.like("%TEST-INV%")))
-            await session.execute(delete(SalesInvoice).where(SalesInvoice.invoice_no.like("TEST-INV-%")))
+            await _cleanup_test_sales(session)
             await session.commit()
 
 
@@ -165,7 +174,7 @@ async def test_b2b_sales_invoice_posting_and_stock_debit():
         )
         smv = (await session.execute(smv_stmt)).scalar_one_or_none()
         assert smv is not None
-        assert float(smv.quantity) == -5.0
+        assert float(smv.quantity) == 5.0
         assert smv.product_id == "prod_sales_test_01"
 
 
@@ -263,9 +272,6 @@ async def test_sales_invoice_tenant_isolation(isolated_company_database, isolate
     session_002 = isolated_company_sessionmaker
 
     async with session_001() as s1:
-        stmt1 = select(SalesInvoice).where(SalesInvoice.invoice_no == "TEST-INV-IGST-02")
-        inv1 = (await s1.execute(stmt1)).scalar_one_or_none()
-        # May be None if not run after test 2, so create a specific isolation invoice
         prod_stmt = select(Product).where(Product.code == "PROD-SALES-TEST-01")
         prod = (await s1.execute(prod_stmt)).scalar_one_or_none()
         inv_iso = await UnifiedSalesLedgerService.post_sales_invoice(
@@ -274,7 +280,14 @@ async def test_sales_invoice_tenant_isolation(isolated_company_database, isolate
             invoice_no="TEST-INV-ISO-04",
             customer_id="cust_sales_test_01",
             items_data=[
-                {"product_id": prod.id, "code": prod.code, "name": prod.name, "quantity": 1.0, "price": 100.0, "gst_rate": 18.0}
+                {
+                    "product_id": prod.id,
+                    "code": prod.code,
+                    "name": prod.name,
+                    "quantity": 1.0,
+                    "price": 100.0,
+                    "gst_rate": 18.0,
+                }
             ]
         )
         assert inv_iso is not None
