@@ -12,15 +12,31 @@ License      : Proprietary Commercial Software
 Classification: Internal
 """
 
+import asyncio
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 from app.main import app
 from app.core.security import create_access_token
 from app.models.auth import UserRole
-from app.models.ui_control_plane import SmritiTheme, SmritiWorkspaceProfile
 from app.models.capability_template import WorkspaceTemplate
 from app.db.session import get_company_sessionmaker
+
+
+@pytest.fixture(scope="module", autouse=True)
+def seed_control_plane_ui_metadata():
+    """Seed required UI master data in the control-plane test database."""
+    from app.db.ctrl_seeder import ControlPlaneSeeder
+    from app.db.session import async_session
+
+    async def seed():
+        async with async_session() as session:
+            await ControlPlaneSeeder.seed_platform_company(session)
+            await ControlPlaneSeeder.seed_ui_metadata(session)
+            await session.commit()
+
+    asyncio.run(seed())
 
 
 @pytest.fixture
@@ -142,7 +158,7 @@ def test_resolved_menus_cashier_pruning_and_security(client):
 def test_contextual_actions_sales_invoice_lifecycle(client):
     """Verify contextual submenu actions respect RBAC and document lifecycle constraints."""
     sys_hdr = get_auth_headers("SYSADMIN")
-    
+
     # 1. Draft State under SYSADMIN
     res_draft = client.get("/api/v1/menus/contextual?doc_type=SalesInvoice&state=DRAFT", headers=sys_hdr)
     assert res_draft.status_code == 200
