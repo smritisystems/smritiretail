@@ -50,7 +50,7 @@ async def test_engine_pool_caching():
     eng1 = get_company_async_engine("smriti001")
     eng2 = get_company_async_engine("smriti001")
     assert eng1 is eng2, "Expected identical cached AsyncEngine instance for smriti001"
-    assert "smriti001" in _company_engines
+    assert "smriti_test_001" in _company_engines
 
 
 @pytest.mark.asyncio
