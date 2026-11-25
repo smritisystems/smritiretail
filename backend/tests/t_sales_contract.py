@@ -95,6 +95,13 @@ async def seed_sales_contract_product():
             """),
             {"item_id": item_id, "variant_id": variant_id},
         )
+        await session.execute(
+            text("""
+                UPDATE warehouses
+                SET pincode = '400001', state = 'Maharashtra'
+                WHERE company_id = 'COMP-001' AND code = 'WH-MAIN'
+            """)
+        )
         await session.commit()
 
     yield
