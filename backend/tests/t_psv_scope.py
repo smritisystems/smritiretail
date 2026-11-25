@@ -17,14 +17,13 @@ import uuid
 from decimal import Decimal
 from datetime import datetime, timezone
 from httpx import AsyncClient, ASGITransport
-from sqlalchemy import select
 
 from app.main import app
 from app.core.security import create_access_token
 from app.models.auth import User, UserRole
 from app.api.deps import TenantContext, get_company_db, get_current_user, get_tenant_context
 from app.db.session import get_company_sessionmaker
-from app.models.psv import PSVParty, PSVStockBalance
+from app.models.party import Party
 from app.services.psv_projection import PSVProjectionService
 from app.schemas.psv import (
     PSVVisibilityPolicyCreateReq,
@@ -73,6 +72,15 @@ async def test_psv_party_visibility_policy_and_scoping():
         )
         assert pol.id is not None
         assert pol.policy_code == f"POL_DIST_{suffix.upper()}"
+
+        party = Party(
+            id=party_id,
+            company_id="COMP-001",
+            party_code=f"PSV-{suffix.upper()}",
+            legal_name=f"PSV Distributor {suffix}",
+        )
+        session.add(party)
+        await session.flush()
 
         # Bind scope
         scope = await PSVProjectionService.assign_party_scope(
