@@ -16,19 +16,17 @@ import pytest
 import psycopg2
 from decimal import Decimal
 
-# Architecture Rule: eway_bills is an operational table.
-# Operational data belongs in Company DB (smriti001), NOT in smritisys (Control Plane).
+# Operational data belongs in the isolated Company 001 test database, not smritisys.
 import os
 from urllib.parse import urlparse
 from app.core.config import settings
 _PG_PORT = urlparse(str(settings.DATABASE_URL)).port or int(os.getenv("POSTGRES_PORT", 5432))
 
-COMPANY_001_DB_URL = f"postgresql://postgres:postgres@localhost:{_PG_PORT}/smriti001"
+COMPANY_001_DB_URL = f"postgresql://postgres:postgres@localhost:{_PG_PORT}/smriti_test_001"
 
 def test_eway_bill_dispatch_workflow():
     """
-    Test Blocker #7 E-Way Bill & Dispatch Workflow against Company 001 database (smriti001).
-    ARCHITECTURE: eway_bills is operational data -> Company DB (smriti001). NOT smritisys.
+    Test Blocker #7 E-Way Bill & Dispatch Workflow against the isolated Company 001 test database.
     Verifies:
     - Creation of an E-Way Bill record for invoice dispatch
     - Transport metadata persistence (vehicle_no, transporter_name, distance_km, status='DISPATCHED')
