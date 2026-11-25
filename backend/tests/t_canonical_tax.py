@@ -21,6 +21,7 @@ import pytest
 import psycopg2
 from decimal import Decimal
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+from sqlalchemy.engine import make_url
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -28,16 +29,31 @@ from app.services.invoice_pdf_service import (
     InvoicePdfService,
     TaxInvoiceRenderer,
     TaxInvoicePrintService,
-    TAX_INVOICE_TATTLY_THREADS_CANONICAL_V1,
     CANONICAL_INVOICE_LAYOUT_CONFIG
 )
 from app.main import app
-
-
-import os
-from urllib.parse import urlparse
 from app.core.config import settings
-_PG_PORT = urlparse(str(settings.DATABASE_URL)).port or int(os.getenv("POSTGRES_PORT", 5432))
+
+_CANONICAL_TAX_SNAPSHOT_DATABASE_URL = os.getenv("CANONICAL_TAX_SNAPSHOT_DATABASE_URL")
+requires_canonical_tax_snapshot = pytest.mark.skipif(
+    not _CANONICAL_TAX_SNAPSHOT_DATABASE_URL,
+    reason="Requires the canonical historical invoice database and generated batch artifacts.",
+)
+
+
+def _canonical_tax_database_url(async_driver: bool = False) -> str:
+    if not _CANONICAL_TAX_SNAPSHOT_DATABASE_URL:
+        pytest.skip(
+            "Set CANONICAL_TAX_SNAPSHOT_DATABASE_URL to run historical canonical invoice snapshot tests."
+        )
+    drivername = "postgresql+asyncpg" if async_driver else "postgresql"
+    return make_url(_CANONICAL_TAX_SNAPSHOT_DATABASE_URL).set(drivername=drivername).render_as_string(
+        hide_password=False
+    )
+
+
+def _control_plane_database_url() -> str:
+    return make_url(str(settings.DATABASE_URL)).set(drivername="postgresql").render_as_string(hide_password=False)
 
 def test_01_canonical_renderer_governance_and_config():
     """Verify single canonical renderer, alias binding, and frozen versioned configuration."""
@@ -51,6 +67,7 @@ def test_01_canonical_renderer_governance_and_config():
     assert "SMRITI OS Retail Suite" in CANONICAL_INVOICE_LAYOUT_CONFIG["footer_disclaimer"]
 
 
+@requires_canonical_tax_snapshot
 def test_02_invoice_102_exact_mathematical_reconciliation():
     """Verify exact financial calculations for TT2026-2027/102 in Company DB smriti001.
 
@@ -60,7 +77,7 @@ def test_02_invoice_102_exact_mathematical_reconciliation():
     items were added post v1455 tax-inclusive migration, bringing totals to 48 pairs.
     All assertions reconciled from live DB state (verified 2026-09-16).
     """
-    conn = psycopg2.connect(f"postgresql://postgres:postgres@localhost:{_PG_PORT}/smriti001")
+    conn = psycopg2.connect(_canonical_tax_database_url())
     cur = conn.cursor()
     cur.execute("""
         SELECT i.id, i.invoice_no, i.date, i.tax_total, i.grand_total
@@ -126,6 +143,7 @@ def test_03_rendered_pdf_grid_borders_and_zero_wrap():
     doc.close()
 
 
+@requires_canonical_tax_snapshot
 def test_04_all_batch_invoices_exist_and_match_canonical_standard():
     """Verify all 30 batch invoices exist and follow the exact canonical frozen format."""
     batch_dir = str(WORKSPACE_ROOT / "exports" / "tt_batch_74_103")
@@ -161,7 +179,7 @@ def test_05_canonical_api_routes_registered():
 
 def test_06_smritisys_control_plane_zero_operational_invoices():
     """Enforce architectural isolation: smritisys has 0 operational invoices and 0 operational templates."""
-    conn = psycopg2.connect(f"postgresql://postgres:postgres@localhost:{_PG_PORT}/smritisys")
+    conn = psycopg2.connect(_control_plane_database_url())
     cur = conn.cursor()
     cur.execute("SELECT COUNT(*) FROM sales_invoices;")
     count = cur.fetchone()[0]
@@ -169,9 +187,10 @@ def test_06_smritisys_control_plane_zero_operational_invoices():
     assert count == 0, f"Architecture violation: smritisys has {count} operational invoices (must be 0)"
 
 
+@requires_canonical_tax_snapshot
 def test_07_persisted_canonical_template_in_company_database():
     """Verify TAX_INVOICE_TATTLY_THREADS V1 is persisted in smriti001 company database."""
-    conn = psycopg2.connect(f"postgresql://postgres:postgres@localhost:{_PG_PORT}/smriti001")
+    conn = psycopg2.connect(_canonical_tax_database_url())
     cur = conn.cursor()
     cur.execute("""
         SELECT template_code, template_name, template_type, status, current_version, layout_configuration, configuration_hash
@@ -197,9 +216,10 @@ def test_07_persisted_canonical_template_in_company_database():
     assert len(tpl[6]) == 64, "Expected valid 64-char SHA256 configuration hash"
 
 
+@requires_canonical_tax_snapshot
 def test_08_persisted_template_version_v1_immutability():
     """Verify version V1 is recorded with FROZEN status in tax_invoice_template_versions."""
-    conn = psycopg2.connect(f"postgresql://postgres:postgres@localhost:{_PG_PORT}/smriti001")
+    conn = psycopg2.connect(_canonical_tax_database_url())
     cur = conn.cursor()
     cur.execute("""
         SELECT v.version, v.status, v.configuration_hash
@@ -216,9 +236,10 @@ def test_08_persisted_template_version_v1_immutability():
     assert len(ver[2]) == 64
 
 
+@requires_canonical_tax_snapshot
 def test_09_invoice_102_document_artifact_and_sha256_integrity():
     """Verify TT2026-2027/102 PDF artifact is persisted with cryptographic SHA256 integrity."""
-    conn = psycopg2.connect(f"postgresql://postgres:postgres@localhost:{_PG_PORT}/smriti001")
+    conn = psycopg2.connect(_canonical_tax_database_url())
     cur = conn.cursor()
     cur.execute("""
         SELECT invoice_no, template_code, template_version, template_status, storage_path, sha256_hash, file_size, page_count, is_valid
@@ -243,9 +264,10 @@ def test_09_invoice_102_document_artifact_and_sha256_integrity():
     assert art[8] is True, "Expected artifact to be marked is_valid = True"
 
 
+@requires_canonical_tax_snapshot
 def test_10_all_30_batch_invoice_artifacts_indexed():
     """Verify all 30 batch invoices have valid PDF artifacts with matching SHA256 checksums in smriti001."""
-    conn = psycopg2.connect(f"postgresql://postgres:postgres@localhost:{_PG_PORT}/smriti001")
+    conn = psycopg2.connect(_canonical_tax_database_url())
     cur = conn.cursor()
     cur.execute("""
         SELECT invoice_no, storage_path, sha256_hash, file_size, page_count
@@ -265,9 +287,10 @@ def test_10_all_30_batch_invoice_artifacts_indexed():
 
 
 @pytest.mark.asyncio
+@requires_canonical_tax_snapshot
 async def test_11_interstate_invoice_displays_igst_and_hides_cgst_sgst():
     """Verify that Interstate invoice renders explicit TAX % and IGST columns and hides CGST/SGST columns."""
-    engine = create_async_engine(f"postgresql+asyncpg://postgres:postgres@localhost:{_PG_PORT}/smriti001")
+    engine = create_async_engine(_canonical_tax_database_url(async_driver=True))
     async_session = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
 
     async with async_session() as session:
@@ -286,9 +309,10 @@ async def test_11_interstate_invoice_displays_igst_and_hides_cgst_sgst():
 
 
 @pytest.mark.asyncio
+@requires_canonical_tax_snapshot
 async def test_12_intrastate_invoice_displays_cgst_sgst_and_hides_igst():
     """Verify that Intrastate invoice renders explicit CGST %, CGST, SGST %, SGST columns and hides IGST column with exact math."""
-    engine = create_async_engine(f"postgresql+asyncpg://postgres:postgres@localhost:{_PG_PORT}/smriti001")
+    engine = create_async_engine(_canonical_tax_database_url(async_driver=True))
     async_session = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
 
     async with async_session() as session:
@@ -310,9 +334,10 @@ async def test_12_intrastate_invoice_displays_cgst_sgst_and_hides_igst():
     assert "₹50,815.20" in html
 
 
+@requires_canonical_tax_snapshot
 def test_13_persisted_template_supports_both_interstate_and_intrastate_grid_specs():
     """Verify template JSONB layout stores both 10-col interstate and 12-col intrastate specifications."""
-    conn = psycopg2.connect(f"postgresql://postgres:postgres@localhost:{_PG_PORT}/smriti001")
+    conn = psycopg2.connect(_canonical_tax_database_url())
     cur = conn.cursor()
     cur.execute("""
         SELECT layout_configuration
@@ -346,12 +371,13 @@ def test_13_persisted_template_supports_both_interstate_and_intrastate_grid_spec
 
 
 @pytest.mark.asyncio
+@requires_canonical_tax_snapshot
 async def test_14_api_invoice_preview_and_print_contracts():
     """Verify preview and print contracts return text/html with canonical layout and auto-print script."""
     from app.api.v1.sales import get_sales_invoice_preview_contract, get_sales_invoice_print_contract
     from app.api.deps import TenantContext
 
-    engine = create_async_engine(f"postgresql+asyncpg://postgres:postgres@localhost:{_PG_PORT}/smriti001")
+    engine = create_async_engine(_canonical_tax_database_url(async_driver=True))
     async_session = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
     tenant_ctx = TenantContext(company_id="COMP-001", branch_id="MAIN")
 
@@ -377,12 +403,13 @@ async def test_14_api_invoice_preview_and_print_contracts():
 
 
 @pytest.mark.asyncio
+@requires_canonical_tax_snapshot
 async def test_15_api_invoice_reprint_artifact_contract():
     """Verify reprint contract returns application/pdf with SHA256 integrity and reprint disposition."""
     from app.api.v1.sales import get_sales_invoice_reprint_contract
     from app.api.deps import TenantContext
 
-    engine = create_async_engine(f"postgresql+asyncpg://postgres:postgres@localhost:{_PG_PORT}/smriti001")
+    engine = create_async_engine(_canonical_tax_database_url(async_driver=True))
     async_session = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
     tenant_ctx = TenantContext(company_id="COMP-001", branch_id="MAIN")
 
@@ -397,12 +424,13 @@ async def test_15_api_invoice_reprint_artifact_contract():
 
 
 @pytest.mark.asyncio
+@requires_canonical_tax_snapshot
 async def test_16_api_invoice_pdf_stream_and_download_contracts():
     """Verify GET /pdf streams inline and GET /download streams attachment."""
     from app.api.v1.sales import get_sales_invoice_pdf_stream, get_sales_invoice_download_attachment
     from app.api.deps import TenantContext
 
-    engine = create_async_engine(f"postgresql+asyncpg://postgres:postgres@localhost:{_PG_PORT}/smriti001")
+    engine = create_async_engine(_canonical_tax_database_url(async_driver=True))
     async_session = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
     tenant_ctx = TenantContext(company_id="COMP-001", branch_id="MAIN")
 
@@ -425,9 +453,10 @@ async def test_16_api_invoice_pdf_stream_and_download_contracts():
 
 
 @pytest.mark.asyncio
+@requires_canonical_tax_snapshot
 async def test_17_invoice_103_explicit_tax_rate_and_amount_reconciliation():
     """Verify Invoice TT2026-2027/103 has exact statutory totals and explicit separate TAX % / IGST / AMOUNT columns."""
-    engine = create_async_engine(f"postgresql+asyncpg://postgres:postgres@localhost:{_PG_PORT}/smriti001")
+    engine = create_async_engine(_canonical_tax_database_url(async_driver=True))
     async_session = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
 
     async with async_session() as session:
