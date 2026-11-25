@@ -16,12 +16,10 @@ import uuid
 from decimal import Decimal
 
 import pytest
-from fastapi import Request
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 
-from app.api.deps import get_company_db, get_current_user
-from app.core.security import create_access_token, decode_token
+from app.core.security import create_access_token
 from app.db.session import get_company_sessionmaker
 from app.main import app
 from app.models.approval import ApprovalAction
@@ -283,85 +281,59 @@ async def test_api_approval_endpoints():
     unique_suffix = uuid.uuid4().hex[:4]
     doc_type = f"API_DOC_{unique_suffix.upper()}"
     transport = ASGITransport(app=app)
-    previous_user_override = app.dependency_overrides.get(get_current_user)
-    previous_company_db_override = app.dependency_overrides.get(get_company_db)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        # 1. Create policy via API
+        pol_res = await client.post(
+            "/api/v1/approval/policies",
+            json={
+                "name": f"API Policy {unique_suffix}",
+                "code": f"POL_API_{unique_suffix.upper()}",
+                "document_type": doc_type,
+                "min_amount": 5000.0,
+                "required_role": "STORE_MANAGER",
+                "priority": 1,
+            },
+            headers=_get_auth_headers(role="SYSADMIN"),
+        )
+        assert pol_res.status_code == 201, pol_res.text
 
-    async def override_current_user(request: Request) -> dict:
-        authorization = request.headers.get("authorization", "")
-        token = authorization[7:].strip() if authorization.lower().startswith("bearer ") else authorization
-        return decode_token(token)
+        # 2. Check enforcement via API
+        enf_res = await client.post(
+            "/api/v1/approval/enforce",
+            json={"document_type": doc_type, "document_amount": 7500.0},
+            headers=_get_auth_headers(role="CASHIER"),
+        )
+        assert enf_res.status_code == 200, enf_res.text
+        assert enf_res.json()["requires_approval"] is True
 
-    async def override_company_db():
-        session_factory = get_company_sessionmaker("smriti001")
-        async with session_factory() as session:
-            yield session
+        # 3. Submit request via API
+        req_res = await client.post(
+            "/api/v1/approval/requests",
+            json={
+                "reference_doc_type": doc_type,
+                "reference_doc_id": f"ref_{unique_suffix}",
+                "document_amount": 7500.0,
+                "notes": "API test approval request",
+            },
+            headers=_get_auth_headers(role="CASHIER"),
+        )
+        assert req_res.status_code == 201, req_res.text
+        req_id = req_res.json()["id"]
 
-    app.dependency_overrides[get_current_user] = override_current_user
-    app.dependency_overrides[get_company_db] = override_company_db
+        # 4. Escalate via API
+        esc_res = await client.post(
+            "/api/v1/approval/escalate",
+            json={"request_id": req_id, "escalate_to_role": "DIRECTOR", "reason": "Urgent escalation"},
+            headers=_get_auth_headers(role="STORE_MANAGER"),
+        )
+        assert esc_res.status_code == 200, esc_res.text
+        assert esc_res.json()["new_role"] == "DIRECTOR"
 
-    try:
-        async with AsyncClient(transport=transport, base_url="http://test") as client:
-            # 1. Create policy via API
-            pol_res = await client.post(
-                "/api/v1/approval/policies",
-                json={
-                    "name": f"API Policy {unique_suffix}",
-                    "code": f"POL_API_{unique_suffix.upper()}",
-                    "document_type": doc_type,
-                    "min_amount": 5000.0,
-                    "required_role": "STORE_MANAGER",
-                    "priority": 1,
-                },
-                headers=_get_auth_headers(role="SYSADMIN"),
-            )
-            assert pol_res.status_code == 201, pol_res.text
-
-            # 2. Check enforcement via API
-            enf_res = await client.post(
-                "/api/v1/approval/enforce",
-                json={"document_type": doc_type, "document_amount": 7500.0},
-                headers=_get_auth_headers(role="CASHIER"),
-            )
-            assert enf_res.status_code == 200, enf_res.text
-            assert enf_res.json()["requires_approval"] is True
-
-            # 3. Submit request via API
-            req_res = await client.post(
-                "/api/v1/approval/requests",
-                json={
-                    "reference_doc_type": doc_type,
-                    "reference_doc_id": f"ref_{unique_suffix}",
-                    "document_amount": 7500.0,
-                    "notes": "API test approval request",
-                },
-                headers=_get_auth_headers(role="CASHIER"),
-            )
-            assert req_res.status_code == 201, req_res.text
-            req_id = req_res.json()["id"]
-
-            # 4. Escalate via API
-            esc_res = await client.post(
-                "/api/v1/approval/escalate",
-                json={"request_id": req_id, "escalate_to_role": "DIRECTOR", "reason": "Urgent escalation"},
-                headers=_get_auth_headers(role="STORE_MANAGER"),
-            )
-            assert esc_res.status_code == 200, esc_res.text
-            assert esc_res.json()["new_role"] == "DIRECTOR"
-
-            # 5. Approve via API (as DIRECTOR)
-            act_res = await client.post(
-                "/api/v1/approval/action",
-                json={"request_id": req_id, "action": "APPROVE", "comments": "Final director approval"},
-                headers=_get_auth_headers(role="DIRECTOR"),
-            )
-            assert act_res.status_code == 200, act_res.text
-            assert act_res.json()["new_status"] == "APPROVED"
-    finally:
-        if previous_user_override is None:
-            app.dependency_overrides.pop(get_current_user, None)
-        else:
-            app.dependency_overrides[get_current_user] = previous_user_override
-        if previous_company_db_override is None:
-            app.dependency_overrides.pop(get_company_db, None)
-        else:
-            app.dependency_overrides[get_company_db] = previous_company_db_override
+        # 5. Approve via API (as DIRECTOR)
+        act_res = await client.post(
+            "/api/v1/approval/action",
+            json={"request_id": req_id, "action": "APPROVE", "comments": "Final director approval"},
+            headers=_get_auth_headers(role="DIRECTOR"),
+        )
+        assert act_res.status_code == 200, act_res.text
+        assert act_res.json()["new_status"] == "APPROVED"

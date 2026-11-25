@@ -361,6 +361,7 @@ def seed_control_plane_test_assignments():
                         )
                         ON CONFLICT (id) DO NOTHING;
                     """, (f"audit-{i}", f"seed-{i}"))
+        ctrl_conn.commit()
         ctrl_conn.close()
 
     except pytest.fail.Exception:

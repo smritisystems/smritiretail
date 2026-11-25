@@ -20,12 +20,11 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
-from app.api.deps import TenantContext, get_company_db, get_current_user, get_tenant_context
+from app.core.security import create_access_token
 from app.db.session import get_company_sessionmaker
 from app.main import app
 from app.models.accounting import Account
 from app.models.analytics import AnalyticsDailySalesFact
-from app.models.auth import User, UserRole
 from app.models.inventory import Product
 from app.models.profitability import TransactionCostSnapshot
 from app.models.sales import SalesInvoice, SalesInvoiceItem
@@ -35,6 +34,26 @@ from app.services.sales_ledger_svc import UnifiedSalesLedgerService
 from app.services.stock_ledger import StockLedger
 from app.services.tally_service import TallyIntegrationService
 from app.services.unified_ledger import UnifiedAccountingLedgerService
+
+
+def _get_auth_headers(role: str = "SYSADMIN") -> dict:
+    token = create_access_token(
+        data={
+            "sub": "usr-super",
+            "username": "usr_super",
+            "role": role,
+            "company_id": "COMP-001",
+            "branch_id": "BR-001",
+            "tenant_id": "smriti001",
+            "db_name": "smriti001",
+            "is_active": True,
+        }
+    )
+    return {
+        "Authorization": f"Bearer {token}",
+        "X-Company-ID": "COMP-001",
+        "X-Company-Code": "001",
+    }
 
 
 @pytest.mark.asyncio
@@ -434,63 +453,24 @@ def test_api_analytics_and_integration_endpoints():
     """
     Verifies REST endpoints for Analytics Plane and Integration Hub.
     """
-    test_user = User(
-        id="analytics-test-admin",
-        username="analytics_test_admin",
-        hashed_password="test-only",
-        role=UserRole.SYSADMIN,
-        is_active=True,
-        is_deleted=False,
-    )
-    tenant_ctx = TenantContext(
-        company_id="COMP-001",
-        branch_id="BR-001",
-        role=UserRole.SYSADMIN,
-    )
-    previous_user_override = app.dependency_overrides.get(get_current_user)
-    previous_tenant_override = app.dependency_overrides.get(get_tenant_context)
-    previous_company_db_override = app.dependency_overrides.get(get_company_db)
+    client = TestClient(app)
+    headers = _get_auth_headers()
 
-    async def override_company_db():
-        session_factory = get_company_sessionmaker("smriti001")
-        async with session_factory() as session:
-            yield session
+    # 1. Analytics daily sales summary
+    r_daily = client.get("/api/v1/analytics/daily-sales-summary", headers=headers)
+    assert r_daily.status_code == 200, r_daily.text
+    data_daily = r_daily.json()
+    assert "facts" in data_daily
+    assert "company_id" in data_daily
 
-    app.dependency_overrides[get_current_user] = lambda: test_user
-    app.dependency_overrides[get_tenant_context] = lambda: tenant_ctx
-    app.dependency_overrides[get_company_db] = override_company_db
+    # 2. Analytics category margins
+    r_margins = client.get("/api/v1/analytics/category-margins?lookback_days=30", headers=headers)
+    assert r_margins.status_code == 200, r_margins.text
+    data_margins = r_margins.json()
+    assert "categories" in data_margins
 
-    try:
-        client = TestClient(app)
-
-        # 1. Analytics daily sales summary
-        r_daily = client.get("/api/v1/analytics/daily-sales-summary")
-        assert r_daily.status_code == 200, r_daily.text
-        data_daily = r_daily.json()
-        assert "facts" in data_daily
-        assert "company_id" in data_daily
-
-        # 2. Analytics category margins
-        r_margins = client.get("/api/v1/analytics/category-margins?lookback_days=30")
-        assert r_margins.status_code == 200
-        data_margins = r_margins.json()
-        assert "categories" in data_margins
-
-        # 3. Compliance audit search
-        r_audit = client.get("/api/v1/integration/audit/logs?limit=10")
-        assert r_audit.status_code == 200
-        data_audit = r_audit.json()
-        assert "logs" in data_audit
-    finally:
-        if previous_user_override is None:
-            app.dependency_overrides.pop(get_current_user, None)
-        else:
-            app.dependency_overrides[get_current_user] = previous_user_override
-        if previous_tenant_override is None:
-            app.dependency_overrides.pop(get_tenant_context, None)
-        else:
-            app.dependency_overrides[get_tenant_context] = previous_tenant_override
-        if previous_company_db_override is None:
-            app.dependency_overrides.pop(get_company_db, None)
-        else:
-            app.dependency_overrides[get_company_db] = previous_company_db_override
+    # 3. Compliance audit search
+    r_audit = client.get("/api/v1/integration/audit/logs?limit=10", headers=headers)
+    assert r_audit.status_code == 200, r_audit.text
+    data_audit = r_audit.json()
+    assert "logs" in data_audit
