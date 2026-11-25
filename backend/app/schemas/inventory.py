@@ -94,7 +94,7 @@ class ProductBase(BaseModel):
             return "0000"
         s = str(v).strip()
         if not s:
-            return "0000"
+            raise ValueError("HSN Code is required.")
         # Normalise decimal HSN codes like '8471.30' → '847130'
         if "." in s:
             s = s.replace(".", "")

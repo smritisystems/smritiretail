@@ -110,7 +110,7 @@ def test_product_create_rejects_blank_name(blank_name):
     assert "name" in str(exc_info.value)
 
 
-@pytest.mark.parametrize("blank_hsn", ["", "   ", None])
+@pytest.mark.parametrize("blank_hsn", ["", "   "])
 def test_product_create_rejects_blank_hsn_code(blank_hsn):
     """Verify that HSN Code cannot be blank or whitespace-only."""
     with pytest.raises(ValidationError) as exc_info:
@@ -126,6 +126,22 @@ def test_product_create_rejects_blank_hsn_code(blank_hsn):
             hsn_code=blank_hsn
         )
     assert "hsn_code" in str(exc_info.value)
+
+
+def test_product_create_preserves_legacy_hsn_for_none():
+    """An explicit None remains compatible with the legacy HSN placeholder."""
+    prod = ProductCreate(
+        code="SKU-TEST-005",
+        barcode="8901234567893",
+        name="Legacy HSN Product",
+        buying_price=Decimal("1000.00"),
+        cost_price=Decimal("800.00"),
+        mrp=Decimal("1999.00"),
+        price=Decimal("1499.00"),
+        gst_percentage=Decimal("18.00"),
+        hsn_code=None,
+    )
+    assert prod.hsn_code == "0000"
 
 
 # ==========================================
