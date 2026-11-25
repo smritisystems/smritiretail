@@ -1605,9 +1605,7 @@ export const ReportDesignerTab: React.FC<ReportDesignerTabProps> = ({ currentUse
                 id="report-tab-report-builder-btn"
                 onClick={() => setActiveView("designer")}
                 className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer ${
-                  activeView === "designer"
-                    ? "bg-theme-surface-1 text-theme-primary shadow-xs font-bold"
-                    : "text-theme-muted hover:text-theme-body"
+                  "bg-theme-surface-1 text-theme-primary shadow-xs font-bold"
                 }`}
               >
                 <FileText size={13} />

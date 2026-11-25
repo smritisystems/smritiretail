@@ -782,9 +782,13 @@ export function synthesizeLaunchpadCatalogWithRemoteMenus(
       seenIds.add(existing.id);
       catalogCopy[matchedIdx] = {
         ...existing,
-        title: billingAlias || existing.id === "sales" ? existing.title : m.title || existing.title,
-        icon: billingAlias ? existing.icon : m.icon || existing.icon,
-        tag: billingAlias ? existing.tag : m.badge || existing.tag,
+        title: existing.id === "sales"
+          ? existing.title
+          : billingAlias
+            ? (cleanId === "billing-workspace" ? m.title || "Billing Workspace" : "Billing Workspace")
+            : m.title || existing.title,
+        icon: m.icon || existing.icon,
+        tag: m.badge || existing.tag,
         roles: billingAlias ? undefined : existing.roles,
       };
     } else {

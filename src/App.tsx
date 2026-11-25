@@ -686,8 +686,8 @@ const AppContent: React.FC = () => {
       activeModuleTitle={getTabLabel(activeTab)}
       onSelectModule={(id) => setActiveTab(mapModuleId(id))}
       onNavigateHome={() => {
-        addToRecentlyUsed("launchpad");
-        setActiveTab("launchpad");
+        addToRecentlyUsed("dashboard");
+        setActiveTab("dashboard");
       }}
       onLogout={handleLogout}
       userName={currentUser?.name}

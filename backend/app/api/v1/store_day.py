@@ -63,6 +63,39 @@ class StoreDayAssignShiftRequest(BaseModel):
 # Store-day lifecycle
 # ---------------------------------------------------------------------------
 
+@router.get(
+    "/pos/store-days",
+    summary="List Store Business Days",
+    tags=["EOD"],
+)
+async def list_store_days(
+    branch_id: str = Query(..., description="Branch/store ID"),
+    business_date: DateType = Query(..., description="Business date YYYY-MM-DD"),
+    current_user: User = Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN)),
+    db: AsyncSession = Depends(get_company_db),
+    tenant: TenantContext = Depends(get_tenant_context),
+):
+    """List a branch's store-day records for a business date."""
+    days = await StoreDayService(db, tenant).list_store_days(branch_id, business_date)
+    return [
+        {
+            "id": day.id,
+            "branch_id": day.branch_id,
+            "business_date": day.business_date.isoformat(),
+            "status": day.status,
+            "opened_at": day.opened_at.isoformat() if day.opened_at else None,
+            "closed_at": day.closed_at.isoformat() if day.closed_at else None,
+            "locked_at": day.locked_at.isoformat() if day.locked_at else None,
+            "opened_by": day.opened_by,
+            "closed_by": day.closed_by,
+            "locked_by": day.locked_by,
+            "sign_off_notes": day.sign_off_notes,
+            "exception_summary": day.exception_summary_json,
+        }
+        for day in days
+    ]
+
+
 @router.post(
     "/pos/store-days/open",
     summary="Open Store Business Day",
@@ -109,7 +142,8 @@ async def close_store_day(
 ):
     """
     Close an OPEN store business day.
-    Blocked by pending approvals or pending offline sync unless force=True (SYSADMIN).
+    Blocked while any branch cashier shift is OPEN. Pending approvals or offline
+    sync may be bypassed with force=True (SYSADMIN only).
     """
     if req.force and current_user.role not in (UserRole.SYSADMIN,):
         raise HTTPException(status_code=403, detail="Force-close requires SYSADMIN role.")
@@ -177,7 +211,7 @@ async def assign_shift_to_day(
     db: AsyncSession = Depends(get_company_db),
     tenant: TenantContext = Depends(get_tenant_context),
 ):
-    """Link a cashier shift to an open store business day."""
+    """Link a closed same-branch cashier shift to its matching open business day."""
     svc = StoreDayService(db, tenant)
     try:
         assignment = await svc.assign_shift_to_day(

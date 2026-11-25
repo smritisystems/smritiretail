@@ -60,6 +60,14 @@ export const normalizeBillingAuxiliaryView = (view: BillingAuxiliaryView): Billi
     ? "WORKSPACE"
     : view;
 
+export const formatBillingDate = (date: Date): string =>
+  date.toLocaleDateString("en-IN", {
+    timeZone: "Asia/Kolkata",
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+
 export const getBillingDefaults = (mode: BillingWorkspaceMode) => ({
   transaction: mode === "RETAIL_POS" ? "Cash" as const : "Credit" as const,
   salesChannel: mode === "RETAIL_POS" ? "POS_RETAIL" : "B2B_WHOLESALE",
@@ -96,7 +104,7 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
     setSalesOrderWorkspaceOpen(active);
   }, []);
   const [showHotkeysModal, setShowHotkeysModal] = useState<boolean>(false);
-  const [currentTime, setCurrentTime] = useState<string>(() => new Date().toLocaleTimeString());
+  const [clockNow, setClockNow] = useState(() => new Date());
 
   useEffect(() => {
     const resolvedView = normalizeBillingAuxiliaryView(initialView);
@@ -124,7 +132,7 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
   // Clock ticker
   useEffect(() => {
     const timer = setInterval(() => {
-      setCurrentTime(new Date().toLocaleTimeString());
+      setClockNow(new Date());
     }, 1000);
     return () => clearInterval(timer);
   }, []);
@@ -331,8 +339,12 @@ export const BillingWorkspace: React.FC<BillingWorkspaceProps> = ({
           <div className="flex items-center gap-1.5 bg-white border border-slate-300 px-2.5 py-0.5 rounded-lg text-slate-800 font-mono text-left">
             <Clock size={13} className="text-slate-500 shrink-0" />
             <div className="flex flex-col leading-tight">
-              <span className="text-xs font-bold">{currentTime}</span>
-              <span className="text-[9px] text-slate-500">17 Oct 2026</span>
+              <span className="text-xs font-bold">
+                {clockNow.toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata" })}
+              </span>
+              <span className="text-[9px] text-slate-500">
+                {formatBillingDate(clockNow)}
+              </span>
             </div>
           </div>
 

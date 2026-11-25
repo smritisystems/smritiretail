@@ -761,7 +761,7 @@ export const Customer360DashboardView: React.FC<Customer360DashboardViewProps> =
                 <button type="button" onClick={() => openTab("commercial")} className="mt-3 text-xs font-semibold text-sky-700 hover:underline dark:text-sky-300">View commercial terms</button>
               </Section>
               <Section title="Customer network">
-                <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-3 text-sm dark:border-slate-800"><span className="flex items-center gap-2 text-slate-600 dark:text-slate-300"><Users size={15} />Linked child accounts</span><strong>{children.length}</strong></div>
+                <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-3 text-sm dark:border-slate-800"><span className="flex items-center gap-2 text-slate-600 dark:text-slate-300"><Users size={15} />Child customers</span><strong>{children.length} / {children.length}</strong></div>
                 <div className="flex items-center justify-between gap-3 pt-3 text-sm dark:border-slate-800"><span className="flex items-center gap-2 text-slate-600 dark:text-slate-300"><Store size={15} />Active delivery locations</span><strong>{activeStores} / {stores.length}</strong></div>
                 <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">Child accounts and delivery locations are separate records, so their counts can differ.</p>
                 <button type="button" onClick={() => openTab("parent_child")} className="mt-3 text-xs font-semibold text-sky-700 hover:underline dark:text-sky-300">View customer relationships</button>

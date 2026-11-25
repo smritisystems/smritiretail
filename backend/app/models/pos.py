@@ -83,6 +83,10 @@ class Shift(BaseEntity):
     closing_balance  = Column(Numeric(15, 2), nullable=True)
     expected_cash    = Column(Numeric(15, 2), nullable=True)
     variance         = Column(Numeric(15, 2), nullable=True)
+    actual_card_counted = Column(Numeric(15, 2), nullable=True)
+    card_variance       = Column(Numeric(15, 2), nullable=True)
+    actual_upi_counted  = Column(Numeric(15, 2), nullable=True)
+    upi_variance        = Column(Numeric(15, 2), nullable=True)
     denominations    = Column(JSONB, nullable=True)
     closing_notes    = Column(Text, nullable=True)
 

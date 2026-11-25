@@ -14,14 +14,96 @@ Classification: Internal
 
 from datetime import date, datetime, timezone, timedelta
 from typing import Optional, List, Dict, Any
+from zoneinfo import ZoneInfo
 from fastapi import APIRouter, Depends, Query, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, func, desc
 
 from ...api.deps import get_company_db, get_tenant_context, TenantContext
 from ...services.analytics_svc import AnalyticalIntelligenceService
+from ...models.sales import SalesInvoice, SalesInvoiceItem
+from ...models.crm import Customer
 
 router = APIRouter()
+BUSINESS_TIMEZONE = ZoneInfo("Asia/Kolkata")
+
+
+def retail_business_date(now: Optional[datetime] = None) -> date:
+    instant = now or datetime.now(timezone.utc)
+    return instant.astimezone(BUSINESS_TIMEZONE).date()
+
+
+@router.get("/home-summary")
+async def get_home_summary(
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+):
+    """Plain-language daily summary for role-based guided home screens."""
+    today = retail_business_date()
+
+    invoice_filters = (
+        SalesInvoice.company_id == tenant_ctx.company_id,
+        SalesInvoice.is_deleted == False,
+        SalesInvoice.status.notin_(["CANCELLED", "Cancelled", "DRAFT", "Draft"]),
+        SalesInvoice.date == today,
+    )
+    if tenant_ctx.branch_id:
+        invoice_filters += (
+            (SalesInvoice.branch_id == tenant_ctx.branch_id) | (SalesInvoice.branch_id.is_(None)),
+        )
+
+    totals = await db.execute(
+        select(
+            func.count(SalesInvoice.id),
+            func.coalesce(func.sum(SalesInvoice.net_amount), 0),
+            func.coalesce(func.sum(SalesInvoice.balance_amount), 0),
+        ).where(*invoice_filters)
+    )
+    invoice_count, total_sales, outstanding = totals.one()
+
+    items_sold = await db.execute(
+        select(func.coalesce(func.sum(SalesInvoiceItem.quantity), 0))
+        .join(SalesInvoice, SalesInvoiceItem.invoice_id == SalesInvoice.id)
+        .where(*invoice_filters)
+    )
+
+    customer_count = await db.execute(
+        select(func.count(Customer.id)).where(
+            Customer.company_id == tenant_ctx.company_id,
+            Customer.is_deleted == False,
+            Customer.created_date == today,
+        )
+    )
+
+    recent = await db.execute(
+        select(SalesInvoice)
+        .where(*invoice_filters)
+        .order_by(desc(SalesInvoice.created_at), desc(SalesInvoice.id))
+        .limit(5)
+    )
+
+    recent_rows = []
+    for invoice in recent.scalars().all():
+        recent_rows.append({
+            "id": invoice.id,
+            "invoice_no": invoice.invoice_no,
+            "customer_name": invoice.customer_name or "Walk-in Customer",
+            "net_amount": float(invoice.net_amount or 0),
+            "status": invoice.status or "Posted",
+            "date": invoice.date.isoformat() if invoice.date else today.isoformat(),
+        })
+
+    return {
+        "date": today.isoformat(),
+        "today_sales": float(total_sales or 0),
+        "bill_count": int(invoice_count or 0),
+        "items_sold": float(items_sold.scalar() or 0),
+        "new_customer_count": int(customer_count.scalar() or 0),
+        "today_unpaid_balance": float(outstanding or 0),
+        "customer_outstanding": float(outstanding or 0),
+        "recent_sales": recent_rows,
+    }
 
 
 class RebuildAggregatesRequest(BaseModel):

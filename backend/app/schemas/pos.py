@@ -203,8 +203,14 @@ class ShiftCashTransactionResponse(BaseModel):
 
 class ShiftClose(BaseModel):
     closing_balance: Optional[Decimal] = Field(None, ge=Decimal("0.00"))
+    actual_card_counted: Optional[Decimal] = Field(None, ge=Decimal("0.00"))
+    actual_upi_counted: Optional[Decimal] = Field(None, ge=Decimal("0.00"))
     denominations:   Optional[CashDenominationBreakdown] = None
-    closing_notes:   Optional[str] = Field(None, max_length=500)
+    closing_notes:   Optional[str] = Field(
+        None,
+        max_length=500,
+        description="Required when the cash, card, or UPI closeout has a non-zero variance.",
+    )
     idempotency_key: Optional[str] = Field(None, max_length=100)
 
 
@@ -228,6 +234,10 @@ class ShiftResponse(BaseModel):
     closing_balance:     Optional[Decimal] = None
     expected_cash:       Optional[Decimal] = None
     variance:            Optional[Decimal] = None
+    actual_card_counted: Optional[Decimal] = None
+    card_variance:       Optional[Decimal] = None
+    actual_upi_counted:  Optional[Decimal] = None
+    upi_variance:        Optional[Decimal] = None
     denominations:       Optional[Dict[str, Any]] = None
     closing_notes:       Optional[str] = None
     company_id:          Optional[str] = None
@@ -248,12 +258,18 @@ class POSZReportResponse(BaseModel):
     upi_sales_total:     Decimal
     total_sales:         Decimal
     total_invoices:      int
+    tax_total:           Decimal = Decimal("0.00")
+    discount_total:      Decimal = Decimal("0.00")
     cash_drops_total:    Decimal = Decimal("0.00")
     till_expenses_total: Decimal = Decimal("0.00")
     cash_in_total:       Decimal = Decimal("0.00")
     expected_cash:       Decimal
     closing_balance:     Decimal
     variance:            Decimal
+    actual_card_counted: Optional[Decimal] = None
+    card_variance:       Optional[Decimal] = None
+    actual_upi_counted:  Optional[Decimal] = None
+    upi_variance:        Optional[Decimal] = None
     denominations:       Optional[Dict[str, Any]] = None
     closing_notes:       Optional[str] = None
     gl_voucher_id:       Optional[str] = None

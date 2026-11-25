@@ -236,7 +236,9 @@ export class ProPosMasterCatalogCache {
       if (syncAgeMs > maxAgeMs) {
         isStale = true;
         warningDetail = `Offline catalog cache is older than ${maxCacheAgeDays} days. Please synchronize with server.`;
-        source = "STALE_FALLBACK";
+        if (!selectedRevision) {
+          source = "STALE_FALLBACK";
+        }
       }
     }
 

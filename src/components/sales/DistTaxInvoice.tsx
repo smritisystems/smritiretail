@@ -123,6 +123,7 @@ export const calculateTaxInvoiceMetrics = (
     totalAddons,
     totalDeductions,
     netAmount: Math.max(0, salesValue - itemDiscount + totalTax + totalAddons - totalDeductions),
+    grandTotal: Math.max(0, salesValue - itemDiscount + totalTax + totalAddons - totalDeductions),
   };
 };
 
@@ -1433,7 +1434,7 @@ export const DistTaxInvoice: React.FC<SmritiDistributorTaxInvoiceWorkspaceProps>
                       invoiceNo={`${docState.docPrefix}-${docState.docNo}`}
                       companyName={tenantContext.companyName}
                       companyGst={tenantContext.companyGstin}
-                      grandTotal={docState.summaryTotals?.grandTotal}
+                      grandTotal={metrics.grandTotal}
                       invoiceDate={docState.docDate}
                       size={64}
                     />

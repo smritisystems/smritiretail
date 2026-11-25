@@ -98,4 +98,7 @@ export interface TaxInvoiceDocumentState {
   dispatchFromSnapshot?: any | null;
   dispatchFromAddress?: string | null;
   dispatchFromName?: string | null;
+  summaryTotals?: {
+    grandTotal: number;
+  };
 }

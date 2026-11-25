@@ -187,14 +187,13 @@ export interface EodRegisterCloseout {
   actualCash: number;
   systemCard: number;
   actualCard: number;
+  cardVariance: number;
   systemUpi: number;
   actualUpi: number;
+  upiVariance: number;
   totalBills: number;
-  totalItemsSold: number;
-  grossSales: number;
+  totalSales: number;
   discountsTotal: number;
-  netSales: number;
-  returnsTotal: number;
   cashVariance: number;
   status: "Balanced" | "Variance_Detected";
   remarks?: string;
@@ -278,7 +277,10 @@ export interface POSZReportData {
   cash_sales: number;
   card_sales: number;
   upi_sales: number;
-  other_sales: number;
+  actual_card_counted?: number;
+  card_variance?: number;
+  actual_upi_counted?: number;
+  upi_variance?: number;
   total_sales: number;
   tax_total: number;
   discount_total: number;
@@ -329,7 +331,11 @@ export interface StoreDayShiftSummary {
   cash_variance: string | null;
   cash_sales: string;
   card_sales: string;
+  actual_card_counted: string | null;
+  card_variance: string | null;
   upi_sales: string;
+  actual_upi_counted: string | null;
+  upi_variance: string | null;
   total_sales: string;
   total_invoices: number;
 }
@@ -345,6 +351,21 @@ export interface StoreDayStoreTotals {
   closing_balance_total: string;
 }
 
+export interface StoreDayTenderReconciliation {
+  assigned_shifts: number;
+  card_reconciled_shifts: number;
+  card_variance: string | null;
+  upi_reconciled_shifts: number;
+  upi_variance: string | null;
+}
+
+export interface StoreDayUnassignedShift {
+  shift_id: string;
+  cashier_id: string;
+  closed_at: string | null;
+  total_sales: string;
+}
+
 export interface StoreDayEodReport {
   store_day_id: string;
   branch_id: string;
@@ -357,6 +378,9 @@ export interface StoreDayEodReport {
   sign_off_notes: string | null;
   store_totals: StoreDayStoreTotals;
   shifts: StoreDayShiftSummary[];
+  tender_reconciliation: StoreDayTenderReconciliation;
+  open_shifts: number;
+  unassigned_closed_shifts: StoreDayUnassignedShift[];
   pending_approvals: number;
   pending_offline_sync: number;
   exception_summary: StoreBusinessDay["exception_summary"];

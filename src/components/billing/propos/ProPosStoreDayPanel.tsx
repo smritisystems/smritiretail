@@ -63,6 +63,48 @@ const statusBadge = (status: string) => {
   return map[status] ?? "bg-slate-100 text-slate-600";
 };
 
+export const StoreDayTenderVarianceCard: React.FC<{
+  label: string;
+  variance: string | null;
+  reconciledShifts: number;
+  assignedShifts: number;
+}> = ({ label, variance, reconciledShifts, assignedShifts }) => {
+  const amount = variance === null ? null : Number(variance);
+  const isComplete = assignedShifts > 0
+    && reconciledShifts === assignedShifts
+    && amount !== null
+    && Number.isFinite(amount);
+  const hasVariance = isComplete && Math.abs(amount) >= 0.01;
+  const tone = isComplete
+    ? hasVariance
+      ? "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-700 dark:text-red-300"
+      : "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300"
+    : "bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300";
+  const varianceText = amount === null || !Number.isFinite(amount)
+    ? null
+    : amount === 0
+      ? "₹0.00"
+      : `${amount > 0 ? "+" : "-"}₹${Math.abs(amount).toFixed(2)}`;
+
+  return (
+    <div className={`p-3 rounded-xl border text-xs ${tone}`}>
+      <div className="font-bold">{label}</div>
+      {assignedShifts === 0 ? (
+        <div className="mt-1 text-[11px]">No shifts are assigned to this Store Day.</div>
+      ) : isComplete ? (
+        <div className="mt-1 font-mono">
+          Total difference: <strong>{varianceText}</strong>
+          {hasVariance ? " — Variance detected" : " — Balanced"}
+        </div>
+      ) : (
+        <div className="mt-1 text-[11px]">
+          Verified for {reconciledShifts} of {assignedShifts} assigned shifts. Total difference is hidden until all are reconciled.
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const ProPosStoreDayPanel: React.FC<ProPosStoreDayPanelProps> = ({
   branchId,
   businessDate,
@@ -70,41 +112,58 @@ export const ProPosStoreDayPanel: React.FC<ProPosStoreDayPanelProps> = ({
 }) => {
   const [storeDay, setStoreDay]         = useState<StoreBusinessDay | null>(null);
   const [eodReport, setEodReport]       = useState<StoreDayEodReport | null>(null);
-  const [loading, setLoading]           = useState(false);
+  const [loading, setLoading]           = useState(true);
   const [acting, setActing]             = useState(false);
   const [error, setError]               = useState<string | null>(null);
+  const [lookupError, setLookupError]   = useState<string | null>(null);
   const [showReport, setShowReport]     = useState(false);
   const [signOffNotes, setSignOffNotes] = useState("");
 
   // --- Fetch current open store day for branch ---------------------
   const loadStoreDay = useCallback(async () => {
     setLoading(true);
-    setError(null);
+    setLookupError(null);
     try {
-      // Try fetching by listing recent store days for this branch+date
+      const params = new URLSearchParams({ branch_id: branchId, business_date: businessDate });
       const list = await apiFetchV1<StoreBusinessDay[]>(
-        `/pos/store-days?branch_id=${branchId}&business_date=${businessDate}`
+        `/pos/store-days?${params.toString()}`
       );
-      const open = (list || []).find((d) => d.status === "OPEN") || (list || [])[0] || null;
+      if (!Array.isArray(list)) {
+        throw new Error("The store-day service returned an invalid response.");
+      }
+      const open = list.find((d) => d.status === "OPEN") || list[0] || null;
       setStoreDay(open);
       if (open && showReport) {
         await loadEodReport(open.id);
       }
-    } catch {
+    } catch (e) {
       setStoreDay(null);
+      setEodReport(null);
+      console.error("Failed to load store business day:", e);
+      setLookupError("Please refresh and try again. If the problem continues, contact your system administrator.");
     } finally {
       setLoading(false);
     }
   }, [branchId, businessDate, showReport]);
 
-  const loadEodReport = async (storeDayId: string) => {
+  const loadEodReport = async (storeDayId: string): Promise<StoreDayEodReport | null> => {
     try {
       const report = await apiFetchV1<StoreDayEodReport>(
         `/pos/store-days/${storeDayId}/eod-report`
       );
+      if (!Number.isInteger(report.open_shifts) || report.open_shifts < 0) {
+        throw new Error("The EOD report did not include a valid open-shift count.");
+      }
+      if (!Array.isArray(report.unassigned_closed_shifts)) {
+        throw new Error("The EOD report did not include the closed-shift assignment list.");
+      }
       setEodReport(report);
+      return report;
     } catch (e: any) {
       setEodReport(null);
+      setError("Could not verify active cashier shifts. Refresh and try again; the store day was not closed.");
+      console.error("Failed to load store-day EOD report before close:", e);
+      return null;
     }
   };
 
@@ -138,6 +197,23 @@ export const ProPosStoreDayPanel: React.FC<ProPosStoreDayPanelProps> = ({
     setActing(true);
     setError(null);
     try {
+      const report = await loadEodReport(storeDay.id);
+      if (!report) return;
+      if (report.open_shifts > 0) {
+        setShowReport(true);
+        const message = `Cannot close the store day: ${report.open_shifts} cashier shift(s) are still open. Close all register shifts first.`;
+        setError(message);
+        onNotification?.("Cashier shifts still open", message, "error");
+        return;
+      }
+      if (report.unassigned_closed_shifts.length > 0) {
+        setShowReport(true);
+        const message = `Cannot close the store day: ${report.unassigned_closed_shifts.length} closed cashier shift(s) are missing from the EOD report. Assign them to this Store Day first.`;
+        setError(message);
+        onNotification?.("Closed shifts need assignment", message, "error");
+        return;
+      }
+
       const day = await apiFetchV1<StoreBusinessDay>(
         `/pos/store-days/${storeDay.id}/close`,
         {
@@ -152,6 +228,27 @@ export const ProPosStoreDayPanel: React.FC<ProPosStoreDayPanelProps> = ({
       const msg = e?.detail || e?.message || "Could not close the store business day.";
       setError(msg);
       onNotification?.("Cannot Close Store Day", msg, "error");
+    } finally {
+      setActing(false);
+    }
+  };
+
+  const handleAssignShift = async (shiftId: string) => {
+    if (!storeDay || storeDay.status !== "OPEN") return;
+    setActing(true);
+    setError(null);
+    try {
+      await apiFetchV1(`/pos/store-days/${storeDay.id}/assign-shift`, {
+        method: "POST",
+        body: JSON.stringify({ shift_id: shiftId }),
+      });
+      const report = await loadEodReport(storeDay.id);
+      if (!report) return;
+      onNotification?.("Shift added to Store Day", "The cashier shift is now included in the EOD report.", "success");
+    } catch (e: any) {
+      const msg = e?.detail || e?.message || "Could not assign the cashier shift to this Store Day.";
+      setError(msg);
+      onNotification?.("Shift assignment failed", msg, "error");
     } finally {
       setActing(false);
     }
@@ -191,7 +288,7 @@ export const ProPosStoreDayPanel: React.FC<ProPosStoreDayPanelProps> = ({
   const isClosed  = storeDay?.status === "CLOSED";
   const isOpen    = storeDay?.status === "OPEN";
   const hasDay    = !!storeDay;
-  const noDay     = !hasDay;
+  const noDay     = !hasDay && !loading && !lookupError;
 
   return (
     <div className="bg-white dark:bg-[#1a1f2e] border border-[#c4c5d5] dark:border-[#2d3148] rounded-2xl shadow-sm overflow-hidden">
@@ -285,16 +382,22 @@ export const ProPosStoreDayPanel: React.FC<ProPosStoreDayPanelProps> = ({
 
       {/* Error */}
       {error && (
-        <div className="mx-5 mt-4 p-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 flex gap-2 items-start text-xs">
+        <div role="alert" className="mx-5 mt-4 p-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 flex gap-2 items-start text-xs">
           <AlertTriangle size={14} className="mt-0.5 shrink-0" />
           <span>{error}</span>
+        </div>
+      )}
+      {lookupError && (
+        <div role="alert" className="mx-5 mt-4 p-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 flex gap-2 items-start text-xs">
+          <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+          <span>Could not check the store business day. {lookupError} Use Refresh to try again.</span>
         </div>
       )}
 
       {/* No day yet */}
       {noDay && !loading && (
         <div className="px-5 py-8 text-center text-slate-400 dark:text-slate-500 text-xs">
-          No store business day is open for {businessDate}. Open the day to begin recording cashier shifts.
+          No store business day is open for {businessDate}. Cashier shifts can continue, but open a store day before closing shifts to include them in the store-wide EOD report.
         </div>
       )}
 
@@ -385,6 +488,48 @@ export const ProPosStoreDayPanel: React.FC<ProPosStoreDayPanelProps> = ({
             </div>
           )}
 
+          {eodReport.open_shifts > 0 && (
+            <div role="alert" className="p-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 flex gap-2 items-start text-xs text-amber-800 dark:text-amber-300">
+              <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+              <div>
+                <div className="font-bold">
+                  {eodReport.open_shifts} cashier shift{eodReport.open_shifts === 1 ? " is" : "s are"} still open.
+                </div>
+                <div className="text-[10px] mt-0.5">
+                  Close each register shift before closing the Store Day. This check includes unassigned shifts at this branch.
+                </div>
+              </div>
+            </div>
+          )}
+
+          {eodReport.unassigned_closed_shifts.length > 0 && (
+            <div role="alert" className="p-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-300">
+              <div className="font-bold">
+                {eodReport.unassigned_closed_shifts.length} closed cashier shift{eodReport.unassigned_closed_shifts.length === 1 ? " is" : "s are"} missing from this report.
+              </div>
+              <div className="text-[10px] mt-0.5">
+                Assign each shift to this Store Day before closing so its sales and tender totals are included.
+              </div>
+              <div className="mt-2 space-y-2">
+                {eodReport.unassigned_closed_shifts.map((shift) => (
+                  <div key={shift.shift_id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-lg border border-amber-200 dark:border-amber-800 bg-white/70 dark:bg-black/10 p-2">
+                    <div className="font-mono text-[10px]">
+                      <strong>{shift.cashier_id}</strong> · {shift.shift_id} · Closed {shift.closed_at ? new Date(shift.closed_at).toLocaleString() : "time unavailable"} · Sales {fmt(shift.total_sales)}
+                    </div>
+                    <button
+                      type="button"
+                      disabled={acting || !isOpen}
+                      onClick={() => handleAssignShift(shift.shift_id)}
+                      className="px-3 py-1.5 rounded-lg bg-amber-700 hover:bg-amber-800 text-white text-[10px] font-bold disabled:opacity-50"
+                    >
+                      Assign to this Store Day
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Store-level totals strip */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <div className="p-3 rounded-xl bg-[#f0f4ff] dark:bg-[#131b2e] border border-[#c4c5d5] dark:border-[#2d3148]">
@@ -441,6 +586,21 @@ export const ProPosStoreDayPanel: React.FC<ProPosStoreDayPanelProps> = ({
             );
           })()}
 
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <StoreDayTenderVarianceCard
+              label="Card settlement reconciliation"
+              variance={eodReport.tender_reconciliation.card_variance}
+              reconciledShifts={eodReport.tender_reconciliation.card_reconciled_shifts}
+              assignedShifts={eodReport.tender_reconciliation.assigned_shifts}
+            />
+            <StoreDayTenderVarianceCard
+              label="UPI settlement reconciliation"
+              variance={eodReport.tender_reconciliation.upi_variance}
+              reconciledShifts={eodReport.tender_reconciliation.upi_reconciled_shifts}
+              assignedShifts={eodReport.tender_reconciliation.assigned_shifts}
+            />
+          </div>
+
           {/* Per-shift breakdown */}
           {eodReport.shifts.length > 0 && (
             <div className="overflow-x-auto rounded-xl border border-[#c4c5d5] dark:border-[#2d3148]">
@@ -451,15 +611,21 @@ export const ProPosStoreDayPanel: React.FC<ProPosStoreDayPanelProps> = ({
                     <th className="px-4 py-2.5">Status</th>
                     <th className="px-4 py-2.5 text-right">Total Sales</th>
                     <th className="px-4 py-2.5 text-right">Cash</th>
-                    <th className="px-4 py-2.5 text-right">Card</th>
-                    <th className="px-4 py-2.5 text-right">UPI</th>
-                    <th className="px-4 py-2.5 text-right">Variance</th>
+                    <th className="px-4 py-2.5 text-right">Card Sales</th>
+                    <th className="px-4 py-2.5 text-right">Card Counted</th>
+                    <th className="px-4 py-2.5 text-right">Card Difference</th>
+                    <th className="px-4 py-2.5 text-right">UPI Sales</th>
+                    <th className="px-4 py-2.5 text-right">UPI Counted</th>
+                    <th className="px-4 py-2.5 text-right">UPI Difference</th>
+                    <th className="px-4 py-2.5 text-right">Cash Variance</th>
                     <th className="px-4 py-2.5 text-right">Bills</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#eceef0] dark:divide-[#2d3148]">
                   {eodReport.shifts.map((s) => {
                     const v = s.cash_variance !== null ? parseFloat(s.cash_variance) : null;
+                    const cardVariance = s.card_variance !== null ? parseFloat(s.card_variance) : null;
+                    const upiVariance = s.upi_variance !== null ? parseFloat(s.upi_variance) : null;
                     return (
                       <tr key={s.shift_id} className="hover:bg-[#f8f9fa] dark:hover:bg-[#1a1f2e]">
                         <td className="px-4 py-2.5 font-mono font-bold">{s.cashier_id}</td>
@@ -473,7 +639,27 @@ export const ProPosStoreDayPanel: React.FC<ProPosStoreDayPanelProps> = ({
                         </td>
                         <td className="px-4 py-2.5 text-right font-mono">{fmt(s.cash_sales)}</td>
                         <td className="px-4 py-2.5 text-right font-mono">{fmt(s.card_sales)}</td>
+                        <td className="px-4 py-2.5 text-right font-mono">
+                          {s.actual_card_counted !== null ? fmt(s.actual_card_counted) : "Not recorded"}
+                        </td>
+                        <td className={`px-4 py-2.5 text-right font-mono font-bold ${
+                          cardVariance === null ? "text-slate-400"
+                          : Math.abs(cardVariance) < 0.01 ? "text-emerald-600 dark:text-emerald-400"
+                          : "text-red-600 dark:text-red-400"
+                        }`}>
+                          {cardVariance !== null ? fmt(cardVariance) : "Not recorded"}
+                        </td>
                         <td className="px-4 py-2.5 text-right font-mono">{fmt(s.upi_sales)}</td>
+                        <td className="px-4 py-2.5 text-right font-mono">
+                          {s.actual_upi_counted !== null ? fmt(s.actual_upi_counted) : "Not recorded"}
+                        </td>
+                        <td className={`px-4 py-2.5 text-right font-mono font-bold ${
+                          upiVariance === null ? "text-slate-400"
+                          : Math.abs(upiVariance) < 0.01 ? "text-emerald-600 dark:text-emerald-400"
+                          : "text-red-600 dark:text-red-400"
+                        }`}>
+                          {upiVariance !== null ? fmt(upiVariance) : "Not recorded"}
+                        </td>
                         <td className={`px-4 py-2.5 text-right font-mono font-bold ${
                           v === null ? "text-slate-400"
                           : Math.abs(v) < 0.01 ? "text-emerald-600 dark:text-emerald-400"

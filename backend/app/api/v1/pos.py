@@ -214,7 +214,11 @@ async def get_shift_z_report(
     current_user: User = Depends(require_role(UserRole.CASHIER, UserRole.MANAGER, UserRole.SYSADMIN)),
 ):
     """Get authoritative Z-Report data for a shift."""
-    return await POSService(db, tenant).get_z_report(shift_id)
+    return await POSService(db, tenant).get_z_report(
+        shift_id,
+        requesting_user_id=current_user.id,
+        requesting_user_role=current_user.role,
+    )
 
 
 
@@ -430,8 +434,8 @@ async def toggle_lock_pos_profile(
 @router.get(
     "/pos/shifts/",
     response_model=List[ShiftResponse],
-    summary="List All Shifts",
-    description="List the 100 most recent shifts for this tenant.",
+    summary="List Recent Shifts",
+    description="List recent shifts for this tenant. Cashiers only receive their own shifts.",
     dependencies=[Depends(require_role(UserRole.CASHIER, UserRole.MANAGER, UserRole.SYSADMIN))],
 )
 async def list_shifts(
@@ -439,8 +443,9 @@ async def list_shifts(
     db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
-    """List all shifts for this tenant, newest first."""
-    return await POSService(db, tenant).list_shifts()
+    """List recent shifts, scoped to the signed-in cashier when applicable."""
+    cashier_id = current_user.id if current_user.role == UserRole.CASHIER else None
+    return await POSService(db, tenant).list_shifts(cashier_id=cashier_id)
 
 
 # ─────────────────────────── F12 Park & Recall Carts (v6.30.0) ───────────────────────────

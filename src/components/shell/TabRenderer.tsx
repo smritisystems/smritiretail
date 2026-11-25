@@ -32,6 +32,7 @@ import { PosProfilesTab } from "../PosProfilesTab.tsx";
 import { WikiTab } from "../WikiTab.tsx";
 import { DocumentSeriesTab } from "../DocumentSeriesTab.tsx";
 import { FioriLaunchpad } from "../launchpad/FioriLaunchpad.tsx";
+import { GuidedHome } from "../dashboard/GuidedHome.tsx";
 
 // Lazy-loaded components (heavy feature modules)
 const PsvTab = lazy(() => import("../PsvTab.tsx").then(m => ({ default: m.PsvTab })));
@@ -73,6 +74,7 @@ const CompanyProfileStudio = lazy(() => import("../setup/CompanyProfileStudio.ts
 const SmritiSalesPromotionsStudio = lazy(() => import("../promotions/SmritiSalesPromotionsStudio.tsx").then(m => ({ default: m.SmritiSalesPromotionsStudio })));
 const WmsStudioTab = lazy(() => import("../wms/WmsStudioTab.tsx").then(m => ({ default: m.WmsStudioTab })));
 const SetupWizardTab = lazy(() => import("../SetupWizard/SetupWizardTab.tsx").then(m => ({ default: m.SetupWizardTab })));
+const GuidedSetupWizard = lazy(() => import("../SetupWizard/GuidedSetupWizard.tsx").then(m => ({ default: m.GuidedSetupWizard })));
 const MenuManagerStudioTab = lazy(() => import("../MenuManagerStudioTab.tsx").then(m => ({ default: m.MenuManagerStudioTab })));
 const BillingWorkspace = lazy(() => import("../billing/BillingWorkspace.tsx").then(m => ({ default: m.BillingWorkspace })));
 const DispatchInvoicingStudioTab = lazy(() => import("../sales/DispatchInvoicingStudioTab.tsx").then(m => ({ default: m.DispatchInvoicingStudioTab })));
@@ -244,6 +246,8 @@ export const mapModuleId = (id: string): string => {
     "menu-company-profile": "company-profile",
     "menu-company-settings": "company-profile",
     "menu-company-setup": "company-setup",
+    "setup-wizard": "company-setup",
+    "company-setup": "company-setup",
     "menu-audit-logs": "audit-logs",
     "b2b-dispatch-studio": "dispatch-studio",
     "dispatch-studio": "dispatch-studio",
@@ -350,13 +354,9 @@ export const renderTabNode = (tabId: string, ctx: TabRendererContextProps): Reac
         );
       }
       return (
-        <RegularUxDashboard
-          products={products}
-          formulas={formulas}
-          psvParties={psvParties}
+        <GuidedHome
           currentUser={currentUser}
           onNavigateTab={(tab) => setActiveTab(mapModuleId(tab))}
-          onSelectFormula={(formula) => setSelectedFormula(formula)}
         />
       );
     case "workspaces":
@@ -666,7 +666,7 @@ export const renderTabNode = (tabId: string, ctx: TabRendererContextProps): Reac
       return <WmsStudioTab currentUser={currentUser} onNotification={addNotification} />;
     case "company-setup":
       return (
-        <SetupWizardTab 
+        <GuidedSetupWizard
           onComplete={() => {
             markSetupCompleted();
             addNotification("Setup Complete", "Welcome to SMRITI Retail OS dashboard!", "success");

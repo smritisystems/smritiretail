@@ -18,6 +18,7 @@ import { CashDenominations, POSZReportData } from "./types.ts";
 import ProPosDenomination, { calculateDenominationTotal } from "./ProPosDenomination.tsx";
 import ProPosShiftHandoverSlip from "./ProPosShiftHandoverSlip.tsx";
 import { apiFetchV1 } from "../../../lib/apiFetchV1.ts";
+import { getRetailBusinessDate } from "../../../utils/formatters.ts";
 import {
   Lock,
   Printer,
@@ -115,6 +116,14 @@ export const SmritiProPosShiftCloseModal: React.FC<SmritiProPosShiftCloseModalPr
       onNotification?.("Day Close unavailable", "There is no live open shift available to close.", "error");
       return;
     }
+    if (Math.abs(cashVariance) >= 0.01 && !closingNotes.trim()) {
+      onNotification?.(
+        "Variance explanation required",
+        "Add a short explanation for the cash difference before closing.",
+        "error",
+      );
+      return;
+    }
     if (countedCash === 0 && expectedCash > 0) {
       const confirmZero = window.confirm(
         "Physical cash counted is ₹0.00 while expected cash is ₹" +
@@ -151,21 +160,32 @@ export const SmritiProPosShiftCloseModal: React.FC<SmritiProPosShiftCloseModalPr
         body: JSON.stringify(payload),
       });
 
-      // Auto-assign the closed shift to the open store business day (non-blocking)
+      let assignmentIssue: string | null = null;
       try {
-        const today = new Date().toISOString().slice(0, 10);
-        const dayList = await apiFetchV1<any[]>(
-          `/pos/store-days?branch_id=${zReportData?.branch_id || ""}&business_date=${today}`
+        const branchId = zReportData?.branch_id;
+        if (!branchId) {
+          throw new Error("The shift report did not include its branch, so it could not be assigned.");
+        }
+        const businessDate = getRetailBusinessDate();
+        const dayList = await apiFetchV1<Array<{ id: string; status: string }>>(
+          `/pos/store-days?branch_id=${encodeURIComponent(branchId)}&business_date=${businessDate}`
         );
-        const openDay = (dayList || []).find((d: any) => d.status === "OPEN");
-        if (openDay) {
+        if (!Array.isArray(dayList)) {
+          throw new Error("The Store Day service returned an invalid response.");
+        }
+        const openDay = dayList.find((day) => day.status === "OPEN");
+        if (!openDay) {
+          assignmentIssue = `No open Store Day was found for ${businessDate}. This shift is closed but must be assigned before Store Day close.`;
+        } else {
           await apiFetchV1(`/pos/store-days/${openDay.id}/assign-shift`, {
             method: "POST",
             body: JSON.stringify({ shift_id: shiftId }),
           });
         }
-      } catch {
-        // Auto-assign failure is non-blocking — shift is already closed
+      } catch (assignmentError: any) {
+        console.error("Shift closed but Store Day assignment failed:", assignmentError);
+        assignmentIssue = assignmentError?.detail || assignmentError?.message
+          || "The shift closed but could not be assigned to its Store Day.";
       }
 
       const updatedZReport: POSZReportData = {
@@ -183,11 +203,15 @@ export const SmritiProPosShiftCloseModal: React.FC<SmritiProPosShiftCloseModalPr
 
       setClosedResult(updatedZReport);
       onShiftClosed(updatedZReport);
-      onNotification?.(
-        "Shift Closed & Z-Report Generated",
-        `Register locked. Balancing GL Voucher: ${res.shift_close_voucher_id || "Balanced"}`,
-        "success"
-      );
+      if (assignmentIssue) {
+        onNotification?.("Shift closed; Store Day assignment needed", assignmentIssue, "error");
+      } else {
+        onNotification?.(
+          "Shift Closed & Z-Report Generated",
+          `Register locked and assigned to the open Store Day. Balancing GL Voucher: ${res.shift_close_voucher_id || "Balanced"}`,
+          "success"
+        );
+      }
     } catch (err: any) {
       console.error("Failed to close shift:", err);
       onNotification?.("Shift Closeout Failed", err?.message || "Failed to finalize shift closeout.", "error");
@@ -495,9 +519,16 @@ export const SmritiProPosShiftCloseModal: React.FC<SmritiProPosShiftCloseModalPr
                 rows={2}
                 value={closingNotes}
                 onChange={(e) => setClosingNotes(e.target.value)}
+                aria-required={Math.abs(cashVariance) >= 0.01}
+                aria-invalid={Math.abs(cashVariance) >= 0.01 && !closingNotes.trim()}
                 placeholder="Enter shift handover notes, reason for any variance, or physical cash drop envelope reference..."
                 className="w-full px-3 py-2 text-xs rounded-xl border border-[#cbd5e1] dark:border-[#475569] bg-[#f8fafc] dark:bg-[#0f172a] text-[#0f172a] dark:text-[#f8fafc] focus:border-[#00288e] focus:ring-2 focus:ring-[#00288e]/20 outline-none transition"
               />
+              {Math.abs(cashVariance) >= 0.01 && !closingNotes.trim() && (
+                <div role="alert" className="mt-1 text-[11px] font-medium text-[#9a3412] dark:text-[#fdba74]">
+                  Add a short explanation for the cash difference before closing.
+                </div>
+              )}
             </div>
 
             {/* Bottom Actions */}
@@ -512,7 +543,7 @@ export const SmritiProPosShiftCloseModal: React.FC<SmritiProPosShiftCloseModalPr
 
               <button
                 type="button"
-                disabled={closing || loading}
+                disabled={closing || loading || (Math.abs(cashVariance) >= 0.01 && !closingNotes.trim())}
                 onClick={handleCloseShift}
                 className="px-8 py-3 bg-[#00288e] hover:bg-[#1e40af] text-white text-xs font-bold rounded-2xl shadow-lg transition disabled:opacity-40 flex items-center gap-2"
               >

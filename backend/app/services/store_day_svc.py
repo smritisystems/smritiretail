@@ -19,15 +19,18 @@ Design constraints:
   - No shadow aggregation tables. All totals computed at query time from
     authoritative ledger tables (shifts, shift_cash_transactions, sales,
     compliance_immutable_audit_logs, pos_offline_sync_queue, approval_requests).
-  - Store-day close is blocked when any ApprovalRequest for the branch is PENDING.
+  - Store-day close is blocked while any cashier shift at the branch is OPEN or
+    a closed shift for the business date is still unassigned.
+  - Pending approvals or offline sync also block close unless force=True.
   - Null actor_user_id renders as "Unknown / not recorded" -- never invent identity.
 """
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone, date, timedelta
+from datetime import datetime, timezone, date, time, timedelta
 from decimal import Decimal
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -47,6 +50,18 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def _business_date_for_timestamp(value: datetime) -> date:
+    timestamp = value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    return timestamp.astimezone(ZoneInfo("Asia/Kolkata")).date()
+
+
+def _business_day_utc_range(business_date: date) -> tuple[datetime, datetime]:
+    business_timezone = ZoneInfo("Asia/Kolkata")
+    start = datetime.combine(business_date, time.min, tzinfo=business_timezone).astimezone(timezone.utc)
+    end = datetime.combine(business_date + timedelta(days=1), time.min, tzinfo=business_timezone).astimezone(timezone.utc)
+    return start, end
+
+
 def _dec(val) -> Decimal:
     if val is None:
         return Decimal("0.00")
@@ -62,6 +77,23 @@ class StoreDayService:
     def __init__(self, db: AsyncSession, tenant: TenantContext) -> None:
         self.db = db
         self.tenant = tenant
+
+    async def list_store_days(
+        self,
+        branch_id: str,
+        business_date: date,
+    ) -> list[StoreBusinessDay]:
+        result = await self.db.execute(
+            select(StoreBusinessDay).where(
+                and_(
+                    StoreBusinessDay.company_id == self.tenant.company_id,
+                    StoreBusinessDay.branch_id == branch_id,
+                    StoreBusinessDay.business_date == business_date,
+                    StoreBusinessDay.is_deleted == False,
+                )
+            ).order_by(StoreBusinessDay.opened_at.desc())
+        )
+        return result.scalars().all()
 
     # -- Open -----------------------------------------------------------------
 
@@ -101,19 +133,44 @@ class StoreDayService:
         shift_id: str,
         assigned_by: str,
     ) -> StoreDayShiftAssignment:
-        """Link a cashier shift to an open store business day."""
-        existing = await self.db.execute(
-            select(StoreDayShiftAssignment).where(
-                StoreDayShiftAssignment.shift_id == shift_id
+        """Link a closed shift to the matching open business day in the same branch."""
+        day = await self._get_day_or_raise(store_day_id)
+        if day.status != "OPEN":
+            raise ValueError("A shift can only be assigned to an OPEN store business day.")
+
+        shift_result = await self.db.execute(
+            select(Shift).where(
+                Shift.id == shift_id,
+                Shift.company_id == self.tenant.company_id,
+                Shift.branch_id == day.branch_id,
+                Shift.is_deleted == False,
             )
         )
-        if existing.scalar_one_or_none():
+        shift = shift_result.scalar_one_or_none()
+        if not shift:
+            raise ValueError("The cashier shift was not found in this branch.")
+        if shift.status != "CLOSED" or not shift.closed_at:
+            raise ValueError("Only a closed cashier shift can be assigned to a Store Day.")
+        if _business_date_for_timestamp(shift.closed_at) != day.business_date:
+            raise ValueError(
+                "The cashier shift closed on a different business date and cannot be assigned to this Store Day."
+            )
+
+        existing = await self.db.execute(
+            select(StoreDayShiftAssignment).where(
+                StoreDayShiftAssignment.shift_id == shift_id,
+            )
+        )
+        existing_assignment = existing.scalar_one_or_none()
+        if existing_assignment and existing_assignment.store_day_id == day.id:
+            return existing_assignment
+        if existing_assignment:
             raise ValueError(f"Shift {shift_id} is already assigned to a store business day.")
         assignment = StoreDayShiftAssignment(
             id=_new_id(),
             uuid=str(uuid.uuid4()),
             company_id=self.tenant.company_id,
-            branch_id=self.tenant.branch_id,
+            branch_id=day.branch_id,
             store_day_id=store_day_id,
             shift_id=shift_id,
             assigned_at=_now(),
@@ -134,13 +191,25 @@ class StoreDayService:
     ) -> StoreBusinessDay:
         """
         Close an OPEN store business day.
-        Blocked by pending ApprovalRequests or pending offline sync items
-        unless force=True (SYSADMIN only).
+        Always blocked while a cashier shift remains OPEN. Pending ApprovalRequests
+        or offline sync items may be bypassed with force=True (SYSADMIN only).
         """
         day = await self._get_day_or_raise(store_day_id)
         if day.status != "OPEN":
             raise ValueError(
                 f"Store day {store_day_id} is not OPEN (current status: {day.status})."
+            )
+        open_shifts = await self._count_open_shifts(day.branch_id)
+        if open_shifts > 0:
+            raise ValueError(
+                f"Cannot close store day: {open_shifts} cashier shift(s) are still OPEN "
+                "for this branch. Close all register shifts first."
+            )
+        unassigned_shifts = await self._list_unassigned_closed_shifts(day)
+        if unassigned_shifts:
+            raise ValueError(
+                f"Cannot close store day: {len(unassigned_shifts)} closed cashier shift(s) "
+                "from this business date are not included in the EOD report. Assign them first."
             )
         if not force:
             pending_approvals = await self._count_pending_approvals(day.branch_id)
@@ -199,6 +268,7 @@ class StoreDayService:
         )
         assignments = result.scalars().all()
         shift_ids = [a.shift_id for a in assignments]
+        unassigned_shifts = await self._list_unassigned_closed_shifts(day)
 
         shifts_data = []
         store_totals = {
@@ -211,6 +281,10 @@ class StoreDayService:
             "opening_balance_total": Decimal("0.00"),
             "closing_balance_total": Decimal("0.00"),
         }
+        card_variance_total = Decimal("0.00")
+        card_reconciled_shifts = 0
+        upi_variance_total = Decimal("0.00")
+        upi_reconciled_shifts = 0
 
         for sid in shift_ids:
             shift_row = await self.db.execute(select(Shift).where(Shift.id == sid))
@@ -221,6 +295,7 @@ class StoreDayService:
             expected = (
                 _dec(shift.opening_balance)
                 + _dec(shift.cash_sales_total)
+                + _dec(shift.cash_in_total)
                 - _dec(shift.cash_drops_total)
                 - _dec(shift.till_expenses_total)
             )
@@ -241,7 +316,23 @@ class StoreDayService:
                 "cash_variance": str(variance) if variance is not None else None,
                 "cash_sales": str(_dec(shift.cash_sales_total)),
                 "card_sales": str(_dec(shift.card_sales_total)),
+                "actual_card_counted": (
+                    str(_dec(shift.actual_card_counted))
+                    if shift.actual_card_counted is not None else None
+                ),
+                "card_variance": (
+                    str(_dec(shift.card_variance))
+                    if shift.card_variance is not None else None
+                ),
                 "upi_sales": str(_dec(shift.upi_sales_total)),
+                "actual_upi_counted": (
+                    str(_dec(shift.actual_upi_counted))
+                    if shift.actual_upi_counted is not None else None
+                ),
+                "upi_variance": (
+                    str(_dec(shift.upi_variance))
+                    if shift.upi_variance is not None else None
+                ),
                 "total_sales": str(_dec(shift.total_sales)),
                 "total_invoices": int(shift.total_invoices or 0),
             })
@@ -256,9 +347,17 @@ class StoreDayService:
                 store_totals["closing_balance_total"] += _dec(shift.closing_balance)
             if variance is not None:
                 store_totals["cash_variance"] += variance
+            if shift.actual_card_counted is not None and shift.card_variance is not None:
+                card_variance_total += _dec(shift.card_variance)
+                card_reconciled_shifts += 1
+            if shift.actual_upi_counted is not None and shift.upi_variance is not None:
+                upi_variance_total += _dec(shift.upi_variance)
+                upi_reconciled_shifts += 1
 
         pending_approvals = await self._count_pending_approvals(day.branch_id)
         pending_sync = await self._count_pending_sync(day.branch_id)
+        open_shifts = await self._count_open_shifts(day.branch_id)
+        assigned_shift_count = len(shifts_data)
 
         return {
             "store_day_id": day.id,
@@ -273,6 +372,31 @@ class StoreDayService:
             "store_totals": {k: str(v) if isinstance(v, Decimal) else v
                              for k, v in store_totals.items()},
             "shifts": shifts_data,
+            "unassigned_closed_shifts": [
+                {
+                    "shift_id": shift.id,
+                    "cashier_id": shift.cashier_id,
+                    "closed_at": shift.closed_at.isoformat() if shift.closed_at else None,
+                    "total_sales": str(_dec(shift.total_sales)),
+                }
+                for shift in unassigned_shifts
+            ],
+            "tender_reconciliation": {
+                "assigned_shifts": assigned_shift_count,
+                "card_reconciled_shifts": card_reconciled_shifts,
+                "card_variance": (
+                    str(card_variance_total)
+                    if assigned_shift_count > 0 and card_reconciled_shifts == assigned_shift_count
+                    else None
+                ),
+                "upi_reconciled_shifts": upi_reconciled_shifts,
+                "upi_variance": (
+                    str(upi_variance_total)
+                    if assigned_shift_count > 0 and upi_reconciled_shifts == assigned_shift_count
+                    else None
+                ),
+            },
+            "open_shifts": open_shifts,
             "pending_approvals": pending_approvals,
             "pending_offline_sync": pending_sync,
             "exception_summary": day.exception_summary_json,
@@ -344,8 +468,10 @@ class StoreDayService:
         result = await self.db.execute(
             select(StoreBusinessDay).where(
                 and_(
+                    StoreBusinessDay.company_id == self.tenant.company_id,
                     StoreBusinessDay.branch_id == branch_id,
                     StoreBusinessDay.status == "OPEN",
+                    StoreBusinessDay.is_deleted == False,
                 )
             )
         )
@@ -353,7 +479,11 @@ class StoreDayService:
 
     async def _get_day_or_raise(self, store_day_id: str) -> StoreBusinessDay:
         result = await self.db.execute(
-            select(StoreBusinessDay).where(StoreBusinessDay.id == store_day_id)
+            select(StoreBusinessDay).where(
+                StoreBusinessDay.id == store_day_id,
+                StoreBusinessDay.company_id == self.tenant.company_id,
+                StoreBusinessDay.is_deleted == False,
+            )
         )
         day = result.scalar_one_or_none()
         if not day:
@@ -370,6 +500,42 @@ class StoreDayService:
             )
         )
         return result.scalar_one() or 0
+
+    async def _count_open_shifts(self, branch_id: str) -> int:
+        result = await self.db.execute(
+            select(func.count()).select_from(Shift).where(
+                and_(
+                    Shift.company_id == self.tenant.company_id,
+                    Shift.branch_id == branch_id,
+                    Shift.status == "OPEN",
+                    Shift.is_deleted == False,
+                )
+            )
+        )
+        return result.scalar_one() or 0
+
+    async def _list_unassigned_closed_shifts(self, day: StoreBusinessDay) -> list[Shift]:
+        start, end = _business_day_utc_range(day.business_date)
+        result = await self.db.execute(
+            select(Shift)
+            .outerjoin(
+                StoreDayShiftAssignment,
+                StoreDayShiftAssignment.shift_id == Shift.id,
+            )
+            .where(
+                and_(
+                    Shift.company_id == self.tenant.company_id,
+                    Shift.branch_id == day.branch_id,
+                    Shift.status == "CLOSED",
+                    Shift.closed_at >= start,
+                    Shift.closed_at < end,
+                    Shift.is_deleted == False,
+                    StoreDayShiftAssignment.id.is_(None),
+                )
+            )
+            .order_by(Shift.closed_at)
+        )
+        return result.scalars().all()
 
     async def _count_pending_sync(self, branch_id: str) -> int:
         try:

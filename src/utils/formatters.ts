@@ -39,6 +39,27 @@ export function safeDivision(numerator: unknown, denominator: unknown, fallback 
   return Number.isFinite(result) ? result : fallback;
 }
 
+export function getRetailBusinessDate(date: Date = new Date()): string {
+  if (Number.isNaN(date.getTime())) {
+    throw new RangeError("A valid date is required to calculate the retail business date.");
+  }
+  const parts = new Intl.DateTimeFormat("en-IN", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((value) => value.type === type)?.value;
+  const year = part("year");
+  const month = part("month");
+  const day = part("day");
+  if (!year || !month || !day) {
+    throw new Error("Could not calculate the retail business date.");
+  }
+  return `${year}-${month}-${day}`;
+}
+
 /**
  * Formats a date using en-IN locale with custom options.
  * Default pattern: day/month/short-form (e.g. "12 Jul")

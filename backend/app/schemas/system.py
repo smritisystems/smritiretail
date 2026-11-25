@@ -11,9 +11,24 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional
+from zoneinfo import ZoneInfo
 from pydantic import BaseModel, Field, ConfigDict, field_validator
+
+
+def current_financial_year_defaults(today: Optional[date] = None) -> tuple[str, str]:
+    local_today = today or datetime.now(ZoneInfo("Asia/Kolkata")).date()
+    start_year = local_today.year if local_today.month >= 4 else local_today.year - 1
+    return f"{start_year}-{start_year + 1}", f"{start_year}-04-01"
+
+
+def current_financial_year() -> str:
+    return current_financial_year_defaults()[0]
+
+
+def current_books_start_date() -> str:
+    return current_financial_year_defaults()[1]
 
 
 class TallyConfigCreate(BaseModel):
@@ -163,8 +178,8 @@ class BusinessInfo(BaseModel):
     gstin: Optional[str] = ""
     pan: Optional[str] = ""
     state: Optional[str] = ""
-    financialYear: Optional[str] = Field("2026-2027", alias="financialYear")
-    booksStartDate: Optional[str] = Field("2026-04-01", alias="booksStartDate")
+    financialYear: Optional[str] = Field(default_factory=current_financial_year, alias="financialYear")
+    booksStartDate: Optional[str] = Field(default_factory=current_books_start_date, alias="booksStartDate")
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -172,7 +187,7 @@ class BusinessInfo(BaseModel):
     @classmethod
     def validate_financial_year(cls, value: Optional[str]) -> str:
         if not value:
-            return "2026-2027"
+            return current_financial_year()
         trimmed = value.strip()
         parts = trimmed.split("-")
         if len(parts) != 2 or not all(p.isdigit() for p in parts):
@@ -186,7 +201,7 @@ class BusinessInfo(BaseModel):
     @classmethod
     def validate_books_start_date(cls, value: Optional[str]) -> str:
         if not value:
-            return "2026-04-01"
+            return current_books_start_date()
         try:
             datetime.fromisoformat(value)
         except ValueError:
@@ -262,7 +277,7 @@ class NumberingSeriesConfig(BaseModel):
     runningLength: Optional[int] = Field(6, alias="runningLength")
     resetRule: Optional[str] = Field("Financial Year", alias="resetRule")
     currentNumber: Optional[int] = Field(0, alias="currentNumber")
-    financialYear: Optional[str] = Field("2026-2027", alias="financialYear")
+    financialYear: Optional[str] = Field(default_factory=current_financial_year, alias="financialYear")
     companyCode: Optional[str] = Field(None, alias="companyCode")
     mode: Optional[str] = "Auto"
     description: Optional[str] = None

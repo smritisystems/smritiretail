@@ -333,7 +333,10 @@ async def test_shift_close_gl_posting_idempotent():
         # Close shift with ₹50 shortage
         await pos_svc.close_shift(
             shift_id=shift_id,
-            req=ShiftClose(closing_balance=Decimal("950.00")),
+            req=ShiftClose(
+                closing_balance=Decimal("950.00"),
+                closing_notes="Register was short by ₹50 after recount.",
+            ),
             requesting_user_id=cashier_id
         )
 
@@ -499,7 +502,10 @@ async def test_pos_shift_gl_tenant_isolation():
         )
         await pos_svc1.close_shift(
             shift_id=shift_id,
-            req=ShiftClose(closing_balance=Decimal("900.00")),
+            req=ShiftClose(
+                closing_balance=Decimal("900.00"),
+                closing_notes="Register was short by ₹100 after recount.",
+            ),
             requesting_user_id=cashier_id
         )
 

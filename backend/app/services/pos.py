@@ -42,6 +42,17 @@ from ..schemas.pos import (
 from .identity.engine import IdentityEngine
 
 
+def calculate_tender_reconciliation(
+    actual: Optional[Decimal],
+    expected: Decimal,
+) -> tuple[Optional[Decimal], Optional[Decimal]]:
+    if actual is None:
+        return None, None
+    actual_amount = Decimal(str(actual)).quantize(Decimal("0.01"))
+    expected_amount = Decimal(str(expected)).quantize(Decimal("0.01"))
+    return actual_amount, (actual_amount - expected_amount).quantize(Decimal("0.01"))
+
+
 
 class POSService:
     def __init__(self, db: AsyncSession, tenant: TenantContext):
@@ -203,7 +214,7 @@ class POSService:
             return or_(model.branch_id.in_(["BR-MAIN-001", "MAIN", "BR-001"]), model.branch_id.is_(None))
         return or_(model.branch_id == self.tenant.branch_id, model.branch_id.is_(None))
 
-    async def list_shifts(self, register_id: str | None = None) -> list:
+    async def list_shifts(self, register_id: str | None = None, cashier_id: str | None = None) -> list:
         """List all shifts for this tenant (supports App.tsx shifts state)."""
         q = select(Shift).where(
             Shift.company_id == self.tenant.company_id,
@@ -212,6 +223,8 @@ class POSService:
         )
         if register_id:
             q = q.where(Shift.register_id == register_id)
+        if cashier_id:
+            q = q.where(Shift.cashier_id == cashier_id)
         q = q.order_by(Shift.opened_at.desc()).limit(100)
         res = await self.db.execute(q)
         return res.scalars().all()
@@ -874,6 +887,75 @@ class POSService:
     # Shift — close
     # ──────────────────────────────────────────────────────────────
 
+    async def _aggregate_shift_sales(self, shift_id: str) -> dict[str, Any]:
+        from ..models.sales import SalesInvoice
+
+        invoices_res = await self.db.execute(
+            select(SalesInvoice).where(
+                SalesInvoice.shift_id == shift_id,
+                SalesInvoice.company_id == self.tenant.company_id,
+                SalesInvoice.is_deleted == False,
+            )
+        )
+        invoices = invoices_res.scalars().all()
+        invoice_ids = [invoice.id for invoice in invoices]
+        tx_by_invoice: Dict[str, List[Any]] = {}
+        if invoice_ids:
+            from ..models.payment_ledger import PaymentTransaction
+
+            tx_res = await self.db.execute(
+                select(PaymentTransaction).where(
+                    PaymentTransaction.reference_doc_id.in_(invoice_ids),
+                    PaymentTransaction.company_id == self.tenant.company_id,
+                    PaymentTransaction.is_deleted == False,
+                )
+            )
+            for transaction in tx_res.scalars().all():
+                tx_by_invoice.setdefault(transaction.reference_doc_id, []).append(transaction)
+
+        cash_total = Decimal("0.00")
+        card_total = Decimal("0.00")
+        upi_total = Decimal("0.00")
+        total = Decimal("0.00")
+        tax_total = Decimal("0.00")
+        discount_total = Decimal("0.00")
+
+        for invoice in invoices:
+            grand_total = Decimal(str(invoice.grand_total or 0.00))
+            invoice_transactions = tx_by_invoice.get(invoice.id, [])
+            if invoice_transactions:
+                for transaction in invoice_transactions:
+                    amount = Decimal(str(transaction.amount or 0.00))
+                    tender_type = (transaction.tender_type or "CASH").upper()
+                    if tender_type == "CASH":
+                        cash_total += amount
+                    elif tender_type in ("CARD", "CREDIT_CARD", "DEBIT_CARD"):
+                        card_total += amount
+                    elif tender_type in ("UPI", "QR", "NETBANKING"):
+                        upi_total += amount
+            else:
+                payment_mode = (invoice.payment_mode or "CASH").upper()
+                if payment_mode == "CASH":
+                    cash_total += grand_total
+                elif payment_mode in ("CARD", "CREDIT_CARD", "DEBIT_CARD"):
+                    card_total += grand_total
+                elif payment_mode in ("UPI", "QR", "NETBANKING"):
+                    upi_total += grand_total
+
+            total += grand_total
+            tax_total += Decimal(str(invoice.tax_total or 0.00))
+            discount_total += Decimal(str(invoice.discount_amount or 0.00))
+
+        return {
+            "cash_sales_total": cash_total.quantize(Decimal("0.01")),
+            "card_sales_total": card_total.quantize(Decimal("0.01")),
+            "upi_sales_total": upi_total.quantize(Decimal("0.01")),
+            "total_sales": total.quantize(Decimal("0.01")),
+            "total_invoices": len(invoices),
+            "tax_total": tax_total.quantize(Decimal("0.01")),
+            "discount_total": discount_total.quantize(Decimal("0.01")),
+        }
+
     async def close_shift(
         self,
         shift_id: str,
@@ -887,17 +969,33 @@ class POSService:
         shift = await self.get_shift(shift_id, for_update=True)
         if shift.status == "CLOSED":
             if req.idempotency_key:
+                requested_notes = (req.closing_notes or "").strip()
+                persisted_notes = (shift.closing_notes or "").strip()
                 if req.closing_balance is not None and shift.closing_balance is not None:
                     if req.closing_balance.quantize(Decimal("0.01")) != shift.closing_balance:
                         raise HTTPException(
                             status_code=409,
                             detail="Idempotency key collision: closing payload differs from previously closed shift."
                         )
-                if req.closing_notes and shift.closing_notes and req.closing_notes != shift.closing_notes:
+                if requested_notes and persisted_notes and requested_notes != persisted_notes:
                     raise HTTPException(
                         status_code=409,
                         detail="Idempotency key collision: closing notes differ from previously closed shift."
                     )
+                for field_name, requested_value in (
+                    ("actual_card_counted", req.actual_card_counted),
+                    ("actual_upi_counted", req.actual_upi_counted),
+                ):
+                    persisted_value = getattr(shift, field_name, None)
+                    if (
+                        requested_value is not None
+                        and persisted_value is not None
+                        and requested_value.quantize(Decimal("0.01")) != persisted_value
+                    ):
+                        raise HTTPException(
+                            status_code=409,
+                            detail=f"Idempotency key collision: {field_name} differs from the previously closed shift.",
+                        )
                 return shift
             raise HTTPException(
                 status_code=400,
@@ -912,63 +1010,52 @@ class POSService:
                 detail="Cashiers are only permitted to close their own shifts. Manager authorization required to close another cashier's shift."
             )
 
-        # Aggregate invoices linked to this shift
-        invoices_res = await self.db.execute(
-            select(SalesInvoice).where(
-                SalesInvoice.shift_id   == shift_id,
-                SalesInvoice.is_deleted == False,
-            )
+        sales_totals = await self._aggregate_shift_sales(shift_id)
+        cash_total = sales_totals["cash_sales_total"]
+        card_total = sales_totals["card_sales_total"]
+        upi_total = sales_totals["upi_sales_total"]
+        total = sales_totals["total_sales"]
+        actual_card_counted, card_variance = calculate_tender_reconciliation(
+            req.actual_card_counted, card_total
         )
-        invoices = invoices_res.scalars().all()
+        actual_upi_counted, upi_variance = calculate_tender_reconciliation(
+            req.actual_upi_counted, upi_total
+        )
 
-        cash_total = Decimal("0.00")
-        card_total = Decimal("0.00")
-        upi_total  = Decimal("0.00")
-        total      = Decimal("0.00")
-
-        invoice_ids = [inv.id for inv in invoices]
-        tx_by_invoice: Dict[str, List[Any]] = {}
-        if invoice_ids:
-            from ..models.payment_ledger import PaymentTransaction
-            tx_res = await self.db.execute(
-                select(PaymentTransaction).where(
-                    PaymentTransaction.reference_doc_id.in_(invoice_ids),
-                    PaymentTransaction.company_id == self.tenant.company_id,
-                    PaymentTransaction.is_deleted == False,
-                )
-            )
-            for tx in tx_res.scalars().all():
-                tx_by_invoice.setdefault(tx.reference_doc_id, []).append(tx)
-
-        for inv in invoices:
-            gt = Decimal(str(inv.grand_total)) if inv.grand_total else Decimal("0.00")
-            inv_txs = tx_by_invoice.get(inv.id, [])
-            if inv_txs:
-                for tx in inv_txs:
-                    t_amt = Decimal(str(tx.amount or 0.00))
-                    t_type = (tx.tender_type or "CASH").upper()
-                    if t_type == "CASH":
-                        cash_total += t_amt
-                    elif t_type in ("CARD", "CREDIT_CARD", "DEBIT_CARD"):
-                        card_total += t_amt
-                    elif t_type in ("UPI", "QR", "NETBANKING"):
-                        upi_total += t_amt
-                total += gt
-            else:
-                mode = (inv.payment_mode or "CASH").upper()
-                if mode == "CASH":
-                    cash_total += gt
-                elif mode in ("CARD", "CREDIT_CARD", "DEBIT_CARD"):
-                    card_total += gt
-                elif mode in ("UPI", "QR", "NETBANKING"):
-                    upi_total += gt
-                total += gt
-
-        # Handle closing balance and physical denomination count
         if req.denominations is not None:
             counted_balance = req.denominations.calculate_total()
-            shift.denominations = req.denominations.model_dump(mode="json")
             closing_balance = counted_balance
+        elif req.closing_balance is not None:
+            closing_balance = Decimal(str(req.closing_balance)).quantize(Decimal("0.01"))
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail="Must provide either closing_balance or physical denomination breakdown."
+            )
+
+        # Net expected cash in register:
+        # Expected = Opening + Cash Sales + Cash In - Cash Drops - Till Expenses
+        expected = (
+            shift.opening_balance +
+            cash_total +
+            Decimal(str(shift.cash_in_total or 0.00)) -
+            Decimal(str(shift.cash_drops_total or 0.00)) -
+            Decimal(str(shift.till_expenses_total or 0.00))
+        ).quantize(Decimal("0.01"))
+        variance = (closing_balance - expected).quantize(Decimal("0.01"))
+        closing_notes = (req.closing_notes or "").strip()
+        if not closing_notes and any(
+            tender_variance is not None and abs(tender_variance) >= Decimal("0.01")
+            for tender_variance in (variance, card_variance, upi_variance)
+        ):
+            raise HTTPException(
+                status_code=422,
+                detail="Add a short explanation for the cash, card, or UPI difference before closing.",
+            )
+
+        # Persist physical denomination details only after all closeout checks pass.
+        if req.denominations is not None:
+            shift.denominations = req.denominations.model_dump(mode="json")
 
             # Persist historical shift-end denomination breakdown to pos_shift_denomination_counts (Phase 3)
             denom_multiplier_map = {
@@ -1011,25 +1098,6 @@ class POSService:
                             notes=f"Denomination {k}",
                         )
                     )
-        elif req.closing_balance is not None:
-            closing_balance = Decimal(str(req.closing_balance)).quantize(Decimal("0.01"))
-        else:
-            raise HTTPException(
-                status_code=400,
-                detail="Must provide either closing_balance or physical denomination breakdown."
-            )
-
-        # Net expected cash in register:
-        # Expected = Opening + Cash Sales + Cash In - Cash Drops - Till Expenses
-        expected = (
-            shift.opening_balance +
-            cash_total +
-            Decimal(str(shift.cash_in_total or 0.00)) -
-            Decimal(str(shift.cash_drops_total or 0.00)) -
-            Decimal(str(shift.till_expenses_total or 0.00))
-        ).quantize(Decimal("0.01"))
-
-        variance = (closing_balance - expected).quantize(Decimal("0.01"))
 
         shift.status           = "CLOSED"
         shift.closed_at        = datetime.now(timezone.utc)
@@ -1037,11 +1105,15 @@ class POSService:
         shift.card_sales_total = card_total.quantize(Decimal("0.01"))
         shift.upi_sales_total  = upi_total.quantize(Decimal("0.01"))
         shift.total_sales      = total.quantize(Decimal("0.01"))
-        shift.total_invoices   = str(len(invoices))
+        shift.total_invoices   = str(sales_totals["total_invoices"])
         shift.closing_balance  = closing_balance
         shift.expected_cash    = expected
         shift.variance         = variance
-        shift.closing_notes    = req.closing_notes
+        shift.actual_card_counted = actual_card_counted
+        shift.card_variance       = card_variance
+        shift.actual_upi_counted  = actual_upi_counted
+        shift.upi_variance        = upi_variance
+        shift.closing_notes    = closing_notes or None
         shift.modified_at      = datetime.now(timezone.utc)
 
         await self.db.flush()
@@ -1074,6 +1146,26 @@ class POSService:
                 "closing_balance": float(shift.closing_balance or 0),
                 "expected_cash": float(shift.expected_cash or 0),
                 "variance": float(shift.variance or 0),
+                "actual_card_counted": (
+                    float(shift.actual_card_counted)
+                    if shift.actual_card_counted is not None
+                    else None
+                ),
+                "card_variance": (
+                    float(shift.card_variance)
+                    if shift.card_variance is not None
+                    else None
+                ),
+                "actual_upi_counted": (
+                    float(shift.actual_upi_counted)
+                    if shift.actual_upi_counted is not None
+                    else None
+                ),
+                "upi_variance": (
+                    float(shift.upi_variance)
+                    if shift.upi_variance is not None
+                    else None
+                ),
                 "closed_at": shift.closed_at.isoformat() if shift.closed_at else None,
                 "closed_by": requesting_user_id
             },
@@ -1101,13 +1193,33 @@ class POSService:
             )
         return shift
 
-    async def get_z_report(self, shift_id: str) -> dict:
+    async def get_z_report(
+        self,
+        shift_id: str,
+        requesting_user_id: str | None = None,
+        requesting_user_role: str | None = None,
+    ) -> dict:
         """
         Generate authoritative Z-Report data for a shift, including sales breakdown,
         cash drops, till expenses, physical denomination counts, cash tender reconciliation,
         and linked General Ledger balancing voucher.
         """
         shift = await self.get_shift(shift_id)
+        role = getattr(requesting_user_role, "value", requesting_user_role)
+        if role == "CASHIER" and requesting_user_id != shift.cashier_id:
+            raise HTTPException(status_code=403, detail="Cashiers can only view their own shift report.")
+
+        sales_totals = await self._aggregate_shift_sales(shift.id)
+        cash_drops_total = shift.cash_drops_total or Decimal("0.00")
+        till_expenses_total = shift.till_expenses_total or Decimal("0.00")
+        cash_in_total = shift.cash_in_total or Decimal("0.00")
+        expected_cash = (
+            shift.opening_balance
+            + sales_totals["cash_sales_total"]
+            + cash_in_total
+            - cash_drops_total
+            - till_expenses_total
+        ).quantize(Decimal("0.01"))
 
         # Look up linked GL journal voucher if any
         from ..models.accounting import JournalVoucher
@@ -1159,17 +1271,23 @@ class POSService:
             "opened_at": shift.opened_at,
             "closed_at": shift.closed_at,
             "opening_balance": shift.opening_balance,
-            "cash_sales_total": shift.cash_sales_total,
-            "card_sales_total": shift.card_sales_total,
-            "upi_sales_total": shift.upi_sales_total,
-            "total_sales": shift.total_sales,
-            "total_invoices": int(shift.total_invoices or 0),
-            "cash_drops_total": shift.cash_drops_total or Decimal("0.00"),
-            "till_expenses_total": shift.till_expenses_total or Decimal("0.00"),
-            "cash_in_total": shift.cash_in_total or Decimal("0.00"),
-            "expected_cash": shift.expected_cash or shift.opening_balance,
+            "cash_sales_total": sales_totals["cash_sales_total"],
+            "card_sales_total": sales_totals["card_sales_total"],
+            "upi_sales_total": sales_totals["upi_sales_total"],
+            "total_sales": sales_totals["total_sales"],
+            "total_invoices": sales_totals["total_invoices"],
+            "tax_total": sales_totals["tax_total"],
+            "discount_total": sales_totals["discount_total"],
+            "cash_drops_total": cash_drops_total,
+            "till_expenses_total": till_expenses_total,
+            "cash_in_total": cash_in_total,
+            "expected_cash": expected_cash,
             "closing_balance": shift.closing_balance or Decimal("0.00"),
             "variance": shift.variance or Decimal("0.00"),
+            "actual_card_counted": shift.actual_card_counted,
+            "card_variance": shift.card_variance,
+            "actual_upi_counted": shift.actual_upi_counted,
+            "upi_variance": shift.upi_variance,
             "denominations": shift.denominations,
             "closing_notes": shift.closing_notes,
             "gl_voucher_id": voucher.id if voucher else None,

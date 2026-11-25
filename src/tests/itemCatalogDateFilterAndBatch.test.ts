@@ -142,8 +142,13 @@ describe("SMRITI Item Master — Date Filtering & Import Batch Isolation Suite",
           return itemDayStart.getTime() >= sevenDaysAgo.getTime() && itemDayStart.getTime() <= todayStart.getTime();
         }
         if (filterType === "CUSTOM") {
-          if (customStart && d < new Date(customStart)) return false;
-          if (customEnd && d > new Date(customEnd + "T23:59:59")) return false;
+          const itemDateKey = [
+            d.getFullYear(),
+            String(d.getMonth() + 1).padStart(2, "0"),
+            String(d.getDate()).padStart(2, "0"),
+          ].join("-");
+          if (customStart && itemDateKey < customStart) return false;
+          if (customEnd && itemDateKey > customEnd) return false;
           return true;
         }
         return true;
@@ -167,8 +172,16 @@ describe("SMRITI Item Master — Date Filtering & Import Batch Isolation Suite",
     });
 
     it("filters products by custom date range", () => {
-      const startDate = threeDaysAgo.toISOString().slice(0, 10);
-      const endDate = yesterday.toISOString().slice(0, 10);
+      const startDate = [
+        threeDaysAgo.getFullYear(),
+        String(threeDaysAgo.getMonth() + 1).padStart(2, "0"),
+        String(threeDaysAgo.getDate()).padStart(2, "0"),
+      ].join("-");
+      const endDate = [
+        yesterday.getFullYear(),
+        String(yesterday.getMonth() + 1).padStart(2, "0"),
+        String(yesterday.getDate()).padStart(2, "0"),
+      ].join("-");
       const res = filterByDate(testProducts, "CUSTOM", startDate, endDate);
       expect(res.map(p => p.id)).toEqual(["p2", "p3"]);
     });

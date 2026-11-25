@@ -32,7 +32,7 @@ from ...models.pos import CashRegister
 from ...schemas.system import (
     TallyConfigCreate, TallyConfigUpdate, TallyConfigResponse,
     SystemConfigCreate, SystemConfigUpdate, SystemConfigResponse,
-    CompanySetupRequest, StoreConfig
+    CompanySetupRequest, StoreConfig, current_financial_year, current_books_start_date
 )
 from ...schemas.numbering import DocumentSeriesCreate
 from ...services.numbering import NumberingService
@@ -608,6 +608,12 @@ async def company_setup(
     """
     Provision company setup from the onboarding wizard.
     """
+    if current_user.role != UserRole.SYSADMIN:
+        raise HTTPException(
+            status_code=403,
+            detail="Only a SYSADMIN can run company setup."
+        )
+
     business_info = payload.businessInfo
     org_structure = payload.orgStructure
     users_payload = payload.users
@@ -618,11 +624,6 @@ async def company_setup(
 
     existing_setup = await get_system_config(db, SETUP_COMPLETED_KEY)
     if existing_setup and existing_setup.value == "true":
-        if current_user.role != UserRole.SYSADMIN:
-            raise HTTPException(
-                status_code=403,
-                detail="Only a SYSADMIN can run the company setup after initialization."
-            )
         raise HTTPException(
             status_code=400,
             detail="Company setup has already been completed."
@@ -644,8 +645,8 @@ async def company_setup(
             )
         ]
 
-    business_financial_year = business_info.financialYear or "2026-2027"
-    books_start_date = business_info.booksStartDate or "2026-04-01"
+    business_financial_year = business_info.financialYear or current_financial_year()
+    books_start_date = business_info.booksStartDate or current_books_start_date()
     trade_name = business_info.tradeName or company_name
     business_type = business_info.businessType or "retail"
     business_state = business_info.state or ""
