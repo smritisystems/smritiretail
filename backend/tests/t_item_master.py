@@ -13,26 +13,51 @@ Classification: Internal
 """
 
 import uuid
-import pytest
-from httpx import AsyncClient, ASGITransport
-from fastapi import HTTPException
 
-from app.main import app
-from app.db.session import get_company_sessionmaker
+import pytest
+from fastapi import HTTPException
+from httpx import ASGITransport, AsyncClient
+
 from app.core.security import create_access_token
+from app.db.session import get_company_sessionmaker
+from app.main import app
+from app.schemas.item_master import (
+    ItemBarcodeItem,
+    ItemBatchItem,
+    ItemCreateRequest,
+    ItemLocationItem,
+    ItemSerialItem,
+    ItemVariantItem,
+    MatrixVariantDimension,
+    MatrixVariantGenRequest,
+)
+from app.services.catalog_validation import CatalogDimensionValidator, IM001ControlledFieldValidator
 from app.services.item_master_svc import UniversalItemMasterService
 from app.services.master_lookup_import_service import extract_vendor_article_codes_from_po_text
 from app.services.vendor_code_allocator import allocate_next_vendor_code
-from app.schemas.item_master import (
-    ItemCreateRequest,
-    ItemVariantItem,
-    ItemBarcodeItem,
-    ItemBatchItem,
-    ItemSerialItem,
-    ItemLocationItem,
-    MatrixVariantGenRequest,
-    MatrixVariantDimension,
-)
+
+
+@pytest.fixture(autouse=True)
+def isolate_item_master_tests_from_catalog_governance(monkeypatch):
+    """Keep persistence tests independent of control-plane catalog master data."""
+    async def accept_controlled_fields(cls, payload, company_id=None, strict=True):
+        return {"errors": [], "warnings": [], "field_failures": [], "sysparam_flags": {}}
+
+    async def accept_catalog_dimension(
+        cls, dimension_field, value=None, strict=True, control_db=None
+    ):
+        return value
+
+    monkeypatch.setattr(
+        IM001ControlledFieldValidator,
+        "validate_dict",
+        classmethod(accept_controlled_fields),
+    )
+    monkeypatch.setattr(
+        CatalogDimensionValidator,
+        "validate_and_normalize_dimension",
+        classmethod(accept_catalog_dimension),
+    )
 
 
 def test_generated_placeholder_barcode_prohibited_at_runtime():
