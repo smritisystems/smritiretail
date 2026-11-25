@@ -147,13 +147,24 @@ jobs:
         env:
           DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/smritisys"
 
-      - name: Create smriti001 Company Database
-        run: PGPASSWORD=postgres psql -h localhost -U postgres -c "CREATE DATABASE smriti001;" || true
+      - name: Create isolated company test databases
+        run: |
+          for db in smriti_test_001 smriti_test_002; do
+            exists=$(PGPASSWORD=postgres psql -h localhost -U postgres -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname = '$db'")
+            if [[ "$exists" != "1" ]]; then
+              PGPASSWORD=postgres createdb -h localhost -U postgres "$db"
+            fi
+          done
 
-      - name: Run Alembic Migrations (smriti001 company plane)
-        run: alembic -x target=tenant -x db=smriti001 upgrade head
+      - name: Run Alembic Migrations (smriti_test_001 company plane)
+        run: alembic -x target=tenant -x db=smriti_test_001 upgrade head
         env:
-          DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/smriti001"
+          DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/smriti_test_001"
+
+      - name: Run Alembic Migrations (smriti_test_002 company plane)
+        run: alembic -x target=tenant -x db=smriti_test_002 upgrade head
+        env:
+          DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/smriti_test_002"
 
       - name: Run Naming Guard (NGP-v1.0)
         run: python ../scripts/smriti_naming_guard.py --root ..

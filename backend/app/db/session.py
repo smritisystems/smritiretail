@@ -31,13 +31,12 @@ import asyncio
 import psycopg2
 from typing import Dict, Optional, AsyncGenerator, Tuple
 from urllib.parse import urlparse
-from fastapi import Request, Header, HTTPException, status
+from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession, AsyncEngine
 from sqlalchemy import text
 from ..core.config import settings
 
 import sys
-import os
 from sqlalchemy.pool import NullPool
 
 def _is_testing() -> bool:
@@ -153,13 +152,24 @@ def validate_company_database_name(database_name: str) -> bool:
     )
 
 
+def _normalize_company_database_name(database_name: str) -> str:
+    """Route legacy tenant names to dedicated databases while tests are running."""
+    db_clean = str(database_name).strip().lower()
+    if _is_testing():
+        return {
+            "smriti001": "smriti_test_001",
+            "smriti002": "smriti_test_002",
+        }.get(db_clean, db_clean)
+    return db_clean
+
+
 def get_company_async_engine(database_name: str, host: str = "localhost", port: int = 5432) -> AsyncEngine:
     """
     Retrieves or creates a cached AsyncEngine for a specific company database.
     Prevents connection pool proliferation and resource exhaustion.
     Rejects arbitrary or unregistered database names by validating against smritisys registry.
     """
-    db_clean = str(database_name).strip().lower()
+    db_clean = _normalize_company_database_name(database_name)
     if not db_clean:
         raise ValueError("Database name is required.")
 
@@ -231,7 +241,7 @@ def get_company_sessionmaker(database_name: str) -> async_sessionmaker:
     """
     Retrieves the async sessionmaker factory for a target company database.
     """
-    db_clean = str(database_name).strip().lower()
+    db_clean = _normalize_company_database_name(database_name)
     if db_clean not in _company_sessionmakers:
         get_company_async_engine(db_clean)
     return _company_sessionmakers[db_clean]

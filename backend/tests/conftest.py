@@ -80,8 +80,8 @@ async def utmih_delete_stock_movements(session, where_clause: str, params: dict 
 _PG_PORT = os.getenv("POSTGRES_PORT", "5432")
 # Control Plane: governance metadata, users, companies, menus, audit log
 CONTROL_PLANE_URL = f"postgresql://postgres:postgres@localhost:{_PG_PORT}/smritisys"
-# Company 001 Operational DB: products, customers, suppliers, invoices, orders
-COMPANY_001_DB_URL = f"postgresql://postgres:postgres@localhost:{_PG_PORT}/smriti001"
+# Isolated company test DB: products, customers, suppliers, invoices, orders
+COMPANY_001_DB_URL = f"postgresql://postgres:postgres@localhost:{_PG_PORT}/smriti_test_001"
 
 
 @pytest.fixture(autouse=True, scope="function")
@@ -384,18 +384,49 @@ def seed_control_plane_test_assignments():
     # ================================================================
     # Verify Company 001 Operational DB (smriti001) is accessible
     # ================================================================
-    # RC2 FIX: smriti001 must exist as a physical PostgreSQL database.
+    # RC2 FIX: the isolated company test database must exist as a physical PostgreSQL database.
     # It is NOT created by alembic migrations — it must be provisioned separately.
     # This block checks reachability and fails loudly if smriti001 is missing,
     # rather than letting tests fail later with cryptic 500/401 errors.
     #
-    # If running in CI with a fresh environment, create smriti001 first:
-    #   createdb -U postgres smriti001
-    #   alembic --name company upgrade head  (or equivalent company-schema migration)
+    # If running in CI with a fresh environment, create smriti_test_001 and
+    # apply the tenant migrations before pytest starts.
     # ================================================================
     try:
         comp_conn = psycopg2.connect(COMPANY_001_DB_URL)
         comp_cur = comp_conn.cursor()
+
+        comp_cur.execute("""
+            INSERT INTO companies (id, uuid, name, gst_number, is_active, is_deleted, created_at, modified_at)
+            VALUES ('COMP-001', %s, 'Tattly Threads', '27AAXFT2508H1ZR', true, false, NOW(), NOW())
+            ON CONFLICT (id) DO UPDATE SET
+                name = 'Tattly Threads',
+                gst_number = '27AAXFT2508H1ZR',
+                is_active = true,
+                is_deleted = false;
+        """, (str(uuid.uuid4()),))
+
+        comp_cur.execute("""
+            INSERT INTO branches (id, uuid, company_id, name, code, is_active, is_deleted, created_at, modified_at)
+            VALUES ('MAIN', %s, 'COMP-001', 'Main Branch', 'MAIN', true, false, NOW(), NOW())
+            ON CONFLICT (id) DO UPDATE SET
+                company_id = 'COMP-001',
+                name = 'Main Branch',
+                code = 'MAIN',
+                is_active = true,
+                is_deleted = false;
+        """, (str(uuid.uuid4()),))
+
+        comp_cur.execute("""
+            INSERT INTO branches (id, uuid, company_id, name, code, is_active, is_deleted, created_at, modified_at)
+            VALUES ('BR-001', %s, 'COMP-001', 'Branch 001', 'BR-001', true, false, NOW(), NOW())
+            ON CONFLICT (id) DO UPDATE SET
+                company_id = 'COMP-001',
+                name = 'Branch 001',
+                code = 'BR-001',
+                is_active = true,
+                is_deleted = false;
+        """, (str(uuid.uuid4()),))
 
         # Ensure policy columns exist on sales_returns in Company DB
         comp_cur.execute("""
@@ -495,12 +526,12 @@ def seed_control_plane_test_assignments():
         except Exception:
             pass
         pytest.fail(
-            f"[Conftest FATAL] Cannot connect to or seed Company 001 operational database (smriti001).\n"
+            f"[Conftest FATAL] Cannot connect to or seed isolated Company 001 test database (smriti_test_001).\n"
             f"  URL: {COMPANY_001_DB_URL}\n"
             f"  Error: {type(e).__name__}: {e}\n"
             f"  This database is NOT created by Alembic migrations — it must be provisioned separately.\n"
             f"  Resolution for CI/fresh environment:\n"
-            f"    1. psql -U postgres -c 'CREATE DATABASE smriti001;'\n"
-            f"    2. Run company-schema Alembic migration against smriti001\n"
+            f"    1. psql -U postgres -c 'CREATE DATABASE smriti_test_001;'\n"
+            f"    2. Run tenant Alembic migrations against smriti_test_001\n"
             f"  smriti001 must have the full company operational schema (products, customers, etc.)"
         )
