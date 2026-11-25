@@ -206,6 +206,17 @@ EXEMPT_DTO_FIELDS: Set[str] = {
     "tax_treatment", "outstanding_liability",
 }
 
+# Explicit DTO-only fields with no direct database column. Keep this scoped by
+# schema and model so new business fields still require canonical governance.
+DTO_NONPERSISTED_FIELDS: Dict[Tuple[str, str], Set[str]] = {
+    # These are calculated from purchase-order items for the response.
+    ("purchase", "PurchaseOrderResponse"): {
+        "pending_qty", "pending_items_count", "is_fully_billed",
+    },
+    # The posting writer maps this request flag to sales_invoices.status.
+    ("sales", "SalesInvoiceCreate"): {"is_draft"},
+}
+
 # ─────────────────────────────────────────────────────────────────────────────
 #  DATA TYPES
 # ─────────────────────────────────────────────────────────────────────────────
@@ -385,7 +396,10 @@ def reconcile_entity(
 
             ungoverned: List[str] = []
             for dto_f in sorted(dto_fields):
-                if dto_f in EXEMPT_DTO_FIELDS:
+                if (
+                    dto_f in EXEMPT_DTO_FIELDS
+                    or dto_f in DTO_NONPERSISTED_FIELDS.get((schema_file, cls_name), set())
+                ):
                     continue
                 if dto_f.startswith("_"):
                     continue
