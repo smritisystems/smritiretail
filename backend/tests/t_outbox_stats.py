@@ -26,10 +26,11 @@ from app.services.outbox_analytics import UnifiedOutboxAnalyticsService
 from app.services.sales_ledger_svc import UnifiedSalesLedgerService
 from app.services.outbox_service import OutboxService
 from app.services.outbox_worker import OutboxQueueWorker
-from app.models.outbox import IntegrationOutboxEvent, OutboxEvent
-from app.models.sales import SalesInvoice, SalesInvoiceItem
+from app.models.outbox import IntegrationOutboxEvent
+from app.models.sales import SalesInvoice
 from app.models.inventory import Product, StockMovement
 from app.models.crm import Customer
+from app.models.tenant import Company
 
 
 @pytest.fixture(autouse=True)
@@ -46,6 +47,18 @@ async def cleanup_outbox_test_data():
             await session.execute(delete(SalesInvoice).where(SalesInvoice.invoice_no.like("INV-TEST-ATOMIC-%")))
 
             comp_id = "COMP-001" if db == "smriti001" else "COMP-002"
+
+            company = (await session.execute(
+                select(Company).where(Company.id == comp_id)
+            )).scalar_one_or_none()
+            if not company:
+                session.add(Company(
+                    id=comp_id,
+                    name=f"Outbox Test Company {comp_id}",
+                    is_active=True,
+                    is_deleted=False,
+                ))
+                await session.flush()
 
             # Ensure test customer exists
             cust = (await session.execute(
@@ -398,7 +411,7 @@ async def test_outbox_and_analytics_tenant_isolation():
     session_002 = get_company_sessionmaker("smriti002")
 
     async with session_001() as s1:
-        evt = await UnifiedOutboxAnalyticsService.stage_outbox_event(
+        await UnifiedOutboxAnalyticsService.stage_outbox_event(
             session=s1,
             company_id="COMP-001",
             event_type="APPROVAL_DECISION",
