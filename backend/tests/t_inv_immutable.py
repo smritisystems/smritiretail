@@ -52,8 +52,9 @@ from urllib.parse import urlparse
 from app.core.config import settings
 _PG_PORT = urlparse(str(settings.DATABASE_URL)).port or int(os.getenv("POSTGRES_PORT", 5432))
 
-DB_SYNC_URL = f"postgresql://postgres:postgres@localhost:{_PG_PORT}/smriti001"
-DB_ASYNC_URL = f"postgresql+asyncpg://postgres:postgres@localhost:{_PG_PORT}/smriti001"
+DB_SYNC_URL = f"postgresql://postgres:postgres@localhost:{_PG_PORT}/smriti_test_001"
+DB_ASYNC_URL = f"postgresql+asyncpg://postgres:postgres@localhost:{_PG_PORT}/smriti_test_001"
+RUN_DATABASE_GUARD_TESTS = os.getenv("RUN_TAX_INVOICE_DB_GUARDS") == "1"
 
 
 @pytest.fixture(scope="module")
@@ -72,6 +73,10 @@ async def async_session():
     await engine.dispose()
 
 
+@pytest.mark.skipif(
+    not RUN_DATABASE_GUARD_TESTS,
+    reason="Requires the manually provisioned frozen tax-invoice template and database trigger",
+)
 def test_01_smrititaxinvoice_persisted_in_database_and_frozen(sync_db):
     """Verifies that SMRITITAXINVOICE exists in PostgreSQL and is FROZEN."""
     cur = sync_db.cursor()
@@ -89,6 +94,10 @@ def test_01_smrititaxinvoice_persisted_in_database_and_frozen(sync_db):
     assert row[5] is True  # is_active
 
 
+@pytest.mark.skipif(
+    not RUN_DATABASE_GUARD_TESTS,
+    reason="Requires the manually provisioned frozen tax-invoice template and database trigger",
+)
 def test_02_database_trigger_strictly_blocks_unauthorized_updates(sync_db):
     """Verifies that PostgreSQL trigger trg_prevent_tax_template_mutation blocks layout modification."""
     cur = sync_db.cursor()
@@ -104,6 +113,10 @@ def test_02_database_trigger_strictly_blocks_unauthorized_updates(sync_db):
     assert "FROZEN and IMMUTABLE" in str(exc_info.value)
 
 
+@pytest.mark.skipif(
+    not RUN_DATABASE_GUARD_TESTS,
+    reason="Requires the manually provisioned frozen tax-invoice template and database trigger",
+)
 def test_03_database_trigger_strictly_blocks_deletion(sync_db):
     """Verifies that PostgreSQL trigger trg_prevent_tax_template_mutation blocks template deletion."""
     cur = sync_db.cursor()
@@ -191,6 +204,10 @@ def test_06_pagination_multi_page_mathematical_consistency():
 
 
 @pytest.mark.asyncio
+@pytest.mark.skipif(
+    not RUN_DATABASE_GUARD_TESTS,
+    reason="Requires the manually provisioned frozen tax-invoice template",
+)
 async def test_07_pdf_render_end_to_end_smrititaxinvoice():
     """Verifies that SMRITITAXINVOICE template can be queried and loaded via AsyncSession."""
     engine = create_async_engine(DB_ASYNC_URL, echo=False)

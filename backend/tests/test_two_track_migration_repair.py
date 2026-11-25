@@ -402,7 +402,7 @@ def test_control_plane_routing_guard():
     assert is_company_database_target("template0") is False
 
     # 2. bootstrap prerequisite raises ValueError when passed smritisys
-    mock_conn = sa.create_engine(f"postgresql://postgres:postgres@localhost:{_PG_PORT}/smriti001").connect()
+    mock_conn = sa.create_engine(f"postgresql://postgres:postgres@localhost:{_PG_PORT}/smriti_test_001").connect()
     try:
         with pytest.raises(ValueError, match="Bootstrap prerequisite must NEVER execute against smritisys"):
             bootstrap_company_database_prerequisites(mock_conn, db_name="smritisys")
@@ -418,7 +418,7 @@ def test_smriti001_read_only_schema_comparison():
     - Verifies alembic_version is v1417_so_po_compat after the brownfield repair.
     - Confirms that v1417 will be a 100% safe NO-OP on smriti001.
     """
-    conn = get_pg_conn("smriti001")
+    conn = get_pg_conn("smriti_test_001")
     cur = conn.cursor(cursor_factory=RealDictCursor)
 
     # 1. Verify sales_orders.po_number exists in smriti001

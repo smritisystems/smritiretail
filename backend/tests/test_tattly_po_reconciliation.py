@@ -23,6 +23,11 @@ _PG_PORT = urlparse(str(settings.DATABASE_URL)).port or int(os.getenv("POSTGRES_
 
 DB_URL = f"postgresql://postgres:postgres@localhost:{_PG_PORT}/smriti001"
 
+pytestmark = pytest.mark.skipif(
+    os.getenv("RUN_TATTLY_HISTORICAL_INTEGRATION") != "1",
+    reason="Requires the local historical Tattly database and source records",
+)
+
 @pytest.fixture
 def db_conn():
     conn = psycopg2.connect(DB_URL)

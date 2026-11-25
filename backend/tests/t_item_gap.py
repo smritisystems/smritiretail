@@ -20,6 +20,11 @@ import pytest
 import psycopg2
 from app.models.inventory import Product
 from sqlalchemy import Index
+import os
+from urllib.parse import urlparse
+from app.core.config import settings
+
+_PG_PORT = urlparse(str(settings.DATABASE_URL)).port or int(os.getenv("POSTGRES_PORT", 5432))
 
 def test_variant_id_on_product_model():
     """Verify that Product model has variant_id and required indexes in __table_args__."""
@@ -37,7 +42,7 @@ def test_variant_id_on_product_model():
 def test_barcode_company_isolation_live():
     """Verify uq_company_barcode_active and idx_products_barcode live on PostgreSQL."""
     try:
-        conn = psycopg2.connect(host="localhost", port=5432, user="postgres", password="postgres", dbname="smriti001")
+        conn = psycopg2.connect(host="localhost", port=_PG_PORT, user="postgres", password="postgres", dbname="smriti_test_001")
         cur = conn.cursor()
         cur.execute("""
             SELECT indexname, indexdef

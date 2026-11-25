@@ -29,7 +29,7 @@ from urllib.parse import urlparse
 from app.core.config import settings
 _PG_PORT = urlparse(str(settings.DATABASE_URL)).port or int(os.getenv("POSTGRES_PORT", 5432))
 
-DB_URL = f"postgresql://postgres:postgres@localhost:{_PG_PORT}/smriti001"
+DB_URL = f"postgresql://postgres:postgres@localhost:{_PG_PORT}/smriti_test_001"
 
 @pytest.fixture
 def db_conn():

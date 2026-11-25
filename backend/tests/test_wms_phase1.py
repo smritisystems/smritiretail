@@ -14,6 +14,7 @@ Classification: Internal
 
 import pytest
 import psycopg2
+import uuid
 from decimal import Decimal
 from datetime import date, datetime, timedelta
 
@@ -23,7 +24,27 @@ from app.core.config import settings
 from conftest import utmih_delete_stock_movements
 _PG_PORT = urlparse(str(settings.DATABASE_URL)).port or int(os.getenv("POSTGRES_PORT", 5432))
 
-COMPANY_DB = f"postgresql://postgres:postgres@localhost:{_PG_PORT}/smriti001"
+COMPANY_DB = f"postgresql://postgres:postgres@localhost:{_PG_PORT}/smriti_test_001"
+
+
+def _ensure_test_warehouses(cur):
+    for warehouse_id, code, name in (
+        ("WH-MAIN", "WH-MAIN", "Main Test Warehouse"),
+        ("WH-SHOP", "WH-SHOP", "Shop Test Warehouse"),
+    ):
+        cur.execute(
+            "SELECT id FROM warehouses WHERE company_id = %s AND code = %s AND is_deleted = false;",
+            ("COMP-001", code),
+        )
+        if cur.fetchone() is None:
+            cur.execute("""
+                INSERT INTO warehouses (
+                    id, uuid, company_id, branch_id, code, name, is_active, is_deleted
+                )
+                VALUES (%s, %s, 'COMP-001', 'BR-001', %s, %s, true, false);
+            """, (warehouse_id, str(uuid.uuid4()), code, name))
+    cur.connection.commit()
+
 
 def test_wms_phase1_tables_and_scoped_constraints():
     """
@@ -67,6 +88,8 @@ def test_wms_batch_stock_mutation_and_fefo_allocation():
     import uuid
     conn = psycopg2.connect(COMPANY_DB)
     cur = conn.cursor()
+
+    _ensure_test_warehouses(cur)
 
     # Ensure warehouse exists
     cur.execute("SELECT id FROM warehouses WHERE code = 'WH-MAIN' AND is_deleted = false LIMIT 1;")
@@ -149,9 +172,9 @@ def test_wms_stock_transfer_lifecycle():
     """
     Test StockTransfer creation, dispatch, and receipt integrity checks.
     """
-    import uuid
     conn = psycopg2.connect(COMPANY_DB)
     cur = conn.cursor()
+    _ensure_test_warehouses(cur)
 
     cur.execute("SELECT id FROM warehouses WHERE code = 'WH-MAIN' AND is_deleted = false LIMIT 1;")
     src_wh = cur.fetchone()[0]
@@ -256,8 +279,8 @@ async def test_wms_service_async_lifecycle():
     - FEFO allocation
     - transfer creation, dispatch, and receipt
     """
-    import uuid
     from sqlalchemy import text
+    from sqlalchemy.future import select
     from app.api.deps import TenantContext
     from app.services.inventory_wms import InventoryWmsService
     from app.models.inventory import Product, Warehouse
@@ -274,6 +297,27 @@ async def test_wms_service_async_lifecycle():
     async with session_factory() as session:
         tenant = TenantContext(company_id="COMP-001", branch_id="BR-001")
         service = InventoryWmsService(session, tenant)
+        for warehouse_id, code, name in (
+            ("WH-MAIN", "WH-MAIN", "Main Test Warehouse"),
+            ("WH-SHOP", "WH-SHOP", "Shop Test Warehouse"),
+        ):
+            result = await session.execute(
+                select(Warehouse).where(
+                    Warehouse.company_id == "COMP-001",
+                    Warehouse.code == code,
+                    Warehouse.is_deleted.is_(False),
+                )
+            )
+            if result.scalars().first() is None:
+                session.add(Warehouse(
+                    id=warehouse_id,
+                    uuid=str(uuid.uuid4()),
+                    company_id="COMP-001",
+                    branch_id="BR-001",
+                    code=code,
+                    name=name,
+                ))
+        await session.commit()
 
         try:
             # 1. Create dedicated isolated test product
@@ -297,7 +341,6 @@ async def test_wms_service_async_lifecycle():
             session.add(prod)
             await session.commit()
 
-            from sqlalchemy.future import select
             res_wh_src = await session.execute(select(Warehouse).where(Warehouse.code == "WH-MAIN", Warehouse.company_id == "COMP-001", Warehouse.is_deleted == False).limit(1))
             src_wh = res_wh_src.scalars().first()
             res_wh_dst = await session.execute(select(Warehouse).where(Warehouse.code == "WH-SHOP", Warehouse.company_id == "COMP-001", Warehouse.is_deleted == False).limit(1))

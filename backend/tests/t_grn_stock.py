@@ -17,19 +17,19 @@ import psycopg2
 from decimal import Decimal
 
 # Architecture Rule: suppliers, purchase_orders, purchase_receipts are operational tables.
-# Operational data belongs in Company DB (smriti001), NOT in smritisys (Control Plane).
+# Operational data belongs in the isolated company test database, NOT in smritisys.
 import os
 from urllib.parse import urlparse
 from app.core.config import settings
 _PG_PORT = urlparse(str(settings.DATABASE_URL)).port or int(os.getenv("POSTGRES_PORT", 5432))
 
-COMPANY_001_DB_URL = f"postgresql://postgres:postgres@localhost:{_PG_PORT}/smriti001"
+COMPANY_001_DB_URL = f"postgresql://postgres:postgres@localhost:{_PG_PORT}/smriti_test_001"
 
 def test_grn_shortage_and_stock_increment_signature_scenario():
     """
-    Test Blocker #3 GRN / Material Receipt Signature Scenario against Company 001 database (smriti001):
+    Test Blocker #3 GRN / Material Receipt Signature Scenario against the isolated company test database:
     PO = 50 | Approved PO | GRN = 48 | Short = 2 | Stock Increment = +48
-    ARCHITECTURE: purchase_orders, suppliers, purchase_receipts are operational -> Company DB (smriti001).
+    ARCHITECTURE: purchase_orders, suppliers, purchase_receipts are operational -> company database.
     """
     conn = psycopg2.connect(COMPANY_001_DB_URL)
     cur = conn.cursor()
@@ -59,6 +59,16 @@ def test_grn_shortage_and_stock_increment_signature_scenario():
         )
         ON CONFLICT (id) DO NOTHING;
     """, (product_id, str(uuid.uuid4())))
+    conn.commit()
+
+    warehouse_id = "WH-GRN-SIGN-001"
+    cur.execute("""
+        INSERT INTO warehouses (
+            id, uuid, company_id, branch_id, code, name, is_active, is_deleted
+        )
+        VALUES (%s, %s, 'COMP-001', 'MAIN', %s, %s, true, false)
+        ON CONFLICT (id) DO NOTHING;
+    """, (warehouse_id, str(uuid.uuid4()), warehouse_id, "GRN Signature Test Warehouse"))
     conn.commit()
 
     # 1. Create Supplier in Company DB
@@ -99,10 +109,10 @@ def test_grn_shortage_and_stock_increment_signature_scenario():
     cur.execute("""
         INSERT INTO purchase_receipts (
             id, uuid, receipt_no, supplier_id, order_id,
-            status, subtotal, tax_total, grand_total, is_active
+                warehouse_id, status, subtotal, tax_total, grand_total, is_active
         )
-        VALUES (%s, %s, %s, %s, %s, 'RECEIVED', %s, %s, %s, true);
-    """, (grn_id, str(uuid.uuid4()), "GRN-2026-SIGN-001", sup_id, po_id, line_subtotal, line_tax, line_total))
+            VALUES (%s, %s, %s, %s, %s, %s, 'RECEIVED', %s, %s, %s, true);
+    """, (grn_id, str(uuid.uuid4()), "GRN-2026-SIGN-001", sup_id, po_id, warehouse_id, line_subtotal, line_tax, line_total))
 
     cur.execute("""
         INSERT INTO purchase_receipt_items (
@@ -122,7 +132,7 @@ def test_grn_shortage_and_stock_increment_signature_scenario():
         WHERE poi.product_id = %s;
     """, (po_id, grn_id, product_id))
     row = cur.fetchone()
-    assert row is not None, "GRN receipt item must be linked to PO item in Company DB (smriti001)"
+    assert row is not None, "GRN receipt item must be linked to PO item in the company database"
     assert Decimal(str(row[0])) == Decimal("50")   # PO Qty
     assert Decimal(str(row[1])) == Decimal("48")   # GRN Qty
     assert Decimal(str(row[2])) == Decimal("2")    # Short Qty
@@ -133,5 +143,6 @@ def test_grn_shortage_and_stock_increment_signature_scenario():
     cur.execute("DELETE FROM purchase_order_items WHERE order_id = %s;", (po_id,))
     cur.execute("DELETE FROM purchase_orders WHERE id = %s;", (po_id,))
     cur.execute("DELETE FROM suppliers WHERE id = %s;", (sup_id,))
+    cur.execute("DELETE FROM warehouses WHERE id = %s;", (warehouse_id,))
     conn.commit()
     conn.close()

@@ -34,6 +34,11 @@ TT_DIR = r"F:\SMRITRretailNX\TT"
 EXPORTS_PDF_DIR = r"F:\SMRITRretailNX\exports\tt_batch_74_103"
 TATTLY_LOGO_PATH = os.path.join(TT_DIR, "logo", "tattly_logo_black.png")
 
+pytestmark = pytest.mark.skipif(
+    os.getenv("RUN_TATTLY_HISTORICAL_INTEGRATION") != "1",
+    reason="Requires local historical Tattly assets and database records",
+)
+
 
 def test_01_historical_invoices_72_and_73_exist():
     """1. Verify that historical invoice PDFs TT2026-2027/72 and 73 exist and are intact."""

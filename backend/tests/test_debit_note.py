@@ -28,7 +28,7 @@ def test_debit_note_creation_and_history_protection():
     - Transaction history protection: Original PO (50 units) and GRN (48 units) remain immutable
     - Debit Note state persistence in supplier_debit_notes table
     """
-    conn = psycopg2.connect(f"postgresql://postgres:postgres@localhost:{_PG_PORT}/smriti001")
+    conn = psycopg2.connect(f"postgresql://postgres:postgres@localhost:{_PG_PORT}/smriti_test_001")
     cur = conn.cursor()
 
     sup_code = "SUP-DN-TEST-001"

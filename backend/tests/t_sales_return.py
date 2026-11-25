@@ -17,22 +17,22 @@ import psycopg2
 from decimal import Decimal
 
 # Architecture Rule: sales_returns is an operational table.
-# Operational data belongs in Company DB (smriti001), NOT in smritisys (Control Plane).
+# Operational data belongs in the isolated company test database, NOT in smritisys.
 import os
 from urllib.parse import urlparse
 from app.core.config import settings
 _PG_PORT = urlparse(str(settings.DATABASE_URL)).port or int(os.getenv("POSTGRES_PORT", 5432))
 
-COMPANY_001_DB_URL = f"postgresql://postgres:postgres@localhost:{_PG_PORT}/smriti001"
+COMPANY_001_DB_URL = f"postgresql://postgres:postgres@localhost:{_PG_PORT}/smriti_test_001"
 
 def test_sales_return_and_credit_note_workflow():
     """
-    Test Blocker #6 Sales Return / Credit Note Workflow against Company 001 database (smriti001).
-    ARCHITECTURE: sales_returns is operational data -> Company DB (smriti001). NOT smritisys.
+    Test Blocker #6 Sales Return / Credit Note Workflow against the isolated company test database.
+    ARCHITECTURE: sales_returns is operational data -> company database, not smritisys.
     Verifies:
     - Creation of a Sales Return record & Credit Note against an existing invoice
     - Transaction history protection: Original invoice record remains immutable
-    - Credit Note persistence in Company DB sales_returns table
+    - Credit Note persistence in the company sales_returns table
     """
     conn = psycopg2.connect(COMPANY_001_DB_URL)
     cur = conn.cursor()

@@ -17,18 +17,18 @@ import psycopg2
 from decimal import Decimal
 
 # Architecture Rule: suppliers, purchase_orders are operational tables.
-# Operational data belongs in Company DB (smriti001), NOT in smritisys (Control Plane).
+# Operational data belongs in the isolated company test database, NOT in smritisys.
 import os
 from urllib.parse import urlparse
 from app.core.config import settings
 _PG_PORT = urlparse(str(settings.DATABASE_URL)).port or int(os.getenv("POSTGRES_PORT", 5432))
 
-COMPANY_001_DB_URL = f"postgresql://postgres:postgres@localhost:{_PG_PORT}/smriti001"
+COMPANY_001_DB_URL = f"postgresql://postgres:postgres@localhost:{_PG_PORT}/smriti_test_001"
 
 def test_purchase_order_creation_and_approval_workflow():
     """
-    Test Blocker #2 Purchase Order Workflow against Company 001 database (smriti001).
-    ARCHITECTURE: purchase_orders, suppliers are operational -> Company DB (smriti001). NOT smritisys.
+    Test Blocker #2 Purchase Order Workflow against the isolated company test database.
+    ARCHITECTURE: purchase_orders, suppliers are operational -> company database, not smritisys.
     Scenario:
     - Create Supplier (SUP-PO-TEST-001)
     - Issue Purchase Order for 50 units @ Rs 100/unit
