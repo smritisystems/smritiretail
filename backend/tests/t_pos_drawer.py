@@ -34,7 +34,8 @@ from app.services.pos import POSService
 from app.services.unified_ledger import UnifiedAccountingLedgerService
 from app.schemas.pos import (
     ShiftOpen, ShiftClose, CashRegisterCreate,
-    CashDenominationBreakdown, ShiftCashInRequest, ShiftCashDropRequest, ShiftTillExpenseRequest
+    CashDenominationBreakdown, ShiftCashInRequest, ShiftCashDropRequest, ShiftTillExpenseRequest,
+    POSCheckoutItem,
 )
 from app.db.tenant_harness import EphemeralTenantHarness
 
@@ -1025,7 +1026,15 @@ async def test_pos_checkout_versus_closed_shift_concurrency_lock():
             await pos_svc.pos_checkout(POSCheckoutRequest(
                 invoice_no=f"POS-INV-CHK-{unique_suffix}",
                 shift_id=shift_id,
-                items=[],
+                items=[
+                    POSCheckoutItem(
+                        product_id="PRD-CLOSED-SHIFT",
+                        code="CLOSED-SHIFT",
+                        name="Closed shift validation item",
+                        quantity=Decimal("1.00"),
+                        price=Decimal("0.00"),
+                    )
+                ],
                 grand_total=Decimal("0.00"),
                 payment_mode="CASH"
             ))
