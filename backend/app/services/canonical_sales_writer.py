@@ -46,7 +46,7 @@ from ..repositories.customer import CustomerRepository
 from ..models.customer_po import CustomerPurchaseOrder, CustomerPurchaseOrderLine, CustomerPOInvoiceAllocation
 from ..models.pricing import CustomerPriceTier
 from ..models.item_master import ItemBarcode, ItemPrice
-from ..models.inventory import Product, Warehouse
+from ..models.inventory import Product, ProductBatchStock, Warehouse
 from ..models.tenant import Company, Branch
 from ..core.sales_channels import channel_requires_store_location
 from .canonical_transaction_writer import CanonicalTransactionWriter
@@ -1595,36 +1595,102 @@ class CanonicalSalesPostingWriter:
             server_allows_negative = bool(allow_neg_param.effective_value) if allow_neg_param else False
 
             for ded in batch_deductions:
-                try:
-                    await wms_svc.atomic_mutate_batch_stock(
-                        product_id=ded["product_id"],
-                        warehouse_id=warehouse_id,
-                        batch_no=ded["batch_no"],
-                        qty_delta=-ded["quantity"],
-                        movement_type="OUTWARD_SALE",
-                        reference_doc_type="Sales Invoice",
-                        reference_doc_id=db_invoice.id,
-                        remarks=f"Stock deducted for sales invoice: {db_invoice.invoice_no}",
-                        user=req.context.cashier_id,
-                        batch_id=ded.get("batch_id"),
-                        serial_id=ded.get("serial_id"),
-                        location_id=ded.get("warehouse_location_id"),
-                    )
-                except HTTPException as he:
-                    if server_allows_negative:
-                        logger.warning(
-                            "Negative stock override permitted by server policy SMRITI.STOCK.ALLOW_NEGATIVE_STOCK on line %d: %s",
-                            ded["line_no"],
-                            he.detail,
+                allocations = [
+                    {
+                        "batch_no": ded["batch_no"],
+                        "quantity": Decimal(str(ded["quantity"])),
+                    }
+                ]
+                if ded["batch_no"] == "DEFAULT" and not ded.get("batch_id"):
+                    await session.execute(
+                        select(Product.id)
+                        .where(
+                            Product.id == ded["product_id"],
+                            Product.company_id == company_id,
+                            Product.is_deleted.is_(False),
                         )
-                    else:
+                        .with_for_update()
+                    )
+                    available_batches = await session.scalar(
+                        select(func.count(ProductBatchStock.id)).where(
+                            ProductBatchStock.company_id == company_id,
+                            ProductBatchStock.warehouse_id == warehouse_id,
+                            ProductBatchStock.product_id == ded["product_id"],
+                            ProductBatchStock.is_deleted.is_(False),
+                            (
+                                ProductBatchStock.quantity
+                                - ProductBatchStock.reserved_quantity
+                                - ProductBatchStock.damaged_quantity
+                            ) > 0,
+                        )
+                    )
+                    if available_batches:
+                        try:
+                            fefo_allocations = await wms_svc.allocate_stock_fefo(
+                                product_id=ded["product_id"],
+                                warehouse_id=warehouse_id,
+                                requested_qty=Decimal(str(ded["quantity"])),
+                            )
+                            allocations = [
+                                {
+                                    **allocation,
+                                    "quantity": Decimal(str(allocation["allocated_quantity"])),
+                                }
+                                for allocation in fefo_allocations
+                            ]
+                        except HTTPException as he:
+                            if not server_allows_negative:
+                                raise
+                            logger.warning(
+                                "Negative stock override permitted by SMRITI.STOCK.ALLOW_NEGATIVE_STOCK on line %d: %s",
+                                ded["line_no"],
+                                he.detail,
+                            )
+                            allocations = []
+
+                for allocation in allocations:
+                    try:
+                        await wms_svc.atomic_mutate_batch_stock(
+                            product_id=ded["product_id"],
+                            warehouse_id=warehouse_id,
+                            batch_no=allocation["batch_no"],
+                            qty_delta=-allocation["quantity"],
+                            movement_type="OUTWARD_SALE",
+                            reference_doc_type="Sales Invoice",
+                            reference_doc_id=db_invoice.id,
+                            remarks=f"Stock deducted for sales invoice: {db_invoice.invoice_no}",
+                            user=req.context.cashier_id,
+                            serial_id=ded.get("serial_id"),
+                            location_id=ded.get("warehouse_location_id"),
+                            mfg_date=allocation.get("mfg_date"),
+                            expiry_date=allocation.get("expiry_date"),
+                            mrp=Decimal(str(allocation["mrp"])) if allocation.get("mrp") is not None else None,
+                            purchase_rate=(
+                                Decimal(str(allocation["purchase_rate"]))
+                                if allocation.get("purchase_rate") is not None
+                                else None
+                            ),
+                            sale_rate=(
+                                Decimal(str(allocation["sale_rate"]))
+                                if allocation.get("sale_rate") is not None
+                                else None
+                            ),
+                        )
+                    except HTTPException as he:
+                        if server_allows_negative:
+                            logger.warning(
+                                "Negative stock override permitted by SMRITI.STOCK.ALLOW_NEGATIVE_STOCK on line %d: %s",
+                                ded["line_no"],
+                                he.detail,
+                            )
+                        else:
+                            if commit:
+                                await session.rollback()
+                            raise
+                    except Exception:
                         if commit:
                             await session.rollback()
                         raise
-                except Exception:
-                    if commit:
-                        await session.rollback()
-                    raise
 
         # 12. Payments Engine Multi-Tender Recording
         # POS does not send a client-derived tender amount. Create the tender

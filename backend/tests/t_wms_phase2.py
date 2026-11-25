@@ -326,6 +326,10 @@ async def test_sales_invoice_fefo_auto_deduction_and_cancellation():
             # 5. Cancel the sales invoice and verify stock restoration
             cancelled = await sales_service.cancel_sales_invoice(invoice.id)
             assert cancelled.status == "Cancelled"
+            await session.refresh(early_row)
+            await session.refresh(late_row)
+            assert early_row.quantity == Decimal("20.0000"), "Cancellation should restore the earliest batch."
+            assert late_row.quantity == Decimal("50.0000"), "Cancellation should restore the later batch."
 
         finally:
             await session.execute(text("DELETE FROM sales_invoice_items WHERE invoice_id = :iid"), {"iid": created_invoice_id})

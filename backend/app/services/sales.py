@@ -2076,22 +2076,48 @@ class SalesService:
                 wh = await resolver.resolve(company_id=self.tenant_ctx.company_id, branch_id=self.tenant_ctx.branch_id)
                 wh_id = wh.id
 
-            # Restore batch stock for each line item
-            for item in invoice.items:
-                if item.product_id and item.quantity > 0:
-                    batch = item.batch_no or "BATCH-OPENING"
+            stock_res = await self.db.execute(
+                select(StockMovement)
+                .where(
+                    StockMovement.company_id == self.tenant_ctx.company_id,
+                    StockMovement.reference_doc_type == "Sales Invoice",
+                    StockMovement.reference_doc_id == invoice.id,
+                    StockMovement.movement_type == "OUTWARD_SALE",
+                    StockMovement.is_deleted.is_(False),
+                )
+                .order_by(StockMovement.created_at, StockMovement.id)
+            )
+            stock_movements = stock_res.scalars().all()
+            if stock_movements:
+                for movement in stock_movements:
                     await wms_service.atomic_mutate_batch_stock(
-                        product_id=item.product_id,
-                        warehouse_id=wh_id,
-                        batch_no=batch,
-                        qty_delta=Decimal(str(item.quantity)),
+                        product_id=movement.product_id,
+                        warehouse_id=movement.warehouse_id or wh_id,
+                        batch_no=movement.batch or "BATCH-OPENING",
+                        qty_delta=abs(Decimal(str(movement.quantity))),
                         movement_type="SALES_CANCEL",
                         reference_doc_type="Sales Invoice",
                         reference_doc_id=invoice.invoice_no,
                         remarks=f"Stock restored for cancelled sales invoice: {invoice.invoice_no}",
-                        item_id=item.item_id,
-                        variant_id=item.variant_id,
+                        item_id=movement.item_id,
+                        variant_id=movement.variant_id,
                     )
+            else:
+                # Legacy invoices may not have an authoritative outward movement.
+                for item in invoice.items:
+                    if item.product_id and item.quantity > 0:
+                        await wms_service.atomic_mutate_batch_stock(
+                            product_id=item.product_id,
+                            warehouse_id=wh_id,
+                            batch_no=item.batch_no or "BATCH-OPENING",
+                            qty_delta=Decimal(str(item.quantity)),
+                            movement_type="SALES_CANCEL",
+                            reference_doc_type="Sales Invoice",
+                            reference_doc_id=invoice.invoice_no,
+                            remarks=f"Stock restored for cancelled sales invoice: {invoice.invoice_no}",
+                            item_id=item.item_id,
+                            variant_id=item.variant_id,
+                        )
 
             # Revert customer outstanding if credit sale
             if invoice.customer_id and invoice.customer_id != "CUST-WALKIN":
