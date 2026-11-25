@@ -64,8 +64,38 @@ async def test_transfer_eway_bill_and_delivery_challan_generation(async_db: Asyn
     prod_id = f"prod-eway-{unique_suffix}"
     transfer_id = f"st-eway-{unique_suffix}"
     transfer_no = f"STO-EWAY-{unique_suffix.upper()}"
+    created_warehouse_ids = []
 
     try:
+        warehouses = (
+            await async_db.execute(
+                select(Warehouse)
+                .where(
+                    Warehouse.company_id == tenant_ctx.company_id,
+                    Warehouse.branch_id == tenant_ctx.branch_id,
+                    Warehouse.is_active.is_(True),
+                    Warehouse.is_deleted.is_(False),
+                )
+                .order_by(Warehouse.code)
+                .limit(2)
+            )
+        ).scalars().all()
+        while len(warehouses) < 2:
+            warehouse_id = f"wh-eway-{unique_suffix}-{len(warehouses)}"
+            warehouse = Warehouse(
+                id=warehouse_id,
+                uuid=str(uuid.uuid4()),
+                company_id=tenant_ctx.company_id,
+                branch_id=tenant_ctx.branch_id,
+                code=f"EWAY-{unique_suffix.upper()}-{len(warehouses)}",
+                name=f"E-Way Test Warehouse {len(warehouses) + 1}",
+                is_active=True,
+                is_deleted=False,
+            )
+            async_db.add(warehouse)
+            warehouses.append(warehouse)
+            created_warehouse_ids.append(warehouse_id)
+
         # 1. Insert product
         product = Product(
             id=prod_id,
@@ -92,8 +122,8 @@ async def test_transfer_eway_bill_and_delivery_challan_generation(async_db: Asyn
             company_id=tenant_ctx.company_id,
             branch_id=tenant_ctx.branch_id,
             transfer_no=transfer_no,
-            source_warehouse_id="wh-central-001",
-            dest_warehouse_id="wh-shop-001",
+            source_warehouse_id=warehouses[0].id,
+            dest_warehouse_id=warehouses[1].id,
             status="DRAFT",
             transporter_name="VRL Logistics Ltd",
             vehicle_number="MH-04-AB-1234",
@@ -158,6 +188,11 @@ async def test_transfer_eway_bill_and_delivery_challan_generation(async_db: Asyn
         await async_db.execute(text("DELETE FROM stock_transfer_items WHERE transfer_id = :tid"), {"tid": transfer_id})
         await async_db.execute(text("DELETE FROM stock_transfers WHERE id = :tid"), {"tid": transfer_id})
         await async_db.execute(text("DELETE FROM products WHERE id = :pid"), {"pid": prod_id})
+        for warehouse_id in created_warehouse_ids:
+            await async_db.execute(
+                text("DELETE FROM warehouses WHERE id = :warehouse_id"),
+                {"warehouse_id": warehouse_id},
+            )
         await async_db.commit()
 
 
