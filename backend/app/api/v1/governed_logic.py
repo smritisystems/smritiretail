@@ -12,9 +12,8 @@ License      : Proprietary Commercial Software
 Classification: Internal
 """
 
-from decimal import Decimal
-from typing import Dict, Any, List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from typing import List, Optional
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
@@ -32,7 +31,6 @@ from app.schemas.gov_logic import (
     FormulaEvalResponse,
     BusinessRuleResponse,
     BusinessRuleEvalRequest,
-    BusinessRuleEvalResponse,
     PolicyDefinitionResponse,
     PolicyUpdateRequest,
     CostMaskPreviewRequest,
@@ -68,8 +66,8 @@ async def list_formula_definitions(
 ):
     """List active formula definitions registered in smritisys."""
     stmt = select(FormulaDefinition).where(
-        FormulaDefinition.is_active == True,
-        FormulaDefinition.is_deleted == False,
+        FormulaDefinition.is_active.is_(True),
+        FormulaDefinition.is_deleted.is_(False),
     )
     if category:
         stmt = stmt.where(FormulaDefinition.category == category.upper())
@@ -103,8 +101,8 @@ async def list_business_rules(
 ):
     """List active declarative business rules in smritisys."""
     stmt = select(BusinessRuleDefinition).where(
-        BusinessRuleDefinition.is_active == True,
-        BusinessRuleDefinition.is_deleted == False,
+        BusinessRuleDefinition.is_active.is_(True),
+        BusinessRuleDefinition.is_deleted.is_(False),
     )
     if rule_type:
         stmt = stmt.where(BusinessRuleDefinition.rule_type == rule_type.upper())
@@ -138,8 +136,8 @@ async def list_policy_definitions(
 ):
     """List active statutory and compliance policies for the current tenant."""
     stmt = select(PolicyDefinition).where(
-        PolicyDefinition.is_active == True,
-        PolicyDefinition.is_deleted == False,
+        PolicyDefinition.is_active.is_(True),
+        PolicyDefinition.is_deleted.is_(False),
     )
     if policy_type:
         stmt = stmt.where(PolicyDefinition.policy_type == policy_type.upper())
@@ -157,7 +155,7 @@ async def get_policy_definition(
     """Retrieve single policy definition by code."""
     stmt = select(PolicyDefinition).where(
         PolicyDefinition.code == policy_code.upper(),
-        PolicyDefinition.is_active == True,
+        PolicyDefinition.is_active.is_(True),
     ).order_by(PolicyDefinition.version.desc())
     policy = (await db.execute(stmt)).scalars().first()
     if not policy:
@@ -175,18 +173,18 @@ async def update_policy_definition(
     """Update active policy parameters for the current tenant."""
     stmt = select(PolicyDefinition).where(
         PolicyDefinition.code == policy_code.upper(),
-        PolicyDefinition.is_active == True,
+        PolicyDefinition.is_active.is_(True),
     ).order_by(PolicyDefinition.version.desc())
     policy = (await db.execute(stmt)).scalars().first()
     if not policy:
         raise HTTPException(status_code=404, detail=f"Policy '{policy_code}' not found")
-    
+
     if req.name:
         policy.name = req.name
     policy.parameters = req.parameters
     if req.status:
         policy.status = req.status
-    
+
     await db.commit()
     await db.refresh(policy)
     return policy
@@ -242,8 +240,8 @@ async def list_workflow_definitions(
 ):
     """List versioned document and entity workflows."""
     stmt = select(WorkflowDefinition).where(
-        WorkflowDefinition.is_active == True,
-        WorkflowDefinition.is_deleted == False,
+        WorkflowDefinition.is_active.is_(True),
+        WorkflowDefinition.is_deleted.is_(False),
     )
     if doc_type:
         stmt = stmt.where(WorkflowDefinition.doc_type == doc_type)
@@ -261,7 +259,7 @@ async def evaluate_workflow_transition(
     """Validates state machine transitions against versioned workflow definitions."""
     stmt = select(WorkflowDefinition).where(
         WorkflowDefinition.code == req.workflow_code,
-        WorkflowDefinition.is_active == True
+        WorkflowDefinition.is_active.is_(True)
     ).order_by(WorkflowDefinition.version.desc())
     wf = (await db.execute(stmt)).scalars().first()
 
