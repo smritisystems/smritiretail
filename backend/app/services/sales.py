@@ -2080,7 +2080,9 @@ class SalesService:
                 select(StockMovement)
                 .where(
                     StockMovement.company_id == self.tenant_ctx.company_id,
-                    StockMovement.reference_doc_type == "Sales Invoice",
+                    StockMovement.reference_doc_type.in_(
+                        ("SALES_INVOICE", "Sales Invoice", "SALES INVOICE")
+                    ),
                     StockMovement.reference_doc_id == invoice.id,
                     StockMovement.movement_type == "OUTWARD_SALE",
                     StockMovement.is_deleted.is_(False),
