@@ -27,6 +27,7 @@ from app.models.accounting import Account
 from app.models.analytics import AnalyticsDailySalesFact
 from app.models.auth import UserRole
 from app.models.inventory import Product
+from app.models.profitability import TransactionCostSnapshot
 from app.models.sales import SalesInvoice, SalesInvoiceItem
 from app.services.analytics_svc import AnalyticalIntelligenceService
 from app.services.compliance_audit import ComplianceAuditService
@@ -167,18 +168,77 @@ async def test_category_margin_analytics():
     sessionmaker = get_company_sessionmaker("smriti001")
     async with sessionmaker() as session:
         comp_id = "COMP-001"
+        branch_id = "BR-001"
+        suffix = uuid.uuid4().hex[:8].upper()
+        sku = f"SKU-CAT-{suffix}"
+        product = Product(
+            id=f"prod_cat_{suffix}",
+            company_id=comp_id,
+            branch_id=branch_id,
+            code=sku,
+            name="Category Margin Test Item",
+            price=100.0,
+            stock=0,
+            category="CATEGORY-MARGIN-TEST",
+            barcode=f"BC-{sku}",
+            sku=sku,
+        )
+        invoice = SalesInvoice(
+            id=f"inv_cat_{suffix}",
+            company_id=comp_id,
+            branch_id=branch_id,
+            invoice_no=f"INV-CAT-{suffix}",
+            grand_total=200.0,
+        )
+        session.add_all([product, invoice])
+        await session.flush()
+
+        invoice_item = SalesInvoiceItem(
+            company_id=comp_id,
+            branch_id=branch_id,
+            invoice_id=invoice.id,
+            product_id=product.id,
+            code=sku,
+            name=product.name,
+            quantity=2,
+            price=100.0,
+            total_amount=200.0,
+        )
+        session.add(invoice_item)
+        await session.flush()
+        session.add(
+            TransactionCostSnapshot(
+                id=f"tcs_cat_{suffix}",
+                company_id=comp_id,
+                branch_id=branch_id,
+                sales_invoice_id=invoice.id,
+                sales_invoice_item_id=str(invoice_item.id),
+                product_id=product.id,
+                valuation_method_used="WEIGHTED_AVERAGE",
+                quantity=2,
+                cost_per_unit=60.0,
+                total_cogs=120.0,
+                selling_price_per_unit=100.0,
+                total_gross_sales=200.0,
+                gross_profit=80.0,
+            )
+        )
         categories = await AnalyticalIntelligenceService.get_category_profitability_rollups(
             session=session,
             company_id=comp_id,
             lookback_days=30
         )
         assert isinstance(categories, list)
-        assert len(categories) >= 1
-        top_cat = categories[0]
-        assert "category" in top_cat
-        assert "taxable_sales" in top_cat
-        assert "gross_margin_percent" in top_cat
-        assert top_cat["taxable_sales"] >= 0.0
+        matching_categories = [
+            category
+            for category in categories
+            if category["category"] == "CATEGORY-MARGIN-TEST"
+        ]
+        assert len(matching_categories) == 1
+        category = matching_categories[0]
+        assert category["taxable_sales"] == 200.0
+        assert category["total_cogs"] == 120.0
+        assert category["gross_margin_percent"] == 40.0
 
 
 @pytest.mark.asyncio
