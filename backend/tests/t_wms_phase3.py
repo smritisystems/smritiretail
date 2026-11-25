@@ -95,6 +95,7 @@ async def test_transfer_eway_bill_and_delivery_challan_generation(async_db: Asyn
             async_db.add(warehouse)
             warehouses.append(warehouse)
             created_warehouse_ids.append(warehouse_id)
+        await async_db.flush()
 
         # 1. Insert product
         product = Product(
