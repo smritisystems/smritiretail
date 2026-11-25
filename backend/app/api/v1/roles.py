@@ -45,7 +45,7 @@ from sqlalchemy import or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from ...api.deps import get_company_db, get_current_user, require_role
+from ...api.deps import get_db, get_current_user, require_role
 from ...models.auth import User, UserRole
 from ...models.role import Role
 from ...schemas.role import RoleCreate, RoleUpdate, RoleResponse
@@ -66,7 +66,7 @@ def _is_sysadmin(user: User) -> bool:
     response_model=List[RoleResponse],
 )
 async def list_roles(
-    db: AsyncSession = Depends(get_company_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -81,13 +81,13 @@ async def list_roles(
     Cross-tenant custom roles are NEVER returned to non-SYSADMIN callers.
     """
     if _is_sysadmin(current_user):
-        q = select(Role).where(Role.is_deleted == False)
+        q = select(Role).where(Role.is_deleted.is_(False))
     else:
         company_id = getattr(current_user, "company_id", None)
         q = select(Role).where(
-            Role.is_deleted == False,
+            Role.is_deleted.is_(False),
             or_(
-                Role.is_system == True,
+                Role.is_system.is_(True),
                 Role.company_id == company_id,
             ),
         )
@@ -116,7 +116,7 @@ async def list_roles(
 )
 async def create_role(
     req: RoleCreate,
-    db: AsyncSession = Depends(get_company_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -147,8 +147,8 @@ async def create_role(
     q = select(Role).where(
         Role.name.ilike(req.name),
         Role.company_id == company_id,
-        Role.is_deleted == False,
-        Role.is_system == False,
+        Role.is_deleted.is_(False),
+        Role.is_system.is_(False),
     )
     res = await db.execute(q)
     if res.scalars().first():
@@ -191,7 +191,7 @@ async def create_role(
 async def update_role(
     id: str,
     req: RoleUpdate,
-    db: AsyncSession = Depends(get_company_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -258,7 +258,7 @@ async def update_role(
 )
 async def delete_role(
     id: str,
-    db: AsyncSession = Depends(get_company_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """
