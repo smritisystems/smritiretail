@@ -22,7 +22,6 @@ from decimal import Decimal
 from sqlalchemy import select, delete
 from app.db.session import get_company_sessionmaker
 from app.db.tenant_harness import EphemeralTenantHarness
-from app.db.session import _verified_company_databases
 from app.services.sales_ledger_svc import UnifiedSalesLedgerService
 from app.models.sales import SalesInvoice, SalesInvoiceItem
 from app.models.inventory import Product, StockMovement, ProductBatchStock
@@ -39,18 +38,24 @@ def isolated_company_database():
     EphemeralTenantHarness.create_ephemeral_database(db_name)
     try:
         EphemeralTenantHarness.run_alembic_upgrade(db_name, "head")
-        _verified_company_databases.add(db_name)
         yield db_name
     finally:
         EphemeralTenantHarness.drop_ephemeral_database(db_name)
-        _verified_company_databases.discard(db_name)
+
+
+@pytest.fixture(scope="module")
+def isolated_company_sessionmaker(isolated_company_database):
+    return EphemeralTenantHarness.get_ephemeral_sessionmaker(isolated_company_database)
 
 
 @pytest.fixture(autouse=True)
-async def cleanup_and_setup_test_sales(isolated_company_database):
+async def cleanup_and_setup_test_sales(isolated_company_database, isolated_company_sessionmaker):
     """Clean up and set up test customer and test sales invoices."""
-    for db in ["smriti_test_001", isolated_company_database]:
-        session_factory = get_company_sessionmaker(db)
+    test_databases = [
+        ("smriti_test_001", get_company_sessionmaker("smriti_test_001")),
+        (isolated_company_database, isolated_company_sessionmaker),
+    ]
+    for db, session_factory in test_databases:
         async with session_factory() as session:
             if db == isolated_company_database:
                 if not (await session.execute(select(Company).where(Company.id == "COMP-001"))).scalar_one_or_none():
@@ -100,8 +105,7 @@ async def cleanup_and_setup_test_sales(isolated_company_database):
 
             await session.commit()
     yield
-    for db in ["smriti_test_001", isolated_company_database]:
-        session_factory = get_company_sessionmaker(db)
+    for _, session_factory in test_databases:
         async with session_factory() as session:
             await session.execute(delete(StockMovement).where(StockMovement.remarks.like("%TEST-INV%")))
             await session.execute(delete(SalesInvoice).where(SalesInvoice.invoice_no.like("TEST-INV-%")))
@@ -253,10 +257,10 @@ async def test_invoice_cancellation_and_stock_reversal():
 
 
 @pytest.mark.asyncio
-async def test_sales_invoice_tenant_isolation(isolated_company_database):
+async def test_sales_invoice_tenant_isolation(isolated_company_database, isolated_company_sessionmaker):
     """Verify invoice posted in smriti_test_001 is absent in the isolated tenant DB."""
     session_001 = get_company_sessionmaker("smriti_test_001")
-    session_002 = get_company_sessionmaker(isolated_company_database)
+    session_002 = isolated_company_sessionmaker
 
     async with session_001() as s1:
         stmt1 = select(SalesInvoice).where(SalesInvoice.invoice_no == "TEST-INV-IGST-02")
