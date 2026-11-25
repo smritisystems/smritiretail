@@ -276,7 +276,7 @@ async def test_purchase_receipt_automated_gl_posting():
             supplier = Supplier(
                 id=f"supp_test_{unique_suffix}",
                 company_id="COMP-001",
-                branch_id="BR-MAIN-001",
+                branch_id="BR-001",
                 name="Apex Fabrics Ltd",
                 code=f"SUP-{unique_suffix.upper()}",
                 gst_number="27AABCA1234F1Z5",
