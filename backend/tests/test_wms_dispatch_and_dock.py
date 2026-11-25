@@ -12,19 +12,18 @@
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock
-from decimal import Decimal
 from fastapi import HTTPException
 
-from backend.app.services.inventory_wms import InventoryWmsService
-from backend.app.schemas.wms import (
+from app.services.inventory_wms import InventoryWmsService
+from app.schemas.wms import (
     CartonDockStageRequest,
     DispatchManifestCreate,
     GateScanItemRequest,
     ManifestDispatchConfirmRequest,
 )
-from backend.app.api.deps import TenantContext
-from backend.app.models.inventory import StockMovement, Warehouse, WarehouseLocation
-from backend.app.api.v1.wms import (
+from app.api.deps import TenantContext
+from app.models.inventory import StockMovement, Warehouse
+from app.api.v1.wms import (
     list_warehouse_dock_doors,
     stage_cartons_at_dock as api_stage_cartons_at_dock,
     create_dispatch_manifest as api_create_dispatch_manifest,
@@ -224,8 +223,8 @@ async def test_dispatch_blocked_when_unscanned(mock_tenant):
 
 
 @pytest.mark.asyncio
-async def test_dispatch_confirm_posts_stock_movements_and_gate_pass(mock_tenant):
-    """Test 8: 100% verified manifest confirms dispatch, posts DISPATCH_OUT movements, and issues Gate Pass."""
+async def test_dispatch_confirm_issues_gate_pass_without_duplicate_stock_movements(mock_tenant):
+    """Test 8: Dispatch confirmation issues a gate pass without reposting merchandise stock."""
     db = _mock_db_with_warehouse()
     service = InventoryWmsService(db, mock_tenant)
 
@@ -249,16 +248,9 @@ async def test_dispatch_confirm_posts_stock_movements_and_gate_pass(mock_tenant)
     assert disp_res["status"] == "DISPATCHED"
     assert disp_res["gate_pass_no"].startswith("GP-")
     assert disp_res["dispatched_cartons_count"] == 2
-    assert db.add.called
 
-    # Validate StockMovement
     created_movements = [call.args[0] for call in db.add.call_args_list if isinstance(call.args[0], StockMovement)]
-    assert len(created_movements) >= 2
-    for sm in created_movements:
-        assert sm.movement_type == "DISPATCH_OUT"
-        assert sm.reference_doc_type == "WMS_DISPATCH"
-        assert sm.bin == "DOCK-03"
-        assert sm.quantity < 0
+    assert created_movements == []
 
 
 @pytest.mark.asyncio

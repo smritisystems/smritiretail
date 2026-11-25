@@ -1,6 +1,6 @@
 from datetime import date, datetime, timezone
 
-from backend.app.api.v1.analytics import retail_business_date
+from app.api.v1.analytics import retail_business_date
 
 
 def test_home_summary_business_date_changes_at_kolkata_midnight():

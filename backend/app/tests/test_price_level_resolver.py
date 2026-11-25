@@ -10,11 +10,8 @@ Unit tests for BillingProfileService.resolve_effective_price_level().
 Rec 4/6 — 3-tier precedence: company policy -> customer profile -> cashier override.
 """
 
-import sys
-sys.path.insert(0, "F:/SMRITRretailNX")
-
 import pytest
-from backend.app.services.billing_profile_service import BillingProfileService
+from app.services.billing_profile_service import BillingProfileService
 
 B2C  = {"default_price_level": "MRP",           "cashier_price_override": "DISABLED"}
 B2B  = {"default_price_level": "SELLING_PRICE",  "cashier_price_override": "ALLOWED"}
