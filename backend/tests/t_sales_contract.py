@@ -102,6 +102,46 @@ async def seed_sales_contract_product():
                 WHERE company_id = 'COMP-001' AND code = 'WH-MAIN'
             """)
         )
+        await session.execute(
+            text("""
+                UPDATE companies
+                SET name = 'SMRITI Test Retail Pvt Ltd',
+                    gst_number = '27ABCDE1234F1Z5',
+                    legal_name = 'SMRITI Test Retail Pvt Ltd',
+                    trade_name = 'SMRITI Test Retail',
+                    address_line1 = '1 Test Market Road',
+                    city = 'Mumbai',
+                    state = 'Maharashtra',
+                    state_code = 'MH',
+                    pincode = '400001'
+                WHERE id = 'COMP-001'
+            """)
+        )
+        await session.execute(
+            text("""
+                UPDATE company_bank_accounts
+                SET is_default = false
+                WHERE company_id = 'COMP-001'
+            """)
+        )
+        await session.execute(
+            text("""
+                INSERT INTO company_bank_accounts (
+                    id, company_id, bank_name, account_no, ifsc, branch, is_default,
+                    created_at, updated_at
+                )
+                VALUES (
+                    'BANK-SALES-CONTRACT-04', 'COMP-001', 'Test Bank',
+                    '123456789012', 'TEST0000001', 'Mumbai Test Branch', true, NOW(), NOW()
+                )
+                ON CONFLICT (id) DO UPDATE SET
+                    bank_name = EXCLUDED.bank_name,
+                    account_no = EXCLUDED.account_no,
+                    ifsc = EXCLUDED.ifsc,
+                    branch = EXCLUDED.branch,
+                    is_default = true
+            """)
+        )
         await session.commit()
 
     yield
@@ -343,7 +383,7 @@ async def test_06_get_invoice_detail_authoritative(auth_headers_company_a):
 async def test_07_get_html_preview_matches_db(auth_headers_company_a):
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test/api/v1") as client:
         res = await client.get(f"{BASE_URL}/sales/invoices/{_created_invoice_id}/html", headers=auth_headers_company_a)
-        assert res.status_code == 200
+        assert res.status_code == 200, res.text
         assert "TAX INVOICE" in res.text
         assert "INV-TEST-CONTRACT-04" in res.text
 
