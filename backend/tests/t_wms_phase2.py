@@ -16,8 +16,7 @@ import pytest
 import uuid
 from decimal import Decimal
 from datetime import date, timedelta
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import text
 
@@ -25,13 +24,40 @@ from app.api.deps import TenantContext
 from app.services.purchase import PurchaseService
 from app.services.sales import SalesService
 from app.services.inventory_wms import InventoryWmsService
-from app.models.inventory import Product, ProductBatchStock
+from app.models.inventory import Product, ProductBatchStock, Warehouse
 from app.models.purchase import Supplier
 from app.models.crm import Customer, CustomerGroup
 from conftest import utmih_delete_stock_movements
 from app.schemas.purchase import PurchaseReceiptCreate, PurchaseReceiptItemCreate
 from app.schemas.sales import SalesInvoiceCreate, SalesInvoiceItemCreate
 from app.db.session import get_company_sessionmaker
+
+
+async def _ensure_test_warehouse(session: AsyncSession) -> str:
+    warehouse = (
+        await session.execute(
+            select(Warehouse).where(
+                Warehouse.company_id == "COMP-001",
+                Warehouse.branch_id == "BR-001",
+                Warehouse.is_active.is_(True),
+                Warehouse.is_deleted.is_(False),
+            ).limit(1)
+        )
+    ).scalars().first()
+    if warehouse is None:
+        warehouse = Warehouse(
+            id="wh-wms-test-central-001",
+            company_id="COMP-001",
+            branch_id="BR-001",
+            code="WMS-CENTRAL-001",
+            name="WMS Test Central Warehouse",
+            is_central_godown=True,
+            is_active=True,
+            is_deleted=False,
+        )
+        session.add(warehouse)
+        await session.flush()
+    return warehouse.id
 
 
 @pytest.mark.asyncio
@@ -51,10 +77,14 @@ async def test_grn_inward_batch_stock_creation():
     async with session_factory() as session:
         tenant = TenantContext(company_id="COMP-001", branch_id="BR-001")
         purchase_service = PurchaseService(session, tenant)
+        warehouse_id = await _ensure_test_warehouse(session)
 
         try:
             # 1. Get test supplier and create dedicated test product
-            res_supp = await session.execute(select(Supplier).where(Supplier.company_id == "COMP-001", Supplier.is_deleted == False).limit(1))
+            res_supp = await session.execute(select(Supplier).where(
+                Supplier.company_id == "COMP-001",
+                Supplier.is_deleted.is_(False),
+            ).limit(1))
             supplier = res_supp.scalars().first()
             assert supplier is not None
 
@@ -82,7 +112,7 @@ async def test_grn_inward_batch_stock_creation():
                 id=receipt_id,
                 receipt_no=receipt_no,
                 supplier_id=supplier.id,
-                warehouse_id="wh-central-001",
+                warehouse_id=warehouse_id,
                 items=[
                     PurchaseReceiptItemCreate(
                         product_id=prod.id,
@@ -104,10 +134,10 @@ async def test_grn_inward_batch_stock_creation():
             res_batch = await session.execute(
                 select(ProductBatchStock).where(
                     ProductBatchStock.company_id == "COMP-001",
-                    ProductBatchStock.warehouse_id == "wh-central-001",
+                    ProductBatchStock.warehouse_id == warehouse_id,
                     ProductBatchStock.product_id == prod.id,
                     ProductBatchStock.batch_no == batch_no,
-                    ProductBatchStock.is_deleted == False
+                    ProductBatchStock.is_deleted.is_(False)
                 )
             )
             batch_stock = res_batch.scalars().first()
@@ -144,6 +174,7 @@ async def test_sales_invoice_fefo_auto_deduction_and_cancellation():
         tenant = TenantContext(company_id="COMP-001", branch_id="BR-001")
         sales_service = SalesService(session, tenant)
         wms_service = InventoryWmsService(session, tenant)
+        warehouse_id = await _ensure_test_warehouse(session)
         created_invoice_id = None
 
         try:
@@ -168,7 +199,7 @@ async def test_sales_invoice_fefo_auto_deduction_and_cancellation():
             # 2. Inward two batches with different expiries
             await wms_service.atomic_mutate_batch_stock(
                 product_id=prod.id,
-                warehouse_id="wh-central-001",
+                warehouse_id=warehouse_id,
                 batch_no=batch_early,
                 qty_delta=Decimal("20.0000"),
                 movement_type="INWARD_GRN",
@@ -178,7 +209,7 @@ async def test_sales_invoice_fefo_auto_deduction_and_cancellation():
 
             await wms_service.atomic_mutate_batch_stock(
                 product_id=prod.id,
-                warehouse_id="wh-central-001",
+                warehouse_id=warehouse_id,
                 batch_no=batch_late,
                 qty_delta=Decimal("50.0000"),
                 movement_type="INWARD_GRN",
@@ -192,7 +223,7 @@ async def test_sales_invoice_fefo_auto_deduction_and_cancellation():
                 invoice_no=inv_no,
                 date=date.today(),
                 customer_id="CUST-WALKIN",
-                warehouse_id="wh-central-001",
+                warehouse_id=warehouse_id,
                 payment_mode="CASH",
                 status="Created",
                 items=[
@@ -215,7 +246,7 @@ async def test_sales_invoice_fefo_auto_deduction_and_cancellation():
             res_early = await session.execute(
                 select(ProductBatchStock).where(
                     ProductBatchStock.company_id == "COMP-001",
-                    ProductBatchStock.warehouse_id == "wh-central-001",
+                    ProductBatchStock.warehouse_id == warehouse_id,
                     ProductBatchStock.product_id == prod.id,
                     ProductBatchStock.batch_no == batch_early
                 )
@@ -226,7 +257,7 @@ async def test_sales_invoice_fefo_auto_deduction_and_cancellation():
             res_late = await session.execute(
                 select(ProductBatchStock).where(
                     ProductBatchStock.company_id == "COMP-001",
-                    ProductBatchStock.warehouse_id == "wh-central-001",
+                    ProductBatchStock.warehouse_id == warehouse_id,
                     ProductBatchStock.product_id == prod.id,
                     ProductBatchStock.batch_no == batch_late
                 )
@@ -262,6 +293,7 @@ async def test_retailer_credit_limit_enforcement():
     async with session_factory() as session:
         tenant = TenantContext(company_id="COMP-001", branch_id="BR-001")
         sales_service = SalesService(session, tenant)
+        warehouse_id = await _ensure_test_warehouse(session)
 
         try:
             # 1. Create a customer group with credit limit of ₹10,000 and auto_block_sales=True
@@ -294,7 +326,7 @@ async def test_retailer_credit_limit_enforcement():
             prod_id = f"prod-cred-{unique_suffix}"
             batch_no = f"BATCH-CRED-{unique_suffix.upper()}"
 
-            # 3. Create dedicated product with stock in wh-central-001
+            # 3. Create dedicated product with stock in the test warehouse.
             prod = Product(
                 id=prod_id,
                 uuid=str(uuid.uuid4()),
@@ -318,7 +350,7 @@ async def test_retailer_credit_limit_enforcement():
                 uuid=str(uuid.uuid4()),
                 company_id="COMP-001",
                 branch_id="BR-001",
-                warehouse_id="wh-central-001",
+                warehouse_id=warehouse_id,
                 product_id=prod_id,
                 batch_no=batch_no,
                 quantity=50.0,
@@ -333,7 +365,7 @@ async def test_retailer_credit_limit_enforcement():
                 invoice_no=f"INV-BLK-{unique_suffix.upper()}",
                 date=date.today(),
                 customer_id=cust_id,
-                warehouse_id="wh-central-001",
+                warehouse_id=warehouse_id,
                 payment_mode="CREDIT",
                 status="Created",
                 items=[
