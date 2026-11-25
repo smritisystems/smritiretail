@@ -33,6 +33,7 @@ from app.services.analytics_svc import AnalyticalIntelligenceService
 from app.services.tally_service import TallyIntegrationService
 from app.services.compliance_audit import ComplianceAuditService
 from app.services.sales_ledger_svc import UnifiedSalesLedgerService
+from app.services.stock_ledger import StockLedger
 from app.services.unified_ledger import UnifiedAccountingLedgerService
 
 
@@ -96,7 +97,7 @@ async def test_daily_sales_aggregates_computation():
             sku=sku,
             barcode=f"BC-{sku}",
             category="ELECTRONICS",
-            stock=100,
+            stock=0,
             price=1000.0,
             mrp=1000.0,
             buying_price=600.0,
@@ -107,6 +108,14 @@ async def test_daily_sales_aggregates_computation():
         )
         session.add(prod)
         await session.flush()
+
+        await StockLedger.post_admin_opening_stock(
+            session=session,
+            company_id=comp_id,
+            product_id=prod.id,
+            quantity=Decimal("100"),
+            reason="Analytics integration test opening inventory",
+        )
 
         # 2. Post a Confirmed Sales Invoice (10 units @ 1000 = 10,000 + 18% GST (1800) = 11,800)
         inv_no = f"INV-AN-{uuid.uuid4().hex[:6].upper()}"
