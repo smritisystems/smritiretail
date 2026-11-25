@@ -16,10 +16,12 @@ import uuid
 from datetime import UTC, date, datetime
 from decimal import Decimal
 
+import psycopg2
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
+from app.core.config import settings
 from app.core.security import create_access_token
 from app.db.session import get_company_sessionmaker
 from app.main import app
@@ -39,9 +41,20 @@ from app.services.unified_ledger import UnifiedAccountingLedgerService
 
 def get_auth_headers(role: str = "SYSADMIN", company_id: str = "COMP-001", branch_id: str = "BR-001") -> dict:
     """Helper to generate JWT auth headers with tenant claims."""
+    database_url = settings.DATABASE_URL.replace("+asyncpg", "")
+    with psycopg2.connect(database_url) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT id FROM users WHERE username = %s AND is_active = true AND is_deleted = false",
+                ("usr_super",),
+            )
+            user_row = cursor.fetchone()
+    if user_row is None:
+        raise RuntimeError("The active test SYSADMIN user 'usr_super' was not seeded.")
+
     token = create_access_token(
         data={
-            "sub": "usr-super",
+            "sub": str(user_row[0]),
             "role": UserRole.SYSADMIN.value,
             "company_id": company_id,
             "branch_id": branch_id,
