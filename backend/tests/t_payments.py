@@ -19,25 +19,24 @@ from decimal import Decimal
 from pathlib import Path
 import pytest
 from httpx import AsyncClient, ASGITransport
-from sqlalchemy import select
 
 backend_dir = Path(__file__).resolve().parent.parent
 if str(backend_dir) not in sys.path:
     sys.path.insert(0, str(backend_dir))
 
-from dotenv import dotenv_values
+from dotenv import dotenv_values  # noqa: E402
 env_file = backend_dir.parent / ".env"
 if env_file.exists():
     for k, v in dotenv_values(env_file).items():
         if v is not None and k not in os.environ:
             os.environ[k] = v
 
-from app.main import app
-from app.db.session import get_company_sessionmaker
-from app.core.security import create_access_token
-from app.models.payment_ledger import PaymentTransaction, PaymentAllocation
-from app.services.payments_engine import PaymentsEngine
-from app.schemas.payments import (
+from app.main import app  # noqa: E402
+from app.db.session import get_company_sessionmaker  # noqa: E402
+from app.core.security import create_access_token  # noqa: E402
+from app.models.sales import SalesInvoice  # noqa: E402
+from app.services.payments_engine import PaymentsEngine  # noqa: E402
+from app.schemas.payments import (  # noqa: E402
     PaymentTenderItem,
     ProcessPaymentRequest,
     PaymentRefundRequest,
@@ -197,6 +196,26 @@ async def test_payment_allocation_across_invoices():
     idempotency_key = f"IDEM-ALLOC-{unique_suffix.upper()}"
 
     async with sessionmaker() as session:
+        invoice_a_id = f"INV-A-{unique_suffix}"
+        invoice_b_id = f"INV-B-{unique_suffix}"
+        session.add_all([
+            SalesInvoice(
+                id=invoice_a_id,
+                company_id="COMP-001",
+                invoice_no=invoice_a_id,
+                grand_total=Decimal("1200.00"),
+                status="CONFIRMED",
+            ),
+            SalesInvoice(
+                id=invoice_b_id,
+                company_id="COMP-001",
+                invoice_no=invoice_b_id,
+                grand_total=Decimal("800.00"),
+                status="CONFIRMED",
+            ),
+        ])
+        await session.flush()
+
         # Create ₹2000 unallocated payment (auto_allocate=False)
         pay_req = ProcessPaymentRequest(
             reference_doc_type="ADVANCE_PAYMENT",
@@ -214,7 +233,7 @@ async def test_payment_allocation_across_invoices():
             session=session,
             company_id="COMP-001",
             payment_id=tx_id,
-            req=PaymentAllocationRequest(invoice_id=f"INV-A-{unique_suffix}", allocated_amount=1200.0),
+            req=PaymentAllocationRequest(invoice_id=invoice_a_id, allocated_amount=1200.0),
         )
         assert alloc1.allocated_amount == 1200.0
 
@@ -223,7 +242,7 @@ async def test_payment_allocation_across_invoices():
             session=session,
             company_id="COMP-001",
             payment_id=tx_id,
-            req=PaymentAllocationRequest(invoice_id=f"INV-B-{unique_suffix}", allocated_amount=800.0),
+            req=PaymentAllocationRequest(invoice_id=invoice_b_id, allocated_amount=800.0),
         )
         assert alloc2.allocated_amount == 800.0
 
