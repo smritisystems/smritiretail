@@ -55,21 +55,21 @@ async def test_engine_pool_caching():
 
 @pytest.mark.asyncio
 async def test_get_company_db_session_execution():
-    """Verify get_company_db yields working session connected to smriti001 via TenantContext."""
+    """Verify test routing maps smriti001 to its isolated database."""
     tenant_ctx = TenantContext(company_id="COMP-001", branch_id="BR-001")
     async for session in get_company_db(tenant_ctx=tenant_ctx):
         res = await session.execute(text("SELECT current_database();"))
         db_name = res.scalar()
-        assert db_name == "smriti001", f"Expected connected database to be smriti001, got {db_name}"
+        assert db_name == "smriti_test_001", f"Expected isolated test database, got {db_name}"
 
 
 @pytest.mark.asyncio
 async def test_get_session_by_db_name():
-    """Verify low-level get_session_by_db_name connects directly to requested database."""
+    """Verify low-level sessions map tenant databases to isolated test databases."""
     async for session in get_session_by_db_name("smriti001"):
         res = await session.execute(text("SELECT current_database();"))
         db_name = res.scalar()
-        assert db_name == "smriti001", f"Expected smriti001, got {db_name}"
+        assert db_name == "smriti_test_001", f"Expected isolated test database, got {db_name}"
 
 
 @pytest.mark.asyncio
