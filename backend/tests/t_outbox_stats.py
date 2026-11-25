@@ -28,9 +28,10 @@ from app.services.outbox_service import OutboxService
 from app.services.outbox_worker import OutboxQueueWorker
 from app.models.outbox import IntegrationOutboxEvent
 from app.models.sales import SalesInvoice
-from app.models.inventory import Product, StockMovement
+from app.models.inventory import Product
 from app.models.crm import Customer
 from app.models.tenant import Company
+from conftest import utmih_delete_stock_movements
 
 
 @pytest.fixture(autouse=True)
@@ -42,7 +43,7 @@ async def cleanup_outbox_test_data():
             await session.execute(delete(IntegrationOutboxEvent).where(IntegrationOutboxEvent.aggregate_id.like("TEST-%")))
             await session.execute(delete(IntegrationOutboxEvent).where(IntegrationOutboxEvent.correlation_id.like("TEST-%")))
             await session.execute(delete(IntegrationOutboxEvent).where(IntegrationOutboxEvent.target_channel.like("TEST_%")))
-            await session.execute(delete(StockMovement).where(StockMovement.remarks.like("%TEST-OUTBOX%")))
+            await utmih_delete_stock_movements(session, "remarks LIKE '%TEST-OUTBOX%'")
             await session.execute(delete(SalesInvoice).where(SalesInvoice.invoice_no.like("INV-TEST-OUTBOX-%")))
             await session.execute(delete(SalesInvoice).where(SalesInvoice.invoice_no.like("INV-TEST-ATOMIC-%")))
 
@@ -104,7 +105,7 @@ async def cleanup_outbox_test_data():
             await session.execute(delete(IntegrationOutboxEvent).where(IntegrationOutboxEvent.aggregate_id.like("TEST-%")))
             await session.execute(delete(IntegrationOutboxEvent).where(IntegrationOutboxEvent.correlation_id.like("TEST-%")))
             await session.execute(delete(IntegrationOutboxEvent).where(IntegrationOutboxEvent.target_channel.like("TEST_%")))
-            await session.execute(delete(StockMovement).where(StockMovement.remarks.like("%TEST-OUTBOX%")))
+            await utmih_delete_stock_movements(session, "remarks LIKE '%TEST-OUTBOX%'")
             await session.execute(delete(SalesInvoice).where(SalesInvoice.invoice_no.like("INV-TEST-OUTBOX-%")))
             await session.execute(delete(SalesInvoice).where(SalesInvoice.invoice_no.like("INV-TEST-ATOMIC-%")))
             await session.commit()
