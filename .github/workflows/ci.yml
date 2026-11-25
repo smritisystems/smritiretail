@@ -139,7 +139,10 @@ jobs:
               awk '/^backend\/app\/.*\.py$/ { sub(/^backend\//, ""); print }'
           )
           if ((${#FILES[@]})); then
-            ruff check "${FILES[@]}" --select=E,W,F --ignore=E501
+            RUFF_REPORT="$RUNNER_TEMP/ruff-changed.json"
+            ruff check "${FILES[@]}" --select=E,W,F --ignore=E501 --output-format=json > "$RUFF_REPORT" || true
+            python "$GITHUB_WORKSPACE/.github/scripts/check_changed_python_lines.py" \
+              "$BASE_SHA" "$HEAD_SHA" ruff "$RUFF_REPORT"
           else
             echo "No changed backend Python files to lint."
           fi
@@ -293,7 +296,10 @@ jobs:
               grep -Ev '^backend/app/(tests|compliance/tests)/'
           )
           if ((${#FILES[@]})); then
-            bandit "${FILES[@]}" -ll --skip B101,B311
+            BANDIT_REPORT="$RUNNER_TEMP/bandit-changed.json"
+            bandit "${FILES[@]}" -ll --skip B101,B311 --format json > "$BANDIT_REPORT" || true
+            python "$GITHUB_WORKSPACE/.github/scripts/check_changed_python_lines.py" \
+              "$BASE_SHA" "$HEAD_SHA" bandit "$BANDIT_REPORT"
           else
             echo "No changed backend application files to scan."
           fi
