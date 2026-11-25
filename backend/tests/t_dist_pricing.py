@@ -29,7 +29,8 @@ from app.models.party import Party
 from app.models.item_master import Item, ItemVariant
 from app.models.pricing import PriceBook, PriceBookEntry, CustomerPriceTier
 from app.models.distribution import DistributionTerritory, DealerAssignment, DistributionOrder
-from app.models.inventory import StockMovement
+from app.models.inventory import Product, StockMovement
+from app.services.stock_ledger import StockLedger
 
 
 def get_auth_headers(role: str = "SYSADMIN", company_id: str = "COMP-001", branch_id: str = "BR-001") -> dict:
@@ -252,7 +253,27 @@ async def test_distribution_order_dispatch_and_authoritative_stock_movement():
             is_active=True,
             is_deleted=False,
         )
-        session.add_all([party, item])
+        product = Product(
+            id=item.id,
+            company_id="COMP-001",
+            item_id=item.id,
+            code=item.item_code,
+            name=item.item_name,
+            price=item.selling_price,
+            stock=0,
+            category=item.category,
+            barcode=item.item_code,
+            sku=item.item_code,
+        )
+        session.add_all([party, item, product])
+        await session.flush()
+        await StockLedger.post_admin_opening_stock(
+            session=session,
+            company_id="COMP-001",
+            product_id=product.id,
+            quantity=Decimal("5"),
+            reason="Initial stock for distribution dispatch test",
+        )
         await session.commit()
 
         order = await DistributionService.create_distribution_order(
