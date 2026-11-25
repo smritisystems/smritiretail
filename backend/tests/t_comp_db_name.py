@@ -59,12 +59,12 @@ def test_validate_company_database_name_valid():
     assert validate_company_database_name("smriti001") is True
     assert validate_company_database_name("smriti0124") is True
     assert validate_company_database_name("smritiABC1") is True
-    assert validate_company_database_name("smritisys") is True  # Control Plane
 
 def test_validate_company_database_name_invalid():
     """Verify reserved or invalid database names are rejected."""
     assert validate_company_database_name("smriti0000") is False  # Reserved
     assert validate_company_database_name("smritiSYS0") is False  # Reserved Control Plane
+    assert validate_company_database_name("smritisys") is False  # Control Plane is not a tenant database
     assert validate_company_database_name("smriti_001") is False # Separator forbidden
     assert validate_company_database_name("company_comp_001") is False  # Legacy prefix
     assert validate_company_database_name("smriti-ABC") is False # Hyphen forbidden
