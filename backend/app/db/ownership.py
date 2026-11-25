@@ -149,6 +149,9 @@ TABLE_OWNERSHIP: Dict[str, TableOwner] = {
     "crm_customer_activities":               TableOwner.TENANT,
     "crm_leads":                             TableOwner.TENANT,
     "crm_opportunities":                     TableOwner.TENANT,
+    "crm_segments":                          TableOwner.TENANT,
+    "crm_segment_memberships":               TableOwner.TENANT,
+    "customer_company_relationships":        TableOwner.TENANT,
     "parties":                               TableOwner.TENANT,
     "party_addresses":                       TableOwner.TENANT,
     "party_contacts":                        TableOwner.TENANT,
@@ -181,6 +184,7 @@ TABLE_OWNERSHIP: Dict[str, TableOwner] = {
     "sales_orders":                          TableOwner.TENANT,
     "sales_order_items":                     TableOwner.TENANT,
     "sales_order_invoice_allocations":       TableOwner.TENANT,
+    "sales_source_invoice_allocations":      TableOwner.TENANT,
     "sales_order_reservations":              TableOwner.TENANT,
     "sales_quotations":                      TableOwner.TENANT,
     "sales_quotation_items":                 TableOwner.TENANT,
@@ -204,6 +208,8 @@ TABLE_OWNERSHIP: Dict[str, TableOwner] = {
     "pos_parked_carts":                      TableOwner.TENANT,
     "pos_profiles":                          TableOwner.TENANT,
     "pos_shift_denomination_counts":         TableOwner.TENANT,
+    "store_business_days":                   TableOwner.TENANT,
+    "store_day_shift_assignments":           TableOwner.TENANT,
     "legacy_pos_shifts":                     TableOwner.TENANT,
 
     # Item / Product Catalog & Attributes
