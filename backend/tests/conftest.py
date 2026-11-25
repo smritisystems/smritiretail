@@ -19,6 +19,7 @@ from pathlib import Path
 import psycopg2
 import pytest
 from dotenv import dotenv_values
+from psycopg2 import sql
 
 backend_dir = Path(__file__).resolve().parent.parent
 if str(backend_dir) not in sys.path:
@@ -91,6 +92,36 @@ def seed_company_reference_data():
     from app.db.seed_ctrl_ref import seed_control_reference_data
 
     seed_control_reference_data("smriti_test_001", port=int(_PG_PORT))
+
+
+@pytest.fixture(scope="session", autouse=True)
+def provision_isolated_feature_test_databases(seed_company_reference_data):
+    """Create dedicated feature-test databases from the migrated isolated tenant."""
+    database_names = (
+        "smriti_test_phase2c",
+        "smriti_test_cost_engine",
+        "smriti_test_price_revisions",
+    )
+    connection = psycopg2.connect(
+        f"postgresql://postgres:postgres@localhost:{_PG_PORT}/postgres"
+    )
+    try:
+        connection.autocommit = True
+        with connection.cursor() as cursor:
+            for database_name in database_names:
+                cursor.execute(
+                    "SELECT 1 FROM pg_database WHERE datname = %s",
+                    (database_name,),
+                )
+                if cursor.fetchone() is None:
+                    cursor.execute(
+                        sql.SQL("CREATE DATABASE {} TEMPLATE {}").format(
+                            sql.Identifier(database_name),
+                            sql.Identifier("smriti_test_001"),
+                        )
+                    )
+    finally:
+        connection.close()
 
 
 @pytest.fixture(autouse=True, scope="function")
