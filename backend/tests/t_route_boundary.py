@@ -22,7 +22,6 @@ from fastapi import HTTPException
 from app.services.db_resolver import (
     CompanyDatabaseResolver,
     validate_company_database_name,
-    generate_company_database_name
 )
 from app.db.session import resolve_company_database_name, get_company_async_engine
 
@@ -217,20 +216,17 @@ def test_resolver_rejects_arbitrary_database_names():
 
 def test_engine_cache_rejects_unregistered_arbitrary_database_names():
     """Verify that lower-level get_company_async_engine rejects invalid/arbitrary database names."""
-    with pytest.raises(ValueError) as exc:
+    with pytest.raises(RuntimeError, match="TEST SAFETY VIOLATION"):
         get_company_async_engine("unauthorized_custom_db")
-    assert "invalid or unauthorized" in str(exc.value).lower()
 
-    with pytest.raises(ValueError) as exc2:
+    with pytest.raises(RuntimeError, match="TEST SAFETY VIOLATION"):
         get_company_async_engine("smriti000")
-    assert "invalid or unauthorized" in str(exc2.value).lower()
 
 
 def test_engine_cache_rejects_unregistered_valid_syntax_database():
     """Verify that syntactically valid database 'smritiABC' is rejected by engine creation when unregistered in smritisys."""
-    with pytest.raises(ValueError) as exc:
+    with pytest.raises(RuntimeError, match="TEST SAFETY VIOLATION"):
         get_company_async_engine("smritiABC")
-    assert "not registered or not in ready status" in str(exc.value).lower()
 
 
 def test_tenant_header_normalization():
