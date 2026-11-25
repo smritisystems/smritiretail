@@ -139,16 +139,26 @@ def seed_control_plane_test_assignments():
         # Strategy: if a branch with code='MAIN' already exists (any id), update it in place.
         # If no such branch exists, insert with id='MAIN'.
         # We never DELETE because existing users.branch_id FKs would be violated.
+        ctrl_cur.execute(
+            "UPDATE branches SET is_default = false WHERE company_id = 'COMP-001' AND is_default IS TRUE;"
+        )
         ctrl_cur.execute("SELECT id FROM branches WHERE code = 'MAIN' LIMIT 1;")
         existing_branch = ctrl_cur.fetchone()
         if existing_branch:
-            ctrl_cur.execute(
-                "UPDATE branches SET company_id = 'COMP-001', is_active = true, is_deleted = false WHERE code = 'MAIN';"
-            )
+            ctrl_cur.execute("""
+                UPDATE branches
+                SET company_id = 'COMP-001', is_default = true, is_active = true, is_deleted = false
+                WHERE code = 'MAIN';
+            """)
         else:
             ctrl_cur.execute("""
-                INSERT INTO branches (id, uuid, company_id, name, code, is_active, is_deleted, created_at, modified_at)
-                VALUES ('MAIN', %s, 'COMP-001', 'Main Branch', 'MAIN', true, false, NOW(), NOW());
+                INSERT INTO branches (
+                    id, uuid, company_id, name, code, is_default, is_active, is_deleted, created_at, modified_at
+                )
+                VALUES (
+                    'MAIN', %s, 'COMP-001', 'Main Branch', 'MAIN',
+                    true, true, false, NOW(), NOW()
+                );
             """, (str(uuid.uuid4()),))
 
         # 0b. Seed roles with role-based permissions in smritisys
@@ -408,23 +418,33 @@ def seed_control_plane_test_assignments():
         """, (str(uuid.uuid4()),))
 
         comp_cur.execute("""
-            INSERT INTO branches (id, uuid, company_id, name, code, is_active, is_deleted, created_at, modified_at)
-            VALUES ('MAIN', %s, 'COMP-001', 'Main Branch', 'MAIN', true, false, NOW(), NOW())
+            UPDATE branches SET is_default = false WHERE company_id = 'COMP-001' AND is_default IS TRUE;
+        """)
+
+        comp_cur.execute("""
+            INSERT INTO branches (
+                id, uuid, company_id, name, code, is_default, is_active, is_deleted, created_at, modified_at
+            )
+            VALUES ('MAIN', %s, 'COMP-001', 'Main Branch', 'MAIN', true, true, false, NOW(), NOW())
             ON CONFLICT (id) DO UPDATE SET
                 company_id = 'COMP-001',
                 name = 'Main Branch',
                 code = 'MAIN',
+                is_default = true,
                 is_active = true,
                 is_deleted = false;
         """, (str(uuid.uuid4()),))
 
         comp_cur.execute("""
-            INSERT INTO branches (id, uuid, company_id, name, code, is_active, is_deleted, created_at, modified_at)
-            VALUES ('BR-001', %s, 'COMP-001', 'Branch 001', 'BR-001', true, false, NOW(), NOW())
+            INSERT INTO branches (
+                id, uuid, company_id, name, code, is_default, is_active, is_deleted, created_at, modified_at
+            )
+            VALUES ('BR-001', %s, 'COMP-001', 'Branch 001', 'BR-001', false, true, false, NOW(), NOW())
             ON CONFLICT (id) DO UPDATE SET
                 company_id = 'COMP-001',
                 name = 'Branch 001',
                 code = 'BR-001',
+                is_default = false,
                 is_active = true,
                 is_deleted = false;
         """, (str(uuid.uuid4()),))
