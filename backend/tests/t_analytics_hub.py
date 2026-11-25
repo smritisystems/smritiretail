@@ -275,6 +275,16 @@ async def test_tally_sales_voucher_xml_generation():
         session.add(prod)
         await session.flush()
 
+        opening_stock = await StockLedger.post_admin_opening_stock(
+            session=session,
+            company_id=comp_id,
+            product_id=prod.id,
+            quantity=Decimal("100"),
+            reason="Tally voucher test opening inventory",
+        )
+        assert opening_stock.product_balance_after == Decimal("100")
+        await session.commit()
+
         # 2. Create Invoice
         inv_no = f"INV-TL-{uuid.uuid4().hex[:6].upper()}"
         invoice = await UnifiedSalesLedgerService.post_sales_invoice(
