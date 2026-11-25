@@ -244,7 +244,7 @@ def test_branch_aliases_resolve_to_canonical_branch_ids():
     from app.api.deps import normalize_branch_value
     assert normalize_branch_value("MAIN") == "BR-MAIN-001"
     assert normalize_branch_value("BR-MAIN-001") == "BR-MAIN-001"
-    assert normalize_branch_value("BR-001") == "BR-001"
+    assert normalize_branch_value("BR-001") == "BR-MAIN-001"
     assert normalize_branch_value(None) is None
 
 
