@@ -59,20 +59,24 @@ async def _ensure_test_warehouses(
     tenant: TenantContext,
     unique_suffix: str,
     count: int = 2,
+    require_dispatch_location: bool = False,
 ):
-    warehouses = (
-        await session.execute(
-            select(Warehouse)
-            .where(
-                Warehouse.company_id == tenant.company_id,
-                Warehouse.branch_id == tenant.branch_id,
-                Warehouse.is_active.is_(True),
-                Warehouse.is_deleted.is_(False),
-            )
-            .order_by(Warehouse.code)
-            .limit(count)
+    warehouse_query = (
+        select(Warehouse)
+        .where(
+            Warehouse.company_id == tenant.company_id,
+            Warehouse.branch_id == tenant.branch_id,
+            Warehouse.is_active.is_(True),
+            Warehouse.is_deleted.is_(False),
         )
-    ).scalars().all()
+        .order_by(Warehouse.code)
+    )
+    if not require_dispatch_location:
+        warehouse_query = warehouse_query.limit(count)
+    warehouses = (await session.execute(warehouse_query)).scalars().all()
+    if require_dispatch_location:
+        warehouses = [warehouse for warehouse in warehouses if warehouse.address or warehouse.city]
+
     created_ids = []
     while len(warehouses) < count:
         index = len(warehouses)
@@ -84,6 +88,8 @@ async def _ensure_test_warehouses(
             branch_id=tenant.branch_id,
             code=f"EWAY-{unique_suffix.upper()}-{index}",
             name=f"E-Way Test Warehouse {index + 1}",
+            address="100 Test Warehouse Road",
+            city="Mumbai",
             is_active=True,
             is_deleted=False,
         )
@@ -374,6 +380,7 @@ async def test_strict_statutory_validation_rejections(async_db: AsyncSession, te
             async_db,
             tenant_ctx,
             unique_suffix,
+            require_dispatch_location=True,
         )
         # 1. Insert product WITHOUT HSN code
         product = Product(
@@ -518,6 +525,7 @@ async def test_strict_statutory_mode_config_toggle(async_db: AsyncSession, tenan
             async_db,
             tenant_ctx,
             unique_suffix,
+            require_dispatch_location=True,
         )
         # Insert product without HSN
         product = Product(
