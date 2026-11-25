@@ -372,6 +372,7 @@ async def test_retailer_credit_limit_enforcement():
                 auto_block_sales=True,
                 unlimited_credit=False,
                 credit_hold=False,
+                can_purchase_on_credit=True,
                 company_id="COMP-001",
                 branch_id="BR-001"
             )
@@ -476,7 +477,7 @@ async def test_retailer_credit_limit_enforcement():
             with pytest.raises(HTTPException) as exc_info:
                 await sales_service.create_sales_invoice(inv_in)
             assert exc_info.value.status_code == 400
-            assert "SMRITI-CREDIT-001" in exc_info.value.detail
+            assert "SMRITI-CREDIT-003" in exc_info.value.detail
 
         finally:
             await session.execute(text("DELETE FROM sales_invoice_items WHERE invoice_id IN (SELECT id FROM sales_invoices WHERE customer_id = :cid)"), {"cid": cust_id})
