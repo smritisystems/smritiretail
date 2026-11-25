@@ -200,6 +200,7 @@ jobs:
         run: python ../scripts/ci_ux_field_governance_guard.py
         env:
           POSTGRES_PORT: "5432"
+          SMRITI_TENANT_DATABASES: "smriti_test_001,smriti_test_002"
 
       - name: Run Backend Tests
         run: >

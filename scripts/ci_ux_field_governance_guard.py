@@ -135,10 +135,13 @@ class UXFieldGovernanceGuard:
     # ──────────────────────────────────────────────────────────────────────────
     def check_physical_db_schema(self):
         print("Checking 2: Bi-Directional Physical Database Reconciliation...")
-        db_configs = [
-            ("smriti001", "TENANT"),
-            ("smritisys", "CONTROL_PLANE")
+        tenant_databases = [
+            name.strip()
+            for name in os.getenv("SMRITI_TENANT_DATABASES", "smriti001").split(",")
+            if name.strip()
         ]
+        db_configs = [(name, "TENANT") for name in tenant_databases]
+        db_configs.append(("smritisys", "CONTROL_PLANE"))
 
         total_cols = 0
         total_tables = set()
@@ -673,7 +676,7 @@ All business fields in SMRITI are declared authoritatively in `backend/app/gover
 | :--- | :--- | :--- | :--- |
 | **CFOC Registry Version** | {self.stats['version']} | v3.45.0 | PASS |
 | **Deterministic Fingerprint** | `{self.stats['fingerprint'][:16]}...` | SHA-256 stable across runs | PASS |
-| **Physical DB Tables** | {self.stats['total_db_tables']} tables | 295 tables across `smriti001` & `smritisys` | PASS |
+| **Physical DB Tables** | {self.stats['total_db_tables']} tables | Live tenant and control-plane schemas | PASS |
 | **Physical DB Columns** | {self.stats['total_db_columns']} columns | Live information_schema catalog | PASS |
 | **Canonical Field Definitions** | {self.stats['total_canonical_fields']} fields | Declared in `CANONICAL_FIELDS` SSOT | PASS |
 | **UX Field References (Configured)** | {self.stats['total_ux_field_references']} references | Master Form Fields & Grid Columns | PASS |
