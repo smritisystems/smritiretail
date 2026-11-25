@@ -13,9 +13,9 @@ Classification: Internal
 """
 
 from datetime import date, datetime, timezone, timedelta
-from typing import Optional, List, Dict, Any
+from typing import Optional
 from zoneinfo import ZoneInfo
-from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, desc
@@ -44,7 +44,7 @@ async def get_home_summary(
 
     invoice_filters = (
         SalesInvoice.company_id == tenant_ctx.company_id,
-        SalesInvoice.is_deleted == False,
+        SalesInvoice.is_deleted.is_(False),
         SalesInvoice.status.notin_(["CANCELLED", "Cancelled", "DRAFT", "Draft"]),
         SalesInvoice.date == today,
     )
@@ -71,7 +71,7 @@ async def get_home_summary(
     customer_count = await db.execute(
         select(func.count(Customer.id)).where(
             Customer.company_id == tenant_ctx.company_id,
-            Customer.is_deleted == False,
+            Customer.is_deleted.is_(False),
             Customer.created_date == today,
         )
     )

@@ -89,7 +89,7 @@ class StoreDayService:
                     StoreBusinessDay.company_id == self.tenant.company_id,
                     StoreBusinessDay.branch_id == branch_id,
                     StoreBusinessDay.business_date == business_date,
-                    StoreBusinessDay.is_deleted == False,
+                    StoreBusinessDay.is_deleted.is_(False),
                 )
             ).order_by(StoreBusinessDay.opened_at.desc())
         )
@@ -143,7 +143,7 @@ class StoreDayService:
                 Shift.id == shift_id,
                 Shift.company_id == self.tenant.company_id,
                 Shift.branch_id == day.branch_id,
-                Shift.is_deleted == False,
+                Shift.is_deleted.is_(False),
             )
         )
         shift = shift_result.scalar_one_or_none()
@@ -471,7 +471,7 @@ class StoreDayService:
                     StoreBusinessDay.company_id == self.tenant.company_id,
                     StoreBusinessDay.branch_id == branch_id,
                     StoreBusinessDay.status == "OPEN",
-                    StoreBusinessDay.is_deleted == False,
+                    StoreBusinessDay.is_deleted.is_(False),
                 )
             )
         )
@@ -482,7 +482,7 @@ class StoreDayService:
             select(StoreBusinessDay).where(
                 StoreBusinessDay.id == store_day_id,
                 StoreBusinessDay.company_id == self.tenant.company_id,
-                StoreBusinessDay.is_deleted == False,
+                StoreBusinessDay.is_deleted.is_(False),
             )
         )
         day = result.scalar_one_or_none()
@@ -508,7 +508,7 @@ class StoreDayService:
                     Shift.company_id == self.tenant.company_id,
                     Shift.branch_id == branch_id,
                     Shift.status == "OPEN",
-                    Shift.is_deleted == False,
+                    Shift.is_deleted.is_(False),
                 )
             )
         )
@@ -529,7 +529,7 @@ class StoreDayService:
                     Shift.status == "CLOSED",
                     Shift.closed_at >= start,
                     Shift.closed_at < end,
-                    Shift.is_deleted == False,
+                    Shift.is_deleted.is_(False),
                     StoreDayShiftAssignment.id.is_(None),
                 )
             )

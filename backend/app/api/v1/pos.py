@@ -21,7 +21,7 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 import uuid
-from fastapi import APIRouter, Depends, Query, HTTPException, status
+from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 
@@ -524,7 +524,7 @@ async def list_active_parked_carts(
             POSParkedCart.company_id == tenant.company_id,
             POSParkedCart.status == "PARKED",
             POSParkedCart.expires_at > now,
-            POSParkedCart.is_deleted == False,
+            POSParkedCart.is_deleted.is_(False),
         )
     )
     effective_branch_id = tenant.branch_id or branch_id

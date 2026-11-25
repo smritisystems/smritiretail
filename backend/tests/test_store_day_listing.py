@@ -49,7 +49,7 @@ async def test_list_store_days_filters_company_branch_date_and_deleted_rows():
     assert "company_id = 'COMP-001'" in sql
     assert "branch_id = 'BR-001'" in sql
     assert "business_date = '2026-11-25'" in sql
-    assert "is_deleted = false" in sql
+    assert "is_deleted IS false" in sql
 
 
 @pytest.mark.asyncio

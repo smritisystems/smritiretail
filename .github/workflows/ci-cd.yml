@@ -106,6 +106,7 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install -r backend/requirements.txt
+          pip install pytest pytest-asyncio pytest-cov
       
       - name: Run pylint
         run: cd backend && pylint app --fail-under=8.0 2>/dev/null || true

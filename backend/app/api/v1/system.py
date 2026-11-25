@@ -21,16 +21,14 @@ from fastapi import APIRouter, Depends, HTTPException, Body
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy.orm import selectinload
 
 from ...api.deps import get_db, get_company_db, get_current_user, require_role
-from ...core.security import hash_password
 from ...models.auth import User, UserRole
 from ...models.system import TallyConfig, SystemConfig
 from ...models.tenant import Company, Branch
 from ...models.pos import CashRegister
 from ...schemas.system import (
-    TallyConfigCreate, TallyConfigUpdate, TallyConfigResponse,
+    TallyConfigCreate, TallyConfigResponse,
     SystemConfigCreate, SystemConfigUpdate, SystemConfigResponse,
     CompanySetupRequest, StoreConfig, current_financial_year, current_books_start_date
 )
@@ -69,7 +67,7 @@ layout_preferences: Dict[str, Any] = DEFAULT_LAYOUT_PREFERENCES.copy()
 
 
 async def get_system_config(db: AsyncSession, key: str) -> Optional[SystemConfig]:
-    q = select(SystemConfig).where(SystemConfig.key == key, SystemConfig.is_deleted == False)
+    q = select(SystemConfig).where(SystemConfig.key == key, SystemConfig.is_deleted.is_(False))
     res = await db.execute(q)
     return res.scalars().first()
 
@@ -124,10 +122,10 @@ async def get_tally_config(
     """
     Get active Tally ERP integration parameters configuration.
     """
-    q = select(TallyConfig).where(TallyConfig.is_deleted == False)
+    q = select(TallyConfig).where(TallyConfig.is_deleted.is_(False))
     res = await db.execute(q)
     configs = res.scalars().all()
-    
+
     serialized = []
     for c in configs:
         serialized.append(TallyConfigResponse(
@@ -153,7 +151,7 @@ async def save_tally_config(
     """
     Save or update Tally connection parameters settings.
     """
-    q = select(TallyConfig).where(TallyConfig.is_deleted == False)
+    q = select(TallyConfig).where(TallyConfig.is_deleted.is_(False))
     res = await db.execute(q)
     existing = res.scalars().first()
 
@@ -202,7 +200,7 @@ async def sync_tally(
     Trigger manual synchronous transaction logs upload validation to Tally ERP.
     """
     # Check config
-    q = select(TallyConfig).where(TallyConfig.is_deleted == False)
+    q = select(TallyConfig).where(TallyConfig.is_deleted.is_(False))
     res = await db.execute(q)
     config = res.scalars().first()
     if not config or not config.is_active:
@@ -230,7 +228,7 @@ async def list_system_configs(
     """
     List all active global system config variables.
     """
-    q = select(SystemConfig).where(SystemConfig.is_deleted == False)
+    q = select(SystemConfig).where(SystemConfig.is_deleted.is_(False))
     res = await db.execute(q)
     return res.scalars().all()
 
@@ -248,7 +246,7 @@ async def create_system_config(
     """
     Register a new global business parameter setting.
     """
-    q = select(SystemConfig).where(SystemConfig.key == req.key, SystemConfig.is_deleted == False)
+    q = select(SystemConfig).where(SystemConfig.key == req.key, SystemConfig.is_deleted.is_(False))
     res = await db.execute(q)
     existing = res.scalars().first()
     if existing:
@@ -283,7 +281,7 @@ async def update_system_config(
     """
     Update global parameter setting value.
     """
-    q = select(SystemConfig).where(SystemConfig.key == key, SystemConfig.is_deleted == False)
+    q = select(SystemConfig).where(SystemConfig.key == key, SystemConfig.is_deleted.is_(False))
     res = await db.execute(q)
     config = res.scalars().first()
     if not config:
@@ -355,7 +353,7 @@ async def create_audit_log(
     from ...services.compliance_audit import ComplianceAuditService
     company_id = getattr(user, "company_id", None) or "COMP-001"
     role_str = getattr(user.role, "value", str(user.role)) if hasattr(user, "role") else "USER"
-    
+
     log = await ComplianceAuditService.record_audit_event(
         session=db,
         company_id=company_id,
@@ -788,7 +786,7 @@ async def company_setup(
         existing_reg = await db.execute(
             select(CashRegister).where(
                 CashRegister.company_id == company_id,
-                CashRegister.is_deleted == False,
+                CashRegister.is_deleted.is_(False),
             )
         )
         if not existing_reg.scalars().first():

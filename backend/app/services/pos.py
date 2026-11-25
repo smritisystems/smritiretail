@@ -27,17 +27,13 @@ from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException
 
 from ..models.pos import CashRegister, Shift, ShiftCashTransaction, POSShiftDenominationCount
-from ..models.sales import SalesInvoice, SalesInvoiceItem
-from ..models.inventory import Product, StockMovement
+from ..models.sales import SalesInvoice
 from ..api.deps import TenantContext
-from ..services.inventory_warehouse_resolver import InventoryWarehouseResolver
-from ..services.canonical_transaction_writer import CanonicalTransactionWriter
-from ..services.sales import SalesService
 from ..repositories.pos import CashRegisterRepository, ShiftRepository
 from ..schemas.pos import (
     CashRegisterCreate, ShiftOpen, ShiftClose,
     ShiftCashInRequest, ShiftCashDropRequest, ShiftTillExpenseRequest,
-    POSCheckoutRequest,
+    POSCheckoutRequest, POSProfileCreate,
 )
 from .identity.engine import IdentityEngine
 
@@ -86,7 +82,7 @@ class POSService:
     async def list_registers(self) -> list[CashRegister]:
         stmt = select(CashRegister).where(
             CashRegister.company_id == self.tenant.company_id,
-            CashRegister.is_deleted == False,
+            CashRegister.is_deleted.is_(False),
         )
         if self.tenant.branch_id:
             stmt = stmt.where(
@@ -106,7 +102,7 @@ class POSService:
     # POS Profile CRUD  (frontend POSProfile ↔ CashRegister)
     # ──────────────────────────────────────────────────────────────
 
-    async def create_profile(self, req: "POSProfileCreate") -> CashRegister:  # type: ignore[name-defined]
+    async def create_profile(self, req: POSProfileCreate) -> CashRegister:
         """Create a CashRegister from the frontend POS profile form."""
         import uuid as _uuid
         # Use provided code or auto-derive a short code
@@ -136,7 +132,7 @@ class POSService:
         await self.db.refresh(reg)
         return reg
 
-    async def update_profile(self, register_id: str, req: "POSProfileCreate") -> CashRegister:  # type: ignore[name-defined]
+    async def update_profile(self, register_id: str, req: POSProfileCreate) -> CashRegister:
         """Update an existing CashRegister from the frontend POS profile form."""
         reg = await self.get_register(register_id)
         if req.name:
@@ -219,7 +215,7 @@ class POSService:
         q = select(Shift).where(
             Shift.company_id == self.tenant.company_id,
             self._branch_clause(Shift),
-            Shift.is_deleted == False,
+            Shift.is_deleted.is_(False),
         )
         if register_id:
             q = q.where(Shift.register_id == register_id)
@@ -238,7 +234,7 @@ class POSService:
             Shift.id == shift_id,
             Shift.company_id == self.tenant.company_id,
             self._branch_clause(Shift),
-            Shift.is_deleted == False,
+            Shift.is_deleted.is_(False),
         )
         if for_update:
             stmt = stmt.with_for_update()
@@ -260,7 +256,7 @@ class POSService:
             Shift.company_id == self.tenant.company_id,
             self._branch_clause(Shift),
             Shift.status == "OPEN",
-            Shift.is_deleted == False,
+            Shift.is_deleted.is_(False),
         ).with_for_update()
         active_shift = (await self.db.execute(active_stmt)).scalars().first()
         if active_shift:
@@ -377,7 +373,7 @@ class POSService:
                 ShiftCashTransaction.shift_id == shift_id,
                 ShiftCashTransaction.idempotency_key == req.idempotency_key,
                 ShiftCashTransaction.company_id == self.tenant.company_id,
-                ShiftCashTransaction.is_deleted == False,
+                ShiftCashTransaction.is_deleted.is_(False),
             )
         )).scalars().first()
         if existing_sct:
@@ -555,7 +551,7 @@ class POSService:
                 ShiftCashTransaction.shift_id == shift_id,
                 ShiftCashTransaction.idempotency_key == req.idempotency_key,
                 ShiftCashTransaction.company_id == self.tenant.company_id,
-                ShiftCashTransaction.is_deleted == False,
+                ShiftCashTransaction.is_deleted.is_(False),
             )
         )).scalars().first()
         if existing_sct:
@@ -583,7 +579,7 @@ class POSService:
             select(func.coalesce(func.sum(SalesInvoice.grand_total), 0)).where(
                 SalesInvoice.shift_id == shift_id,
                 SalesInvoice.payment_mode == "CASH",
-                SalesInvoice.is_deleted == False,
+                SalesInvoice.is_deleted.is_(False),
             )
         )
         cash_sales = Decimal(str(invoices_res.scalar() or 0.00))
@@ -734,7 +730,7 @@ class POSService:
                 ShiftCashTransaction.shift_id == shift_id,
                 ShiftCashTransaction.idempotency_key == req.idempotency_key,
                 ShiftCashTransaction.company_id == self.tenant.company_id,
-                ShiftCashTransaction.is_deleted == False,
+                ShiftCashTransaction.is_deleted.is_(False),
             )
         )).scalars().first()
         if existing_sct:
@@ -762,7 +758,7 @@ class POSService:
             select(func.coalesce(func.sum(SalesInvoice.grand_total), 0)).where(
                 SalesInvoice.shift_id == shift_id,
                 SalesInvoice.payment_mode == "CASH",
-                SalesInvoice.is_deleted == False,
+                SalesInvoice.is_deleted.is_(False),
             )
         )
         cash_sales = Decimal(str(invoices_res.scalar() or 0.00))
@@ -894,7 +890,7 @@ class POSService:
             select(SalesInvoice).where(
                 SalesInvoice.shift_id == shift_id,
                 SalesInvoice.company_id == self.tenant.company_id,
-                SalesInvoice.is_deleted == False,
+                SalesInvoice.is_deleted.is_(False),
             )
         )
         invoices = invoices_res.scalars().all()
@@ -907,7 +903,7 @@ class POSService:
                 select(PaymentTransaction).where(
                     PaymentTransaction.reference_doc_id.in_(invoice_ids),
                     PaymentTransaction.company_id == self.tenant.company_id,
-                    PaymentTransaction.is_deleted == False,
+                    PaymentTransaction.is_deleted.is_(False),
                 )
             )
             for transaction in tx_res.scalars().all():
@@ -1227,7 +1223,7 @@ class POSService:
             JournalVoucher.company_id == self.tenant.company_id,
             JournalVoucher.reference_doc_type == "POS_SHIFT",
             JournalVoucher.reference_doc_id == shift.id,
-            JournalVoucher.is_deleted == False
+            JournalVoucher.is_deleted.is_(False)
         )
         voucher = (await self.db.execute(stmt)).scalar_one_or_none()
 
@@ -1235,7 +1231,7 @@ class POSService:
         sct_stmt = select(ShiftCashTransaction).where(
             ShiftCashTransaction.shift_id == shift.id,
             ShiftCashTransaction.company_id == self.tenant.company_id,
-            ShiftCashTransaction.is_deleted == False
+            ShiftCashTransaction.is_deleted.is_(False)
         ).order_by(ShiftCashTransaction.created_at.asc())
         cash_movements = (await self.db.execute(sct_stmt)).scalars().all()
 
@@ -1551,7 +1547,7 @@ class POSService:
         stmt_cust = select(Customer).where(
             Customer.id == customer_id,
             Customer.company_id == self.tenant.company_id,
-            Customer.is_deleted == False,
+            Customer.is_deleted.is_(False),
         )
         cust = (await self.db.execute(stmt_cust)).scalars().first()
         if not cust:
@@ -1612,7 +1608,7 @@ class POSService:
         ).where(
             CustomerCreditLedgerEntry.customer_id == customer_id,
             CustomerCreditLedgerEntry.company_id == self.tenant.company_id,
-            CustomerCreditLedgerEntry.is_deleted == False,
+            CustomerCreditLedgerEntry.is_deleted.is_(False),
         )
         res_credit = (await self.db.execute(stmt_credit)).first()
         avail = Decimal(str(res_credit[0] or "0.00")).quantize(Decimal("0.01"))
@@ -1639,7 +1635,7 @@ class POSService:
         stmt_cust = select(Customer).where(
             Customer.id == customer_id,
             Customer.company_id == self.tenant.company_id,
-            Customer.is_deleted == False,
+            Customer.is_deleted.is_(False),
         )
         cust = (await self.db.execute(stmt_cust)).scalars().first()
         if not cust:
@@ -1651,7 +1647,7 @@ class POSService:
         stmt_lm = select(LoyaltyMember).where(
             LoyaltyMember.customer_id == customer_id,
             LoyaltyMember.company_id == self.tenant.company_id,
-            LoyaltyMember.is_deleted == False,
+            LoyaltyMember.is_deleted.is_(False),
         )
         lm = (await self.db.execute(stmt_lm)).scalars().first()
         if not lm:
@@ -1672,7 +1668,7 @@ class POSService:
         if lm.loyalty_tier_id:
             stmt_tier = select(LoyaltyTier.redemption_ratio).where(
                 LoyaltyTier.id == lm.loyalty_tier_id,
-                LoyaltyTier.is_deleted == False,
+                LoyaltyTier.is_deleted.is_(False),
             )
             t_ratio = await self.db.scalar(stmt_tier)
             if t_ratio and Decimal(str(t_ratio)) > 0:

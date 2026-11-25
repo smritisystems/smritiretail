@@ -32,7 +32,6 @@ from ...api.deps import (
     get_tenant_context,
     require_role,
     TenantContext,
-    get_current_user,
 )
 from ...models.auth import UserRole, User
 from ...services.store_day_svc import StoreDayService

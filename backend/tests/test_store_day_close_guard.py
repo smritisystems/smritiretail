@@ -95,7 +95,7 @@ async def test_open_shift_count_is_scoped_to_company_and_branch():
     assert "company_id = 'COMP-001'" in sql
     assert "branch_id = 'BR-001'" in sql
     assert "status = 'OPEN'" in sql
-    assert "is_deleted = false" in sql
+    assert "is_deleted IS false" in sql
 
 
 @pytest.mark.asyncio
