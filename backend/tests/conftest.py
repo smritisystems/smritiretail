@@ -494,6 +494,18 @@ def seed_control_plane_test_assignments():
 
         comp_cur.execute("""
             INSERT INTO customers (id, uuid, code, name, mobile, email, customer_group_id, company_id, branch_id, outstanding, is_active, is_deleted, created_at, modified_at)
+            VALUES ('CUST-WALKIN', %s, 'CUST-WALKIN', 'Walk-in Customer', '0000000000', NULL, 'cg-default', 'COMP-001', 'BR-001', 0.00, true, false, NOW(), NOW())
+            ON CONFLICT (id) DO UPDATE SET
+                company_id = 'COMP-001',
+                branch_id = 'BR-001',
+                customer_group_id = 'cg-default',
+                outstanding = 0.00,
+                is_active = true,
+                is_deleted = false;
+        """, (str(uuid.uuid4()),))
+
+        comp_cur.execute("""
+            INSERT INTO customers (id, uuid, code, name, mobile, email, customer_group_id, company_id, branch_id, outstanding, is_active, is_deleted, created_at, modified_at)
             VALUES ('cust-ril-1888', %s, 'CUST-RIL-1888', 'Reliance Retail Ltd', '9876543210', 'ril@test.com', 'cg-default', 'COMP-001', 'MAIN', 0.00, true, false, NOW(), NOW())
             ON CONFLICT (id) DO UPDATE SET company_id = 'COMP-001', branch_id = 'MAIN', customer_group_id = 'cg-default', outstanding = 0.00, is_active = true, is_deleted = false;
         """, (str(uuid.uuid4()),))
