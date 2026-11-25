@@ -16,6 +16,9 @@ import pytest
 import uuid
 from decimal import Decimal
 from datetime import date
+from pathlib import Path
+from alembic.config import Config
+from alembic.script import ScriptDirectory
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -130,7 +133,9 @@ async def test_ephemeral_clean_slate_schema_verification(ephemeral_db):
         # Check alembic revision is at latest head.
         rev_res = await session.execute(text("SELECT version_num FROM alembic_version;"))
         rev = rev_res.scalar()
-        assert rev == "v1481_remove_v1480_control_plane_objects"
+        alembic_cfg = Config(str(Path(__file__).resolve().parent.parent / "alembic.ini"))
+        migration_heads = set(ScriptDirectory.from_config(alembic_cfg).get_heads())
+        assert rev in migration_heads
 
         # Verify database-level FK constraints on shift_cash_transactions (v1360 / ADR-POS-002)
         fk_res = await session.execute(text("""
