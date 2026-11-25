@@ -263,7 +263,7 @@ async def test_sales_invoice_automated_gl_posting():
 
 @pytest.mark.asyncio
 async def test_purchase_receipt_automated_gl_posting():
-    """Verify automated translation of PurchaseReceipt into balanced double-entry GL voucher."""
+    """Verify a GRN posts net inventory against GR/IR without prematurely claiming tax."""
     session_factory = get_company_sessionmaker("smriti001")
     async with session_factory() as session:
         unique_suffix = uuid.uuid4().hex[:6]
@@ -295,7 +295,7 @@ async def test_purchase_receipt_automated_gl_posting():
         warehouse = res_wh.scalars().first()
         assert warehouse is not None
 
-        # Purchase: Subtotal = 2000.00, Tax = 360.00 (CGST 180, SGST 180), Total = 2360.00
+        # A GRN books net inventory only; input tax is recognized with the supplier bill.
         pr = PurchaseReceipt(
             id=pr_id,
             company_id="COMP-001",
@@ -320,8 +320,24 @@ async def test_purchase_receipt_automated_gl_posting():
         await session.commit()
 
         assert voucher.voucher_type == "PURCHASE_RECEIPT"
-        assert voucher.total_debit == Decimal("2360.00")
-        assert voucher.total_credit == Decimal("2360.00")
+        assert voucher.total_debit == Decimal("2000.00")
+        assert voucher.total_credit == Decimal("2000.00")
+
+        inventory_account = await UnifiedAccountingLedgerService.get_account_by_code(
+            session, "COMP-001", "1040"
+        )
+        gr_ir_account = await UnifiedAccountingLedgerService.get_account_by_code(
+            session, "COMP-001", "1045"
+        )
+        gl_entries = (await session.execute(
+            select(GeneralLedgerEntry).where(GeneralLedgerEntry.voucher_id == voucher.id)
+        )).scalars().all()
+        assert len(gl_entries) == 2
+        entries_by_account = {entry.account_id: entry for entry in gl_entries}
+        assert entries_by_account[inventory_account.id].debit_amount == Decimal("2000.00")
+        assert entries_by_account[inventory_account.id].credit_amount == Decimal("0.00")
+        assert entries_by_account[gr_ir_account.id].debit_amount == Decimal("0.00")
+        assert entries_by_account[gr_ir_account.id].credit_amount == Decimal("2000.00")
 
 
 @pytest.mark.asyncio
