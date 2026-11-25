@@ -546,6 +546,74 @@ def seed_control_plane_test_assignments():
             ON CONFLICT (id) DO UPDATE SET is_active = true, is_deleted = false;
         """, (str(uuid.uuid4()),))
 
+        from app.db.seed_cap_master import CAPABILITIES, FLAGS, MODULE_STATES
+
+        tenant_capabilities = [
+            (
+                f"tcb_{code.lower()}",
+                f"uuid_tcb_{code.lower()}",
+                code,
+                True,
+                "ENTERPRISE",
+                "ACTIVE",
+                True,
+                False,
+                1,
+            )
+            for _, code, _, _, _, _, _, default_enabled, _, _ in CAPABILITIES
+            if default_enabled
+        ]
+        comp_cur.executemany("""
+            INSERT INTO tenant_capability_bindings (
+                id, uuid, capability_code, is_enabled, plan_tier, status, is_active, is_deleted, version
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (capability_code) DO UPDATE SET
+                is_enabled = EXCLUDED.is_enabled,
+                plan_tier = EXCLUDED.plan_tier,
+                status = EXCLUDED.status,
+                is_active = EXCLUDED.is_active,
+                is_deleted = false;
+        """, tenant_capabilities)
+
+        feature_flags = [
+            (flag_id, flag_id, key, name, category, description, enabled, overrides, True, False, 1)
+            for flag_id, key, name, category, description, enabled, overrides in FLAGS
+        ]
+        comp_cur.executemany("""
+            INSERT INTO feature_flags (
+                id, uuid, key, name, category, description, is_global_enabled,
+                company_overrides, is_active, is_deleted, version
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s, %s)
+            ON CONFLICT (key) DO UPDATE SET
+                name = EXCLUDED.name,
+                category = EXCLUDED.category,
+                description = EXCLUDED.description,
+                is_global_enabled = EXCLUDED.is_global_enabled,
+                company_overrides = EXCLUDED.company_overrides,
+                is_active = EXCLUDED.is_active,
+                is_deleted = false;
+        """, feature_flags)
+
+        module_states = [
+            (module_id, module_uuid, "COMP-001", state, version, is_critical, updated_at)
+            for module_id, module_uuid, _, state, version, is_critical, updated_at in MODULE_STATES
+        ]
+        comp_cur.executemany("""
+            INSERT INTO module_states (
+                id, module_uuid, tenant_id, state, version, is_critical, updated_at
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (id) DO UPDATE SET
+                module_uuid = EXCLUDED.module_uuid,
+                tenant_id = EXCLUDED.tenant_id,
+                state = EXCLUDED.state,
+                version = EXCLUDED.version,
+                is_critical = EXCLUDED.is_critical,
+                updated_at = EXCLUDED.updated_at;
+        """, module_states)
+
         comp_conn.commit()
         comp_conn.close()
 
