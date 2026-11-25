@@ -111,6 +111,7 @@ async def test_psv_projection_idempotency_and_balance_accumulation():
         event_payload = {
             "source_event_id": src_evt_id,
             "correlation_id": f"corr_{suffix}",
+            "company_id": "COMP-001",
             "company_code": "001",
             "source_document_type": "GST_INVOICE",
             "source_document_id": f"INV-{suffix}",
@@ -141,6 +142,7 @@ async def test_psv_projection_idempotency_and_balance_accumulation():
         sale_payload = {
             "source_event_id": f"EVT-SALE-{uuid.uuid4().hex[:10].upper()}",
             "correlation_id": f"corr_sale_{suffix}",
+            "company_id": "COMP-001",
             "company_code": "001",
             "source_document_type": "POS_BILL",
             "source_document_id": f"POS-{suffix}",
@@ -169,6 +171,7 @@ async def test_psv_pending_sell_through_does_not_change_approved_balance_until_a
 
     async with sessionmaker() as session:
         base = {
+            "company_id": "COMP-001",
             "company_code": "001",
             "source_document_type": "PARTNER_REPORT",
             "psv_party_id": party_id,
@@ -216,6 +219,7 @@ async def test_psv_multi_party_scoped_isolation():
             psv_session=session,
             event_payload={
                 "source_event_id": f"EVT-A-{uuid.uuid4().hex[:8].upper()}",
+                "company_id": "COMP-001",
                 "company_code": "001",
                 "source_document_type": "INVOICE",
                 "source_document_id": f"INV-A-{suffix}",
@@ -232,6 +236,7 @@ async def test_psv_multi_party_scoped_isolation():
             psv_session=session,
             event_payload={
                 "source_event_id": f"EVT-B-{uuid.uuid4().hex[:8].upper()}",
+                "company_id": "COMP-001",
                 "company_code": "001",
                 "source_document_type": "INVOICE",
                 "source_document_id": f"INV-B-{suffix}",
