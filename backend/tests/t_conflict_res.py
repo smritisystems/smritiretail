@@ -38,6 +38,18 @@ from app.schemas.sync import (
     SyncConflictResolutionStrategy
 )
 from app.services.conflict_engine import OfflineConflictResolutionEngine
+from app.services.stock_ledger import StockLedger
+
+
+async def seed_opening_stock(db, product: Product, quantity: int) -> None:
+    await db.flush()
+    await StockLedger.post_admin_opening_stock(
+        session=db,
+        company_id=product.company_id,
+        product_id=product.id,
+        quantity=Decimal(quantity),
+        reason="Initial stock for offline sync test",
+    )
 
 
 def get_auth_headers(role: str = "SYSADMIN", company_id: str = "COMP-001", branch_id: str = "BR-001") -> dict:
@@ -72,7 +84,7 @@ async def test_simultaneous_last_unit_sale_oversell_conflict():
         company_id = "COMP-001"
         prod_id = f"prod_soak_{uuid.uuid4().hex[:8]}"
 
-        # Seed product with stock = 1
+        # Seed authoritative opening stock; products.stock is only a cache.
         prod = Product(
             id=prod_id,
             company_id=company_id,
@@ -84,13 +96,14 @@ async def test_simultaneous_last_unit_sale_oversell_conflict():
             buying_price=Decimal("800.00"),
             cost_price=Decimal("800.00"),
             hsn_code="6404.11",
-            stock=1,
+            stock=0,
             category="Footwear",
             sku=f"SKU-SOAK-{uuid.uuid4().hex[:6]}",
             is_active=True,
             is_deleted=False
         )
         db.add(prod)
+        await seed_opening_stock(db, prod, 1)
         await db.commit()
 
         # Terminal 1 syncs Sale 1 (Qty = 1) -> Stock decreases to 0
@@ -178,6 +191,7 @@ async def test_price_book_drift_preservation():
             is_deleted=False
         )
         db.add(prod)
+        await seed_opening_stock(db, prod, 50)
         await db.commit()
 
         # Offline sale checked out at 500.00
@@ -258,6 +272,7 @@ async def test_customer_credit_limit_race():
             is_deleted=False
         )
         db.add(prod)
+        await seed_opening_stock(db, prod, 100)
         await db.commit()
 
         # Offline sale for 500.00 on credit
@@ -307,6 +322,7 @@ async def test_idempotent_retry_storm_deduplication():
             is_deleted=False
         )
         db.add(prod)
+        await seed_opening_stock(db, prod, 1000)
         await db.commit()
 
         items = [
@@ -370,6 +386,7 @@ async def test_governance_rule_version_drift_binding():
             is_deleted=False
         )
         db.add(prod)
+        await seed_opening_stock(db, prod, 10)
         await db.commit()
 
         snapshot_id = f"gov_snap_v1.2_{uuid.uuid4().hex[:6]}"
@@ -420,6 +437,7 @@ async def test_sync_reconciliation_queue_api_endpoint():
             is_deleted=False
         )
         db.add(prod)
+        await seed_opening_stock(db, prod, 10)
         await db.commit()
 
     client = TestClient(app)
