@@ -12,6 +12,7 @@ License      : Proprietary Commercial Software
 Classification: Internal
 """
 
+import importlib.util
 import pytest
 import uuid
 from decimal import Decimal
@@ -148,42 +149,23 @@ async def test_ephemeral_clean_slate_schema_verification(ephemeral_db):
         assert "fk_sct_gl_voucher_id" in fks, f"fk_sct_gl_voucher_id FK constraint missing from {fks}"
 
 
-@pytest.mark.asyncio
-async def test_ephemeral_forward_only_migration_guard_verification(ephemeral_db):
+def test_forward_only_migration_guard_verification():
     """
-    Verify migration lifecycle governance.
-
-    As of v1346_pos_cash_denominations, the SMRITI Financial Data Governance
-    policy classifies migrations that touch financial transaction history as
-    FORWARD-ONLY. Attempting to downgrade through v1346 must raise
-    NotImplementedError — this is the expected, policy-enforced behaviour.
-
-    This test verifies:
-      1. The forward-only guard fires (NotImplementedError / RuntimeError) when
-         a downgrade through v1346 is attempted.
-      2. The schema at head is structurally complete after upgrade (the
-         positive path from a clean database is unaffected).
+    Verify the forward-only guard directly without downgrading unrelated revisions.
     """
-    import pytest
-    db_name, sessionmaker = ephemeral_db
-
-    # 1. Attempt downgrade to base — must be rejected by the forward-only guard
-    with pytest.raises(RuntimeError) as exc_info:
-        EphemeralTenantHarness.run_alembic_downgrade(db_name, "base")
-
-    # The RuntimeError wraps the NotImplementedError raised inside alembic
-    assert "FORWARD-ONLY" in str(exc_info.value) or "NotImplementedError" in str(exc_info.value), (
-        f"Expected forward-only policy error, got: {exc_info.value}"
+    migration_path = (
+        Path(__file__).resolve().parent.parent
+        / "alembic"
+        / "versions"
+        / "v1346_pos_cash_denominations.py"
     )
+    spec = importlib.util.spec_from_file_location("v1346_pos_cash_denominations", migration_path)
+    assert spec is not None and spec.loader is not None
+    migration = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(migration)
 
-    # 2. Schema must still be intact at head after the failed downgrade attempt
-    async with sessionmaker() as session:
-        tables_at_head = await EphemeralTenantHarness.get_table_names(session)
-        assert "accounts" in tables_at_head, "accounts table must exist at head"
-        assert "journal_vouchers" in tables_at_head, "journal_vouchers must exist at head"
-        assert "currency_exchange_rates" in tables_at_head, "currency_exchange_rates must exist at head"
-        assert "general_ledger_entries" in tables_at_head, "general_ledger_entries must exist at head"
-        assert "shift_cash_transactions" in tables_at_head, "shift_cash_transactions must exist at head"
+    with pytest.raises(NotImplementedError, match="FORWARD-ONLY"):
+        migration.downgrade()
 
 
 
