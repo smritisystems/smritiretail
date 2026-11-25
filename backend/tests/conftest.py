@@ -10,24 +10,25 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
-import sys, os
+import asyncio
+import os
+import sys
+import uuid
 from pathlib import Path
+
+import psycopg2
+import pytest
+from dotenv import dotenv_values
 
 backend_dir = Path(__file__).resolve().parent.parent
 if str(backend_dir) not in sys.path:
     sys.path.insert(0, str(backend_dir))
 
-from dotenv import dotenv_values
 env_file = backend_dir.parent / ".env"
 if env_file.exists():
     for k, v in dotenv_values(env_file).items():
         if v is not None and k not in os.environ:
             os.environ[k] = v
-
-import pytest
-import psycopg2
-import uuid
-import asyncio
 
 # Use ProactorEventLoop on Windows to support subprocesses (Playwright PDF rendering) and asyncpg
 if sys.platform == "win32":
@@ -176,9 +177,10 @@ def seed_control_plane_test_assignments():
             VALUES
                 ('role-sysadmin', %s, 'SYSADMIN', '["*"]', true, true, false, NOW(), NOW()),
                 ('role-manager', %s, 'MANAGER', '["*"]', true, true, false, NOW(), NOW()),
-                ('role-cashier', %s, 'CASHIER', '["pos.sell", "inventory.view", "reports.view"]', true, true, false, NOW(), NOW())
+                ('role-cashier', %s, 'CASHIER', '["pos.sell", "inventory.view", "reports.view"]', true, true, false, NOW(), NOW()),
+                ('role-sales_executive', %s, 'SALES_EXECUTIVE', '["*"]', true, true, false, NOW(), NOW())
             ON CONFLICT (id) DO UPDATE SET permissions_json = EXCLUDED.permissions_json, is_active = true, is_deleted = false;
-        """, (str(uuid.uuid4()), str(uuid.uuid4()), str(uuid.uuid4())))
+        """, (str(uuid.uuid4()), str(uuid.uuid4()), str(uuid.uuid4()), str(uuid.uuid4())))
 
         # 0c. Seed company_database_registries for COMP-001 -> smriti001
         # RC2 FIX: This row must always be present for get_company_db to resolve COMP-001.
