@@ -28,6 +28,7 @@ from app.models.inventory import Product, StockMovement
 from app.models.item_master import Item
 from app.models.ecom import EcomChannel, EcomSkuMapping, EcomOrderImport
 from app.services.ecom_engine import EcomGrowthEngine, ShopifyAdapter
+from app.services.stock_ledger import StockLedger
 from app.schemas.ecom import (
     ChannelCreateReq,
     SkuMappingReq,
@@ -56,6 +57,17 @@ def _get_auth_headers(role: str = "STORE_MANAGER") -> dict:
         "X-Company-ID": "COMP-001",
         "X-Company-Code": "001",
     }
+
+
+async def _seed_product_opening_stock(session, product: Product, quantity: int) -> None:
+    await session.flush()
+    await StockLedger.post_admin_opening_stock(
+        session=session,
+        company_id=product.company_id,
+        product_id=product.id,
+        quantity=Decimal(quantity),
+        reason="Initial stock for eCommerce test",
+    )
 
 
 @pytest.mark.asyncio
@@ -168,6 +180,7 @@ async def test_inbound_order_deduplication_and_stock_reservation():
             is_deleted=False,
         )
         session.add(prod)
+        await _seed_product_opening_stock(session, prod, 100)
         await session.commit()
 
         # 3. Process Inbound Order
@@ -242,6 +255,7 @@ async def test_insufficient_stock_failure_and_dlq_retries():
             is_deleted=False,
         )
         session.add(prod)
+        await _seed_product_opening_stock(session, prod, 5)
         await session.commit()
 
         # Ingest order requesting 50 units (exceeds stock 5)
@@ -309,6 +323,7 @@ async def test_order_convergence_to_sales_invoice():
             is_deleted=False,
         )
         session.add(prod)
+        await _seed_product_opening_stock(session, prod, 50)
         await session.commit()
 
         # Ingest and Reserve
@@ -442,6 +457,7 @@ async def test_api_ecom_endpoints():
                 is_deleted=False,
             )
             session.add(p)
+            await _seed_product_opening_stock(session, p, 50)
             await session.commit()
 
         ord_res = await client.post(
