@@ -86,6 +86,7 @@ async def seed_sales_contract_product():
         )
         await session.merge(item)
         await session.merge(variant)
+        await session.flush()
         await session.execute(
             text("""
                 UPDATE products
