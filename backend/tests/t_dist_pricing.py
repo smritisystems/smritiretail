@@ -122,19 +122,30 @@ async def test_unified_pricing_engine_volume_breaks_and_tiers():
         await session.commit()
 
         # Case 1: Single item without price book -> baseline selling price ₹4500
-        p1 = await PricingEngine.calculate_effective_price(session, item.id, quantity=Decimal("1.00"))
+        p1 = await PricingEngine.calculate_effective_price(
+            session, item.id, quantity=Decimal("1.00"), company_id="COMP-001"
+        )
         assert p1["effective_unit_price"] == 4500.00
 
         # Case 2: Quantity 10 with Wholesale Price Book -> volume break ₹4000
         p2 = await PricingEngine.calculate_effective_price(
-            session, item.id, quantity=Decimal("10.00"), price_book_code=pb_code
+            session,
+            item.id,
+            quantity=Decimal("10.00"),
+            price_book_code=pb_code,
+            company_id="COMP-001",
         )
         assert p2["effective_unit_price"] == 4000.00
         assert p2["applied_price_book"] == pb_code
 
         # Case 3: Quantity 10 with Wholesale Price Book + Gold Dealer Tier -> ₹4000 - 5% = ₹3800
         p3 = await PricingEngine.calculate_effective_price(
-            session, item.id, quantity=Decimal("10.00"), price_book_code=pb_code, customer_tier_code=tier_code
+            session,
+            item.id,
+            quantity=Decimal("10.00"),
+            price_book_code=pb_code,
+            customer_tier_code=tier_code,
+            company_id="COMP-001",
         )
         assert p3["effective_unit_price"] == 3800.00
         assert p3["discount_percentage"] == 5.00
