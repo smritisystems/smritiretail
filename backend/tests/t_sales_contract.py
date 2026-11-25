@@ -50,6 +50,7 @@ test_engine = create_async_engine(COMPANY_001_ASYNC_URL, poolclass=NullPool)
 test_sessionmaker = async_sessionmaker(bind=test_engine, class_=AsyncSession, expire_on_commit=False)
 
 _cleaned_once = False
+_created_invoice_id = None
 
 @pytest.fixture(scope="module", autouse=True)
 async def seed_company_b_routing():
@@ -133,7 +134,30 @@ async def setup_user_override():
     if not _cleaned_once:
         async with test_sessionmaker() as session:
             await session.execute(
-                text("DELETE FROM sales_invoices WHERE id IN ('inv-test-contract-04', 'IDEM-KEY-001', 'IDEM-KEY-002');")
+                text("""
+                    DELETE FROM sales_invoice_items
+                    WHERE invoice_id IN (
+                        SELECT id FROM sales_invoices
+                        WHERE id IN ('inv-test-contract-04', 'IDEM-KEY-001', 'IDEM-KEY-002')
+                           OR invoice_no = 'INV-TEST-CONTRACT-04'
+                           OR rule_snapshots->>'idempotency_key' IN ('IDEM-KEY-001', 'IDEM-KEY-002')
+                    );
+                """)
+            )
+            await session.execute(
+                text("""
+                    DELETE FROM sales_invoices
+                    WHERE id IN ('inv-test-contract-04', 'IDEM-KEY-001', 'IDEM-KEY-002')
+                       OR invoice_no = 'INV-TEST-CONTRACT-04'
+                       OR rule_snapshots->>'idempotency_key' IN ('IDEM-KEY-001', 'IDEM-KEY-002');
+                """)
+            )
+            await session.execute(
+                text("""
+                    DELETE FROM transaction_idempotency_records
+                    WHERE entity_type = 'SALES_INVOICE'
+                      AND idempotency_key IN ('IDEM-KEY-001', 'IDEM-KEY-002');
+                """)
             )
             await session.execute(
                 text("""
@@ -188,7 +212,7 @@ async def test_02_multi_tenant_routing_company_b(auth_headers_company_b):
         assert isinstance(invoices, list)
 
 @pytest.mark.asyncio
-async def test_03_header_tampering_and_cross_tenant_isolation_forbidden(auth_headers_company_b):
+async def test_03_header_tampering_is_forbidden():
     app.dependency_overrides[get_current_user] = lambda: cashier_user
     token = create_access_token({"sub": "usr-cashier", "company_id": "comp-default", "branch_id": "br-default"})
     tampered_headers = {
@@ -202,19 +226,11 @@ async def test_03_header_tampering_and_cross_tenant_isolation_forbidden(auth_hea
         res = await client.get(f"{BASE_URL}/sales/invoices?limit=10", headers=tampered_headers)
         assert res.status_code == 403
 
-        # Cross-Tenant PDF/HTML Access Check: Attempting to access Company A invoice from Company B context
-        app.dependency_overrides[get_current_user] = lambda: sysadmin_user_b
-        res_cross_pdf = await client.get(f"{BASE_URL}/sales/invoices/inv-test-contract-04/pdf", headers=auth_headers_company_b)
-        assert res_cross_pdf.status_code == 404
-
-        res_cross_html = await client.get(f"{BASE_URL}/sales/invoices/inv-test-contract-04/html", headers=auth_headers_company_b)
-        assert res_cross_html.status_code == 404
-
 @pytest.mark.asyncio
-async def test_04_create_invoice_and_verify_stock_deduction(auth_headers_company_a):
+async def test_04_create_invoice_and_verify_stock_deduction(auth_headers_company_a, auth_headers_company_b):
+    global _created_invoice_id
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test/api/v1") as client:
         inv_payload = {
-            "id": "inv-test-contract-04",
             "invoiceNo": "INV-TEST-CONTRACT-04",
             "customerId": "cust-ril-1888",
             "items": [{
@@ -233,23 +249,37 @@ async def test_04_create_invoice_and_verify_stock_deduction(auth_headers_company
             "isInterstate": True
         }
         res = await client.post(f"{BASE_URL}/sales/invoices", json=inv_payload, headers=auth_headers_company_a)
-        assert res.status_code in (200, 201)
+        assert res.status_code in (200, 201), res.text
         data = res.json()
+        _created_invoice_id = data["id"]
         assert data["invoice_no"] == "INV-TEST-CONTRACT-04"
         assert float(data["grand_total"]) == 2360.00
+
+        # A real Company A invoice must not be visible from Company B.
+        app.dependency_overrides[get_current_user] = lambda: sysadmin_user_b
+        res_cross_pdf = await client.get(
+            f"{BASE_URL}/sales/invoices/{_created_invoice_id}/pdf",
+            headers=auth_headers_company_b,
+        )
+        assert res_cross_pdf.status_code == 404
+        res_cross_html = await client.get(
+            f"{BASE_URL}/sales/invoices/{_created_invoice_id}/html",
+            headers=auth_headers_company_b,
+        )
+        assert res_cross_html.status_code == 404
 
 @pytest.mark.asyncio
 async def test_05_create_invoice_outbox_event(auth_headers_company_a):
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test/api/v1") as client:
-        res = await client.get(f"{BASE_URL}/sales/invoices/inv-test-contract-04", headers=auth_headers_company_a)
+        res = await client.get(f"{BASE_URL}/sales/invoices/{_created_invoice_id}", headers=auth_headers_company_a)
         assert res.status_code == 200
         inv = res.json()
-        assert inv["id"] == "inv-test-contract-04"
+        assert inv["id"] == _created_invoice_id
 
 @pytest.mark.asyncio
 async def test_06_get_invoice_detail_authoritative(auth_headers_company_a):
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test/api/v1") as client:
-        res = await client.get(f"{BASE_URL}/sales/invoices/inv-test-contract-04", headers=auth_headers_company_a)
+        res = await client.get(f"{BASE_URL}/sales/invoices/{_created_invoice_id}", headers=auth_headers_company_a)
         assert res.status_code == 200
         inv = res.json()
         assert inv["invoice_no"] == "INV-TEST-CONTRACT-04"
@@ -258,7 +288,7 @@ async def test_06_get_invoice_detail_authoritative(auth_headers_company_a):
 @pytest.mark.asyncio
 async def test_07_get_html_preview_matches_db(auth_headers_company_a):
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test/api/v1") as client:
-        res = await client.get(f"{BASE_URL}/sales/invoices/inv-test-contract-04/html", headers=auth_headers_company_a)
+        res = await client.get(f"{BASE_URL}/sales/invoices/{_created_invoice_id}/html", headers=auth_headers_company_a)
         assert res.status_code == 200
         assert "TAX INVOICE" in res.text
         assert "INV-TEST-CONTRACT-04" in res.text
@@ -266,14 +296,14 @@ async def test_07_get_html_preview_matches_db(auth_headers_company_a):
 @pytest.mark.asyncio
 async def test_08_get_pdf_rendered_successfully(auth_headers_company_a):
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test/api/v1") as client:
-        res = await client.get(f"{BASE_URL}/sales/invoices/inv-test-contract-04/pdf", headers=auth_headers_company_a)
+        res = await client.get(f"{BASE_URL}/sales/invoices/{_created_invoice_id}/pdf", headers=auth_headers_company_a)
         assert res.status_code == 200
         assert "TAX INVOICE" in res.text
 
 @pytest.mark.asyncio
 async def test_09_print_preview_structure(auth_headers_company_a):
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test/api/v1") as client:
-        res = await client.get(f"{BASE_URL}/sales/invoices/inv-test-contract-04/html", headers=auth_headers_company_a)
+        res = await client.get(f"{BASE_URL}/sales/invoices/{_created_invoice_id}/html", headers=auth_headers_company_a)
         assert res.status_code == 200
         assert "2,360.00" in res.text or "2360.00" in res.text
 
@@ -304,13 +334,12 @@ async def test_10_double_submit_idempotency_semantics(auth_headers_company_a):
         res1 = await client.post(f"{BASE_URL}/sales/invoices", json=inv_payload_1, headers=headers_key_a)
         assert res1.status_code in (200, 201)
         data1 = res1.json()
-        assert data1["id"] == "IDEM-KEY-001"
+        assert data1["id"]
 
         # Step 2: Request 2 + SAME Key A -> SAME Invoice returned (no duplicate)
         res2 = await client.post(f"{BASE_URL}/sales/invoices", json=inv_payload_1, headers=headers_key_a)
         assert res2.status_code in (200, 201)
         data2 = res2.json()
-        assert data2["id"] == "IDEM-KEY-001"
         assert data1["id"] == data2["id"]
 
         # Step 3: Request 3 + Key B -> New legitimate request -> Invoice 2 Created
@@ -318,5 +347,5 @@ async def test_10_double_submit_idempotency_semantics(auth_headers_company_a):
         res3 = await client.post(f"{BASE_URL}/sales/invoices", json=inv_payload_2, headers=headers_key_b)
         assert res3.status_code in (200, 201)
         data3 = res3.json()
-        assert data3["id"] == "IDEM-KEY-002"
+        assert data3["id"]
         assert data3["id"] != data1["id"]
