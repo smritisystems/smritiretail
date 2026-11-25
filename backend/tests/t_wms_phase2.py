@@ -298,7 +298,7 @@ async def test_sales_invoice_fefo_auto_deduction_and_cancellation():
 
             invoice = await sales_service.create_sales_invoice(inv_in)
             created_invoice_id = invoice.id
-            assert invoice.status == "Draft" or invoice.status == "Created"
+            assert invoice.status == "Submitted"
 
             # 4. Verify batch stock deduction
             res_early = await session.execute(
