@@ -20,7 +20,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
-from app.api.deps import TenantContext, get_current_user, get_tenant_context
+from app.api.deps import TenantContext, get_company_db, get_current_user, get_tenant_context
 from app.db.session import get_company_sessionmaker
 from app.main import app
 from app.models.accounting import Account
@@ -449,8 +449,16 @@ def test_api_analytics_and_integration_endpoints():
     )
     previous_user_override = app.dependency_overrides.get(get_current_user)
     previous_tenant_override = app.dependency_overrides.get(get_tenant_context)
+    previous_company_db_override = app.dependency_overrides.get(get_company_db)
+
+    async def override_company_db():
+        session_factory = get_company_sessionmaker("smriti001")
+        async with session_factory() as session:
+            yield session
+
     app.dependency_overrides[get_current_user] = lambda: test_user
     app.dependency_overrides[get_tenant_context] = lambda: tenant_ctx
+    app.dependency_overrides[get_company_db] = override_company_db
 
     try:
         client = TestClient(app)
@@ -482,3 +490,7 @@ def test_api_analytics_and_integration_endpoints():
             app.dependency_overrides.pop(get_tenant_context, None)
         else:
             app.dependency_overrides[get_tenant_context] = previous_tenant_override
+        if previous_company_db_override is None:
+            app.dependency_overrides.pop(get_company_db, None)
+        else:
+            app.dependency_overrides[get_company_db] = previous_company_db_override
