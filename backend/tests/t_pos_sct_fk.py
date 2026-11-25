@@ -14,14 +14,10 @@ Classification: Internal
 
 import uuid
 import pytest
-from decimal import Decimal
 import psycopg2
-import sqlalchemy as sa
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 
 from app.db.session import get_company_sessionmaker
-from app.services.db_resolver import CompanyDatabaseResolver
 
 
 import os
@@ -34,7 +30,7 @@ def test_pos_sct_fk_constraints_and_zero_orphans():
     P0.1 Certification: Verify shift_cash_transactions Foreign Key constraints
     and zero orphan records across all tenant databases.
     """
-    for db_name in ["smriti001", "smriti002", "smritisys"]:
+    for db_name in ("smriti_test_001", "smriti_test_002"):
         try:
             conn = psycopg2.connect(f"postgresql://postgres:postgres@localhost:{_PG_PORT}/{db_name}")
             cur = conn.cursor()
