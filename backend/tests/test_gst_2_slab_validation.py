@@ -28,7 +28,9 @@ VALID_GST_2_SLABS = {"0", "5", "18", "40"}
 ABOLISHED_SLAB   = "12"
 
 CP_DSN     = "postgresql://postgres:postgres@localhost:2781/smritisys"
-TENANT_DSN = "postgresql://postgres:postgres@localhost:2781/smriti001"
+from db_test_config import COMPANY_001_SYNC_URL
+
+TENANT_DSN = COMPANY_001_SYNC_URL
 
 
 def get_gst_slabs(dsn: str) -> dict:

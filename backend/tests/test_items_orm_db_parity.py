@@ -45,7 +45,7 @@ def get_db_columns(port: int = 2781) -> set:
     conn = psycopg2.connect(
         host="localhost", port=port,
         user="postgres", password="postgres",
-        dbname="smriti001"
+        dbname="smriti_test_001"
     )
     cur = conn.cursor()
     cur.execute("""
@@ -165,7 +165,7 @@ class TestItemOrmDbParity:
             conn = psycopg2.connect(
                 host="localhost", port=2781,
                 user="postgres", password="postgres",
-                dbname="smriti001"
+                dbname="smriti_test_001"
             )
             cur = conn.cursor()
             cur.execute("""
@@ -192,7 +192,7 @@ class TestItemOrmDbParity:
             conn = psycopg2.connect(
                 host="localhost", port=2781,
                 user="postgres", password="postgres",
-                dbname="smriti001"
+                dbname="smriti_test_001"
             )
             cur = conn.cursor()
             cur.execute("""

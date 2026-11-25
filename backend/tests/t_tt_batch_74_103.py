@@ -28,7 +28,9 @@ from urllib.parse import urlparse
 from app.core.config import settings
 _PG_PORT = urlparse(str(settings.DATABASE_URL)).port or int(os.getenv("POSTGRES_PORT", 5432))
 
-COMPANY_DB_URL = f"postgresql://postgres:postgres@localhost:{_PG_PORT}/smriti001"
+from db_test_config import COMPANY_001_SYNC_URL
+
+COMPANY_DB_URL = COMPANY_001_SYNC_URL
 CONTROL_PLANE_DB_URL = f"postgresql://postgres:postgres@localhost:{_PG_PORT}/smritisys"
 TT_DIR = r"F:\SMRITRretailNX\TT"
 EXPORTS_PDF_DIR = r"F:\SMRITRretailNX\exports\tt_batch_74_103"

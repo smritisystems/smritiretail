@@ -38,7 +38,9 @@ from app.services.item_master_svc import (
     BarcodeResolverService,
 )
 
-TEST_DB_URL = "postgresql+asyncpg://postgres:postgres@localhost:2781/smriti001"
+from db_test_config import COMPANY_001_ASYNC_URL
+
+TEST_DB_URL = COMPANY_001_ASYNC_URL
 
 
 @pytest_asyncio.fixture

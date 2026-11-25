@@ -32,7 +32,9 @@ from urllib.parse import urlparse
 from app.core.config import settings
 _PG_PORT = urlparse(str(settings.DATABASE_URL)).port or int(os.getenv("POSTGRES_PORT", 5432))
 
-DB_001_URL = f"postgresql+asyncpg://postgres:postgres@localhost:{_PG_PORT}/smriti001"
+from db_test_config import COMPANY_001_ASYNC_URL
+
+DB_001_URL = COMPANY_001_ASYNC_URL
 DB_002_URL = f"postgresql+asyncpg://postgres:postgres@localhost:{_PG_PORT}/smriti002"
 
 

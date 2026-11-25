@@ -40,7 +40,9 @@ from app.services.databridge.models import (
 )
 from app.services.databridge.exceptions import DataBridgePermissionError
 
-TEST_DB_URL = "postgresql+asyncpg://postgres:postgres@localhost:2781/smriti001"
+from db_test_config import COMPANY_001_ASYNC_URL
+
+TEST_DB_URL = COMPANY_001_ASYNC_URL
 CANONICAL_COMP_ID = "COMP-001"
 
 

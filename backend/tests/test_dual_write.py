@@ -28,7 +28,7 @@ _PG_PORT = urlparse(str(settings.DATABASE_URL)).port or int(os.getenv("POSTGRES_
 
 @pytest.mark.asyncio
 async def test_dual_write_canonical_sync_and_tenant_isolation():
-    db_url = f'postgresql+asyncpg://postgres:postgres@localhost:{_PG_PORT}/smriti001'
+    db_url = f'postgresql+asyncpg://postgres:postgres@localhost:{_PG_PORT}/smriti_test_001'
     engine = create_async_engine(db_url, echo=False)
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
     

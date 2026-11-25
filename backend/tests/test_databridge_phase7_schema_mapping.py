@@ -33,7 +33,9 @@ import pytest_asyncio
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from app.api.deps import get_company_db, get_current_user
 
-TEST_DB_URL = "postgresql+asyncpg://postgres:postgres@localhost:2781/smriti001"
+from db_test_config import COMPANY_001_ASYNC_URL
+
+TEST_DB_URL = COMPANY_001_ASYNC_URL
 CANONICAL_COMP_ID = "COMP-001"
 
 

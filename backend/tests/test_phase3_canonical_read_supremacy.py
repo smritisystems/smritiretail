@@ -32,7 +32,9 @@ from app.services.pdt_analytics import PdtAnalyticsService
 from app.api.deps import TenantContext
 
 
-TEST_DB_URL = "postgresql+asyncpg://postgres:postgres@localhost:2781/smriti001"
+from db_test_config import COMPANY_001_ASYNC_URL
+
+TEST_DB_URL = COMPANY_001_ASYNC_URL
 COMP_ID = "COMP-001"
 
 

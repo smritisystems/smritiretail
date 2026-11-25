@@ -21,7 +21,9 @@ from urllib.parse import urlparse
 from app.core.config import settings
 _PG_PORT = urlparse(str(settings.DATABASE_URL)).port or int(os.getenv("POSTGRES_PORT", 5432))
 
-DB_URL = f"postgresql://postgres:postgres@localhost:{_PG_PORT}/smriti001"
+from db_test_config import COMPANY_001_SYNC_URL
+
+DB_URL = COMPANY_001_SYNC_URL
 
 pytestmark = pytest.mark.skipif(
     os.getenv("RUN_TATTLY_HISTORICAL_INTEGRATION") != "1",

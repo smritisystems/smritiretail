@@ -27,7 +27,9 @@ from app.schemas.product_resolution import (
     TransactionLineItemInput,
 )
 
-TEST_DB_URL = "postgresql+asyncpg://postgres:postgres@localhost:2781/smriti001"
+from db_test_config import COMPANY_001_ASYNC_URL
+
+TEST_DB_URL = COMPANY_001_ASYNC_URL
 
 
 @pytest_asyncio.fixture
