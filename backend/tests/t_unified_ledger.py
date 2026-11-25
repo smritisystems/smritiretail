@@ -286,12 +286,22 @@ async def test_purchase_receipt_automated_gl_posting():
             session.add(supplier)
             await session.commit()
 
+        res_wh = await session.execute(
+            select(Warehouse).where(
+                Warehouse.company_id == "COMP-001",
+                Warehouse.is_deleted == False,
+            ).limit(1)
+        )
+        warehouse = res_wh.scalars().first()
+        assert warehouse is not None
+
         # Purchase: Subtotal = 2000.00, Tax = 360.00 (CGST 180, SGST 180), Total = 2360.00
         pr = PurchaseReceipt(
             id=pr_id,
             company_id="COMP-001",
             branch_id="BR-001",
             supplier_id=supplier.id,
+            warehouse_id=warehouse.id,
             receipt_no=pr_no,
             subtotal=Decimal("2000.00"),
             tax_total=Decimal("360.00"),
