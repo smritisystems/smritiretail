@@ -18,7 +18,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from app.api.deps import get_company_db, get_current_user
+from app.api.deps import get_company_db, get_current_user, get_db
 from app.models.auth import User
 from app.models.governed_logic import (
     FormulaDefinition,
@@ -63,7 +63,7 @@ router = APIRouter()
 @router.get("/formulas", response_model=List[FormulaDefinitionResponse])
 async def list_formula_definitions(
     category: Optional[str] = Query(None, description="Optional formula category filter"),
-    db: AsyncSession = Depends(get_company_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """List active formula definitions registered in smritisys."""
@@ -98,7 +98,7 @@ async def evaluate_formula(
 @router.get("/rules", response_model=List[BusinessRuleResponse])
 async def list_business_rules(
     rule_type: Optional[str] = Query(None, description="Optional rule type filter"),
-    db: AsyncSession = Depends(get_company_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """List active declarative business rules in smritisys."""
@@ -136,7 +136,7 @@ async def list_policy_definitions(
     db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
-    """List active statutory and compliance policies in smritisys."""
+    """List active statutory and compliance policies for the current tenant."""
     stmt = select(PolicyDefinition).where(
         PolicyDefinition.is_active == True,
         PolicyDefinition.is_deleted == False,
@@ -172,7 +172,7 @@ async def update_policy_definition(
     db: AsyncSession = Depends(get_company_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Update active policy parameters in Control Plane."""
+    """Update active policy parameters for the current tenant."""
     stmt = select(PolicyDefinition).where(
         PolicyDefinition.code == policy_code.upper(),
         PolicyDefinition.is_active == True,
@@ -237,7 +237,7 @@ async def evaluate_gst_tax(
 @router.get("/workflows", response_model=List[WorkflowDefinitionResponse])
 async def list_workflow_definitions(
     doc_type: Optional[str] = Query(None, description="Optional document type filter"),
-    db: AsyncSession = Depends(get_company_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """List versioned document and entity workflows."""
@@ -255,7 +255,7 @@ async def list_workflow_definitions(
 @router.post("/workflows/transition", response_model=WorkflowTransitionResponse)
 async def evaluate_workflow_transition(
     req: WorkflowTransitionRequest,
-    db: AsyncSession = Depends(get_company_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """Validates state machine transitions against versioned workflow definitions."""

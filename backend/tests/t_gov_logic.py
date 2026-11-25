@@ -14,9 +14,127 @@ Classification: Internal
 
 import pytest
 from httpx import AsyncClient, ASGITransport
+from sqlalchemy import select
 
 from app.main import app
 from app.core.security import create_access_token
+from app.db.session import async_session, get_company_sessionmaker
+from app.models.governed_logic import (
+    BusinessRuleDefinition,
+    FormulaDefinition,
+    PolicyDefinition,
+    WorkflowDefinition,
+)
+
+
+async def _seed_governed_logic_catalog():
+    async with async_session() as db:
+        formulas = [
+            ("FORM_GST_INTR_SPLIT", "GST Intrastate CGST/SGST Split", "GST_TAX"),
+            ("FORM_LINE_DISCOUNT_NET", "Discounted Line Net", "PRICING"),
+            ("FORM_LOYALTY_ACCRUAL", "Loyalty Accrual", "LOYALTY"),
+            ("FORM_STAFF_COMMISSION", "Staff Commission", "COMMISSION"),
+            ("FORM_ROUNDING_NEAREST", "Nearest Rupee Rounding", "PROFITABILITY"),
+        ]
+        for code, name, category in formulas:
+            existing = (await db.execute(
+                select(FormulaDefinition).where(
+                    FormulaDefinition.code == code,
+                    FormulaDefinition.version == 1,
+                )
+            )).scalar_one_or_none()
+            if existing is None:
+                db.add(FormulaDefinition(
+                    id=f"test_{code.lower()}",
+                    code=code,
+                    version=1,
+                    name=name,
+                    category=category,
+                    expression_ast={"type": "literal", "value": 1},
+                ))
+
+        rules = [
+            ("BR_MAX_BILL_DISCOUNT", "Discount Limit", "DISCOUNT_RULE"),
+            ("BR_LOYALTY_REDEMPTION_LIMIT", "Loyalty Redemption Limit", "PROMOTION_RULE"),
+            ("BR_CUSTOMER_CREDIT_LIMIT", "Customer Credit Limit", "CREDIT_LIMIT"),
+        ]
+        for code, name, rule_type in rules:
+            existing = (await db.execute(
+                select(BusinessRuleDefinition).where(
+                    BusinessRuleDefinition.code == code,
+                    BusinessRuleDefinition.version == 1,
+                )
+            )).scalar_one_or_none()
+            if existing is None:
+                db.add(BusinessRuleDefinition(
+                    id=f"test_{code.lower()}",
+                    code=code,
+                    version=1,
+                    name=name,
+                    rule_type=rule_type,
+                    priority=10,
+                    conditions={},
+                    actions=[],
+                ))
+
+        workflow = (await db.execute(
+            select(WorkflowDefinition).where(
+                WorkflowDefinition.code == "WF_PURCHASE_ORDER",
+                WorkflowDefinition.version == 1,
+            )
+        )).scalar_one_or_none()
+        if workflow is None:
+            db.add(WorkflowDefinition(
+                id="test_wf_purchase_order",
+                code="WF_PURCHASE_ORDER",
+                version=1,
+                doc_type="PurchaseOrder",
+                name="Purchase Order Workflow",
+                initial_state="DRAFT",
+                states=["DRAFT", "PENDING_APPROVAL", "APPROVED"],
+                transitions=[
+                    {
+                        "from": "DRAFT",
+                        "to": "PENDING_APPROVAL",
+                        "action": "SUBMIT",
+                        "required_roles": ["STORE_MANAGER", "SYSADMIN"],
+                    },
+                    {
+                        "from": "PENDING_APPROVAL",
+                        "to": "APPROVED",
+                        "action": "APPROVE",
+                        "required_roles": ["MANAGER", "SYSADMIN"],
+                    },
+                ],
+            ))
+        await db.commit()
+
+    tenant_sessionmaker = get_company_sessionmaker("smriti001")
+    async with tenant_sessionmaker() as db:
+        policies = [
+            ("POLICY_BILLING_CONTROLS", "Retail Billing Controls", "RETAIL_BILLING_POLICY"),
+            ("POLICY_BARCODE_COST_MASK", "Barcode Cost Masking", "BARCODE_PRINTING_POLICY"),
+            ("POLICY_INWARDS_PROCUREMENT", "Inwards Procurement", "PROCUREMENT_POLICY"),
+            ("POLICY_CREDIT_MANAGEMENT", "Credit Management", "CREDIT_MANAGEMENT_POLICY"),
+        ]
+        for code, name, policy_type in policies:
+            existing = (await db.execute(
+                select(PolicyDefinition).where(
+                    PolicyDefinition.code == code,
+                    PolicyDefinition.version == 1,
+                )
+            )).scalar_one_or_none()
+            if existing is None:
+                db.add(PolicyDefinition(
+                    id=f"test_{code.lower()}",
+                    company_id="COMP-001",
+                    code=code,
+                    version=1,
+                    name=name,
+                    policy_type=policy_type,
+                    parameters={"enable_qty_only_editing": False},
+                ))
+        await db.commit()
 
 
 def _get_auth_headers(role: str = "SYSADMIN") -> dict:
@@ -43,6 +161,7 @@ def _get_auth_headers(role: str = "SYSADMIN") -> dict:
 @pytest.mark.asyncio
 async def test_formula_registry_listing():
     """Verify formula definitions catalog query."""
+    await _seed_governed_logic_catalog()
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         res = await client.get("/api/v1/governed-logic/formulas", headers=_get_auth_headers())
@@ -115,6 +234,7 @@ async def test_formula_ast_evaluation_zero_division_guard():
 @pytest.mark.asyncio
 async def test_business_rules_listing():
     """Verify business rules registry listing."""
+    await _seed_governed_logic_catalog()
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         res = await client.get("/api/v1/governed-logic/rules", headers=_get_auth_headers())
@@ -226,6 +346,7 @@ async def test_statutory_gst_tax_policy_interstate():
 @pytest.mark.asyncio
 async def test_workflow_state_machine_transition():
     """Verify purchase order workflow transition permissions."""
+    await _seed_governed_logic_catalog()
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         # 1. Valid transition: DRAFT -> PENDING_APPROVAL by STORE_MANAGER
@@ -307,6 +428,7 @@ async def test_definition_validation_endpoint():
 @pytest.mark.asyncio
 async def test_retail_store_policies_listing():
     """Verify standard retail operational policies derived from Shoper 9 are active."""
+    await _seed_governed_logic_catalog()
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         res = await client.get(
@@ -345,6 +467,7 @@ async def test_cost_mask_preview_endpoint():
 @pytest.mark.asyncio
 async def test_policy_update_endpoint():
     """Verify updating policy parameters."""
+    await _seed_governed_logic_catalog()
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         # Get billing controls
