@@ -27,7 +27,7 @@ from app.services.inventory_wms import InventoryWmsService
 from app.models.inventory import Product, ProductBatchStock, Warehouse
 from app.models.item_master import Item, ItemVariant
 from app.models.purchase import Supplier
-from app.models.crm import Customer, CustomerGroup
+from app.models.crm import Customer, CustomerGroup, CustomerPolicy
 from conftest import utmih_delete_stock_movements
 from app.schemas.purchase import PurchaseReceiptCreate, PurchaseReceiptItemCreate
 from app.schemas.sales import SalesInvoiceCreate, SalesInvoiceItemCreate
@@ -389,6 +389,16 @@ async def test_retailer_credit_limit_enforcement():
                 branch_id="BR-001"
             )
             session.add(customer)
+            session.add(
+                CustomerPolicy(
+                    id=f"policy-{unique_suffix}",
+                    customer_id=cust_id,
+                    company_id="COMP-001",
+                    branch_id="BR-001",
+                    payment_category="CREDIT",
+                    allow_credit_invoice=True,
+                )
+            )
             await session.commit()
 
             batch_no = f"BATCH-CRED-{unique_suffix.upper()}"
