@@ -94,10 +94,10 @@ async def seed_company_b_routing():
                     port_reference, status, schema_version, provisioning_status, migration_status,
                     created_at, updated_at
                 )
-                VALUES (:company_id, :database_id, 'smriti002', 'postgresql', 'localhost',
+                VALUES (:company_id, :database_id, 'smriti_test_002', 'postgresql', 'localhost',
                     :port, 'READY', '3.29.0', 'COMPLETED', 'UP_TO_DATE', NOW(), NOW())
                 ON CONFLICT (company_id) DO UPDATE SET
-                    database_name = 'smriti002', status = 'READY', updated_at = NOW()
+                    database_name = 'smriti_test_002', status = 'READY', updated_at = NOW()
             """),
             {
                 "company_id": company_id,
@@ -164,7 +164,7 @@ def auth_headers_company_b():
     token = create_access_token({"sub": "usr-super", "company_id": "COMP-SALES-002", "branch_id": "BR-SALES-002"})
     return {
         "Authorization": f"Bearer {token}",
-        "X-Company-Code": "002",
+        "X-Company-Code": "TEST_002",
         "X-Company-ID": "COMP-SALES-002",
         "X-Branch-Code": "SALES002",
         "Content-Type": "application/json"
