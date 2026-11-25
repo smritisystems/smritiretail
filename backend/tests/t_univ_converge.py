@@ -114,6 +114,7 @@ async def test_universal_item_and_variant_barcode_resolution():
 
         item = Item(
             id=f"itm_{uuid.uuid4().hex[:12]}",
+            company_id="COMP-001",
             item_code=test_sku,
             item_name="Premium Organic Cotton T-Shirt",
             category="APPAREL",
@@ -129,6 +130,7 @@ async def test_universal_item_and_variant_barcode_resolution():
 
         variant = ItemVariant(
             id=f"var_{uuid.uuid4().hex[:12]}",
+            company_id="COMP-001",
             item_id=item.id,
             variant_sku=f"{test_sku}-XL-NAVY",
             variant_name="Premium Organic Cotton T-Shirt (XL Navy)",
@@ -141,6 +143,7 @@ async def test_universal_item_and_variant_barcode_resolution():
 
         barcode = ItemBarcode(
             id=f"bc_{uuid.uuid4().hex[:12]}",
+            company_id="COMP-001",
             item_id=item.id,
             variant_id=variant.id,
             barcode=test_barcode,
