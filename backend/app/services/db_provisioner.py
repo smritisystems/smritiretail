@@ -12,19 +12,12 @@
 """
 
 from typing import Dict, Any, Optional
-from datetime import datetime, timezone
 
 try:
-    from app.services.db_resolver import (
-        generate_company_database_name,
-        validate_company_database_name
-    )
+    from app.services.db_resolver import generate_company_database_name
     from app.services.code_allocator import CompanyCodeAllocator
 except ImportError:
-    from backend.app.services.db_resolver import (
-        generate_company_database_name,
-        validate_company_database_name
-    )
+    from backend.app.services.db_resolver import generate_company_database_name
     from backend.app.services.code_allocator import CompanyCodeAllocator
 
 class CompanyDatabaseProvisioner:
@@ -49,23 +42,15 @@ class CompanyDatabaseProvisioner:
         }
 
     def allocate_company_code(self, company_code: Optional[str] = None) -> str:
-        """Step 2: Allocate or validate 3-character alphanumeric company code [A-Z0-9]."""
+        """Step 2: Allocate or validate a supported company code."""
         if company_code:
             code = str(company_code).strip().upper()
-            if len(code) != 3 or not code.isalnum():
-                raise ValueError(f"Company code '{company_code}' must be exactly 3 alphanumeric characters [A-Z0-9].")
-            if code == "000":
-                raise ValueError("Company code '000' is permanently reserved.")
-            if code == "SYS":
-                raise ValueError("Company code 'SYS' is permanently reserved for SMRITI Control Plane.")
+            generate_company_database_name(code)
             return code
         return CompanyCodeAllocator.allocate_next_available_code()
 
     def generate_database_name(self, company_code: str) -> str:
-        """Step 3: Server-side database name generation: smriti<4-character-code> or smriti<3-character-code>."""
-        code = str(company_code).strip().upper()
-        if len(code) == 3 and not code.isdigit():
-            return f"smriti{code}"
+        """Step 3: Generate a database name using the canonical naming rules."""
         return generate_company_database_name(company_code)
 
     def check_database_exists(self, database_name: str) -> bool:

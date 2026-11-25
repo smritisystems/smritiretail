@@ -31,12 +31,18 @@ sysadmin_user = User(id="usr-super", role=UserRole.SYSADMIN, company_id="COMP-00
 ordinary_user = User(id="usr-cashier", role=UserRole.CASHIER, company_id="COMP-001")
 
 def test_valid_company_code_validation_abc():
-    """Verify code validation accepts ABC and returns smritiABC."""
+    """Verify legacy three-letter code validation returns the matching database name."""
     req = ValidateCodeRequest(company_code="abc")
     res = validate_company_code(req)
     assert res["company_code"] == "ABC"
     assert res["database_name"] == "smritiABC"
     assert res["valid"] is True
+
+def test_invalid_mixed_three_character_company_code_returns_400():
+    """Verify unsupported three-character mixed codes are rejected as client input."""
+    with pytest.raises(HTTPException) as exc_info:
+        validate_company_code(ValidateCodeRequest(company_code="AB1"))
+    assert exc_info.value.status_code == 400
 
 def test_invalid_company_code_rejection_000_and_sys():
     """Verify reserved 000 and SYS codes are rejected with HTTP 400."""

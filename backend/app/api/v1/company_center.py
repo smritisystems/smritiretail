@@ -13,26 +13,24 @@
 
 from fastapi import APIRouter, HTTPException, Depends, status
 from pydantic import BaseModel, Field
-from typing import List, Dict, Any, Optional
+from typing import Optional
 import psycopg2
 
 try:
     from app.services.db_resolver import (
         CompanyDatabaseResolver,
         generate_company_database_name,
-        validate_company_database_name
     )
-    from app.services.code_allocator import CompanyCodeAllocator, CONTROL_PLANE_DB_URL
+    from app.services.code_allocator import CONTROL_PLANE_DB_URL
     from app.services.db_provisioner import CompanyDatabaseProvisioner
     from app.api.deps import get_current_user, require_role
     from app.models.auth import User, UserRole
 except ImportError:
     from backend.app.services.db_resolver import (
         CompanyDatabaseResolver,
-        generate_company_database_name,
-        validate_company_database_name
+        generate_company_database_name
     )
-    from backend.app.services.code_allocator import CompanyCodeAllocator, CONTROL_PLANE_DB_URL
+    from backend.app.services.code_allocator import CONTROL_PLANE_DB_URL
     from backend.app.services.db_provisioner import CompanyDatabaseProvisioner
     from backend.app.api.deps import get_current_user, require_role
     from backend.app.models.auth import User, UserRole
@@ -41,7 +39,10 @@ router = APIRouter(prefix="/control-center", tags=["Company Control Center"])
 
 # Pydantic Request Schemas
 class ValidateCodeRequest(BaseModel):
-    company_code: str = Field(..., description="3-12 character alphanumeric code [A-Z0-9]")
+    company_code: str = Field(
+        ...,
+        description="3 letters (legacy), 4 alphanumeric characters, or 3 numeric digits",
+    )
 
 class CreateCompanyRequest(BaseModel):
     company_id: str
@@ -57,19 +58,15 @@ class LifecycleActionRequest(BaseModel):
 # Endpoints
 @router.post("/companies/validate-code")
 def validate_company_code(payload: ValidateCodeRequest):
-    """Validates configurable 3-12 character alphanumeric company code [A-Z0-9]."""
+    """Validates company codes against the database naming standard."""
     code = payload.company_code.strip().upper()
-    if not 3 <= len(code) <= 12 or not code.isalnum():
+    try:
+        target_db = generate_company_database_name(code)
+    except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Company code '{payload.company_code}' must be 3-12 alphanumeric characters [A-Z0-9]."
-        )
-    if code in ("000", "SYS"):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Company code '{code}' is permanently reserved and cannot be assigned."
-        )
-    target_db = generate_company_database_name(code)
+            detail=str(exc),
+        ) from exc
     return {
         "company_code": code,
         "database_name": target_db,

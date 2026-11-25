@@ -13,7 +13,8 @@
 
 from fastapi import HTTPException, status
 from typing import Optional, Any
-import os, psycopg2, re
+import os
+import psycopg2
 
 DB_HOST = os.getenv("POSTGRES_HOST") or os.getenv("DATABASE_HOST") or "localhost"
 DB_PORT = os.getenv("POSTGRES_PORT") or 5432
@@ -27,12 +28,13 @@ def generate_company_database_name(company_code: str) -> str:
     Configurable alphanumeric company-code rules:
       1. Prefix MUST be exactly 'smriti'.
       2. No separator (underscore, hyphen, space).
-      3. Company code MUST be 4 alphanumeric characters [A-Z0-9] or 3 numeric digits.
+      3. Company code may be 3 letters (legacy), 4 alphanumeric characters, or 3 numeric digits.
       4. 3-digit numeric code is normalized/padded to 4 digits (e.g. '001' -> '0001').
       5. Lowercase input is automatically normalized to uppercase (e.g. 'abc1' -> 'ABC1').
-      6. '0000' and 'SYS0' are permanently reserved (forbidden).
+      6. '0000', 'SYS', and 'SYS0' are permanently reserved (forbidden).
     Examples:
       '001' -> 'smriti0001'
+      'ABC' -> 'smritiABC' (legacy)
       'ABC1' -> 'smritiABC1'
       'MUM1' -> 'smritiMUM1'
     """
@@ -46,8 +48,15 @@ def generate_company_database_name(company_code: str) -> str:
 
     if len(code) == 3 and code.isdigit():
         code = code.zfill(4)
+    elif len(code) == 3 and code.isalpha():
+        if code == "SYS":
+            raise ValueError("Company code 'SYS' is permanently reserved for SMRITI Control Plane.")
+        return f"smriti{code}"
     elif len(code) != 4:
-        raise ValueError(f"Company code '{company_code}' must be 4 alphanumeric characters [A-Z0-9] or 3 numeric digits.")
+        raise ValueError(
+            f"Company code '{company_code}' must be 3 letters, 4 alphanumeric characters [A-Z0-9], "
+            "or 3 numeric digits."
+        )
 
     if code == "0000":
         raise ValueError("Company code '0000' is permanently reserved and cannot be assigned.")
@@ -60,8 +69,7 @@ def generate_company_database_name(company_code: str) -> str:
 
 def validate_company_database_name(database_name: str) -> bool:
     """
-    Validates if a database name adheres to the official naming standard: smriti<4-character-alphanumeric-code>
-    or legacy 3-digit code smriti001.
+    Validates the official smriti database name format, including legacy 3-character codes.
     """
     if not database_name:
         return False
@@ -70,13 +78,12 @@ def validate_company_database_name(database_name: str) -> bool:
     if not database_name.startswith("smriti"):
         return False
     code = database_name[6:]
-    if code in ("0000", "SYS0"):
-        return False  # Reserved
     if len(code) == 3 and code.isdigit():
-        return True  # Legacy smriti001
-    if len(code) == 4 and code.isalnum():
-        return True
-    return False
+        return code != "000"
+    try:
+        return generate_company_database_name(code) == database_name
+    except ValueError:
+        return False
 
 class CompanyDatabaseResolver:
     """
@@ -147,7 +154,7 @@ class CompanyDatabaseResolver:
                 # Query database users table for verified role if user_role was not explicitly passed
                 try:
                     cur.execute("""
-                        SELECT role FROM users 
+                        SELECT role FROM users
                         WHERE (id = %s OR username = %s) AND (is_active = true OR is_active IS NULL) AND (is_deleted = false OR is_deleted IS NULL);
                     """, (user_id, user_id))
                     u_row = cur.fetchone()
@@ -162,7 +169,7 @@ class CompanyDatabaseResolver:
             else:
                 try:
                     cur.execute("""
-                        SELECT 1 FROM user_company_assignments 
+                        SELECT 1 FROM user_company_assignments
                         WHERE (user_id = %s OR user_id IN (SELECT id FROM users WHERE username = %s)) AND company_id = %s AND (is_active = true OR is_active IS NULL) AND (is_deleted = false OR is_deleted IS NULL);
                     """, (user_id, user_id, clean_company_id))
                     row = cur.fetchone()
