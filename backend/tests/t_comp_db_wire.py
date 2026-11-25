@@ -32,11 +32,13 @@ from app.api.deps import TenantContext, get_company_db
 
 @pytest.mark.asyncio
 async def test_resolve_company_database_name():
-    """Verify company database resolution logic for canonical tenants."""
+    """Verify registered tenants resolve and unregistered tenants fail closed."""
     assert await resolve_company_database_name("COMP-001") == "smriti001"
     assert await resolve_company_database_name("001") == "smriti001"
-    assert await resolve_company_database_name("COMP-002") == "smriti002"
-    assert await resolve_company_database_name("COMP-003") == "smriti003"
+    for company_id in ("COMP-002", "COMP-003"):
+        with pytest.raises(HTTPException) as exc_info:
+            await resolve_company_database_name(company_id)
+        assert exc_info.value.status_code == 403
     with pytest.raises(HTTPException) as exc_info:
         await resolve_company_database_name(None)
     assert exc_info.value.status_code == 400
