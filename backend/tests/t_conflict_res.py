@@ -29,6 +29,7 @@ from app.models.sales import SalesInvoice
 from app.models.crm import Customer, CustomerGroup
 from app.models.sync import POSOfflineSyncQueue
 from app.models.auth import UserRole
+from app.models.system_parameter import SystemParameter
 from app.core.security import create_access_token
 from app.schemas.sync import (
     SyncBatchRequest,
@@ -83,6 +84,26 @@ async def test_simultaneous_last_unit_sale_oversell_conflict():
     async with sessionmaker() as db:
         company_id = "COMP-001"
         prod_id = f"prod_soak_{uuid.uuid4().hex[:8]}"
+
+        db.add(
+            SystemParameter(
+                id=f"sysparam_neg_stock_{uuid.uuid4().hex[:8]}",
+                company_id=company_id,
+                param_code="SMRITI.STOCK.ALLOW_NEGATIVE_STOCK",
+                canonical_code="SMRITI.STOCK.ALLOW_NEGATIVE_STOCK",
+                category="STOCK",
+                category_name="Stock",
+                description="Allow negative stock for offline sync test",
+                data_type="Boolean",
+                mutability="Variable",
+                profile_type="COMMON",
+                val_boolean=True,
+                scope_level="COMPANY",
+                terminal_id="COMMON",
+                is_active=True,
+                is_deleted=False,
+            )
+        )
 
         # Seed authoritative opening stock; products.stock is only a cache.
         prod = Product(
