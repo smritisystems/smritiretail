@@ -29,6 +29,7 @@ from app.models.fulfillment import (
     DeliveryCommissionSettlement,
     ReverseLogisticsReturn,
 )
+from app.models.sales import SalesInvoice
 from app.services.fulfillment_engine import FulfillmentEngine
 from app.schemas.fulfillment import (
     PackingSlipCreateRequest,
@@ -59,6 +60,22 @@ def _get_auth_headers(role: str = "SYSADMIN") -> dict:
     }
 
 
+async def _seed_sales_invoice(session, invoice_id: str, branch_id: str = "MAIN") -> None:
+    session.add(
+        SalesInvoice(
+            id=invoice_id,
+            company_id="COMP-001",
+            branch_id=branch_id,
+            invoice_no=f"INV-FUL-{uuid.uuid4().hex[:10].upper()}",
+            customer_id="cust-ril-1888",
+            status="ISSUED",
+            is_active=True,
+            is_deleted=False,
+        )
+    )
+    await session.flush()
+
+
 @pytest.mark.asyncio
 async def test_packing_slip_creation_and_item_lines():
     """Verify pick & pack slip generation with multiple item lines and package weight."""
@@ -67,6 +84,7 @@ async def test_packing_slip_creation_and_item_lines():
     inv_id = f"inv_ful_{unique_suffix}"
 
     async with sessionmaker() as session:
+        await _seed_sales_invoice(session, inv_id)
         ps_req = PackingSlipCreateRequest(
             sales_invoice_id=inv_id,
             packed_by_user_id="usr-packer-1",
@@ -88,7 +106,9 @@ async def test_packing_slip_creation_and_item_lines():
             ],
         )
 
-        res = await FulfillmentEngine.create_packing_slip(session, "COMP-001", ps_req, created_by="usr-super")
+        res = await FulfillmentEngine.create_packing_slip(
+            session, "COMP-001", ps_req, created_by="usr-super", branch_id="MAIN"
+        )
         assert res.sales_invoice_id == inv_id
         assert res.status == "PACKED"
         assert res.total_packages == 2
@@ -106,6 +126,7 @@ async def test_dispatch_creation_with_courier_and_awb():
     inv_id = f"inv_dsp_{unique_suffix}"
 
     async with sessionmaker() as session:
+        await _seed_sales_invoice(session, inv_id)
         # Create pack slip
         ps = await FulfillmentEngine.create_packing_slip(
             session=session,
@@ -120,6 +141,7 @@ async def test_dispatch_creation_with_courier_and_awb():
                     )
                 ],
             ),
+            branch_id="MAIN",
         )
 
         # Create dispatch
@@ -147,13 +169,16 @@ async def test_delivery_status_progression_and_commission_settlement():
     unique_suffix = uuid.uuid4().hex[:6]
 
     async with sessionmaker() as session:
+        inv_id = f"inv_stat_{unique_suffix}"
+        await _seed_sales_invoice(session, inv_id)
         ps = await FulfillmentEngine.create_packing_slip(
             session=session,
             company_id="COMP-001",
             req=PackingSlipCreateRequest(
-                sales_invoice_id=f"inv_stat_{unique_suffix}",
+                sales_invoice_id=inv_id,
                 items=[PackingSlipItemCreate(product_id="prod_test", sku="SKU-TEST", quantity=Decimal("1"))],
             ),
+            branch_id="MAIN",
         )
         dsp = await FulfillmentEngine.create_dispatch(
             session=session,
@@ -203,13 +228,16 @@ async def test_tracking_query_by_awb():
     awb = f"AWB-TRACK-{unique_suffix.upper()}"
 
     async with sessionmaker() as session:
+        inv_id = f"inv_trk_{unique_suffix}"
+        await _seed_sales_invoice(session, inv_id)
         ps = await FulfillmentEngine.create_packing_slip(
             session=session,
             company_id="COMP-001",
             req=PackingSlipCreateRequest(
-                sales_invoice_id=f"inv_trk_{unique_suffix}",
+                sales_invoice_id=inv_id,
                 items=[PackingSlipItemCreate(product_id="prod_test", sku="SKU-TEST", quantity=Decimal("1"))],
             ),
+            branch_id="MAIN",
         )
         dsp = await FulfillmentEngine.create_dispatch(
             session=session,
@@ -235,13 +263,16 @@ async def test_reverse_logistics_and_commission_reversal():
     unique_suffix = uuid.uuid4().hex[:6]
 
     async with sessionmaker() as session:
+        inv_id = f"inv_ret_{unique_suffix}"
+        await _seed_sales_invoice(session, inv_id)
         ps = await FulfillmentEngine.create_packing_slip(
             session=session,
             company_id="COMP-001",
             req=PackingSlipCreateRequest(
-                sales_invoice_id=f"inv_ret_{unique_suffix}",
+                sales_invoice_id=inv_id,
                 items=[PackingSlipItemCreate(product_id="prod_test", sku="SKU-TEST", quantity=Decimal("1"))],
             ),
+            branch_id="MAIN",
         )
         dsp = await FulfillmentEngine.create_dispatch(
             session=session,
@@ -269,6 +300,10 @@ async def test_api_fulfillment_endpoints_and_timeline():
     """Verify REST API fulfillment endpoints and aggregated timeline."""
     unique_suffix = uuid.uuid4().hex[:4]
     inv_id = f"inv_api_{unique_suffix}"
+    sessionmaker = get_company_sessionmaker("smriti001")
+    async with sessionmaker() as session:
+        await _seed_sales_invoice(session, inv_id, branch_id="BR-001")
+        await session.commit()
     transport = ASGITransport(app=app)
 
     async with AsyncClient(transport=transport, base_url="http://test") as client:
