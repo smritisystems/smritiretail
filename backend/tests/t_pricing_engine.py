@@ -17,13 +17,11 @@ from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 import pytest
 from httpx import AsyncClient, ASGITransport
-from sqlalchemy import select
 
 from app.main import app
 from app.db.session import get_company_sessionmaker
 from app.core.security import create_access_token
 from app.models.item_master import Item, ItemVariant
-from app.models.pricing import PriceBook, PriceBookEntry, CustomerPriceTier
 from app.services.pricing_engine import PricingEngine
 from app.schemas.pricing import (
     PriceBookCreateRequest,
@@ -98,6 +96,7 @@ async def test_base_item_and_variant_price_resolution():
             session=session,
             item_id=item.id,
             quantity=Decimal("1.00"),
+            company_id="COMP-001",
         )
         assert res_item["effective_unit_price"] == 500.00
         assert res_item["base_mrp"] == 500.00
@@ -109,6 +108,7 @@ async def test_base_item_and_variant_price_resolution():
             item_id=item.id,
             variant_id=variant.id,
             quantity=Decimal("2.00"),
+            company_id="COMP-001",
         )
         assert res_var["effective_unit_price"] == 550.00
         assert res_var["base_mrp"] == 600.00
@@ -194,7 +194,8 @@ async def test_price_book_volume_breaks_resolution():
 
         # 1. Qty = 5 -> Matches Tier 1 (900.00)
         res_5 = await PricingEngine.calculate_effective_price(
-            session=session, item_id=item.id, quantity=Decimal("5.00"), price_book_code=pb_code
+            session=session, item_id=item.id, quantity=Decimal("5.00"), price_book_code=pb_code,
+            company_id="COMP-001",
         )
         assert res_5["effective_unit_price"] == 900.00
         assert res_5["line_subtotal"] == 4500.00
@@ -202,14 +203,16 @@ async def test_price_book_volume_breaks_resolution():
 
         # 2. Qty = 25 -> Matches Tier 2 (800.00)
         res_25 = await PricingEngine.calculate_effective_price(
-            session=session, item_id=item.id, quantity=Decimal("25.00"), price_book_code=pb_code
+            session=session, item_id=item.id, quantity=Decimal("25.00"), price_book_code=pb_code,
+            company_id="COMP-001",
         )
         assert res_25["effective_unit_price"] == 800.00
         assert res_25["line_subtotal"] == 20000.00
 
         # 3. Qty = 100 -> Matches Tier 3 (700.00)
         res_100 = await PricingEngine.calculate_effective_price(
-            session=session, item_id=item.id, quantity=Decimal("100.00"), price_book_code=pb_code
+            session=session, item_id=item.id, quantity=Decimal("100.00"), price_book_code=pb_code,
+            company_id="COMP-001",
         )
         assert res_100["effective_unit_price"] == 700.00
         assert res_100["line_subtotal"] == 70000.00
@@ -255,6 +258,7 @@ async def test_customer_price_tier_discount_percentage():
             item_id=item.id,
             quantity=Decimal("2.00"),
             customer_tier_code=tier_code,
+            company_id="COMP-001",
         )
         # 1000 - 15% = 850.00
         assert res["effective_unit_price"] == 850.00
@@ -320,6 +324,7 @@ async def test_price_book_date_validity_gating():
             quantity=Decimal("1.00"),
             price_book_code=pb_code_exp,
             as_of_date=now,
+            company_id="COMP-001",
         )
         assert res_today["effective_unit_price"] == 500.00
         assert res_today["applied_price_book"] is None
@@ -331,6 +336,7 @@ async def test_price_book_date_validity_gating():
             quantity=Decimal("1.00"),
             price_book_code=pb_code_exp,
             as_of_date=now - timedelta(days=5),
+            company_id="COMP-001",
         )
         assert res_past["effective_unit_price"] == 300.00
         assert res_past["applied_price_book"] == pb_code_exp
@@ -377,7 +383,7 @@ async def test_bulk_pricing_and_transaction_snapshot():
             ]
         )
 
-        bulk_res = await PricingEngine.calculate_bulk_pricing(session, req)
+        bulk_res = await PricingEngine.calculate_bulk_pricing(session, req, company_id="COMP-001")
         assert bulk_res.total_quantity == 5.0
         # Line 1: 200 - 10% = 180 * 3 = 540
         # Line 2: 400 * 2 = 800
@@ -389,7 +395,7 @@ async def test_bulk_pricing_and_transaction_snapshot():
         assert bulk_res.total_savings == 410.00
 
         # Generate Snapshot
-        snapshot = await PricingEngine.generate_pricing_snapshot(session, req)
+        snapshot = await PricingEngine.generate_pricing_snapshot(session, req, company_id="COMP-001")
         assert snapshot.pricing_engine_version == 1
         assert snapshot.total_subtotal == 1340.00
         assert len(snapshot.lines) == 2
@@ -415,7 +421,6 @@ async def test_api_pricing_endpoints():
             headers=_get_auth_headers(),
         )
         assert pb_res.status_code == 201
-        pb_id = pb_res.json()["id"]
 
         # 2. List Price Books
         list_res = await client.get(
