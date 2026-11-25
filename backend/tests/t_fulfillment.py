@@ -32,6 +32,7 @@ from app.models.fulfillment import (
 )
 from app.models.sales import SalesInvoice
 from app.services.fulfillment_engine import FulfillmentEngine
+from app.services.stock_ledger import StockLedger
 from app.schemas.fulfillment import (
     PackingSlipCreateRequest,
     PackingSlipItemCreate,
@@ -77,7 +78,12 @@ async def _seed_sales_invoice(session, invoice_id: str, branch_id: str = "MAIN")
     await session.flush()
 
 
-async def _seed_product(session, product_id: str, branch_id: str = "MAIN") -> None:
+async def _seed_product(
+    session,
+    product_id: str,
+    branch_id: str = "MAIN",
+    opening_stock: Decimal = Decimal("0"),
+) -> None:
     if await session.get(Product, product_id):
         return
 
@@ -98,6 +104,14 @@ async def _seed_product(session, product_id: str, branch_id: str = "MAIN") -> No
         )
     )
     await session.flush()
+    if opening_stock > 0:
+        await StockLedger.post_admin_opening_stock(
+            session=session,
+            company_id="COMP-001",
+            product_id=product_id,
+            quantity=opening_stock,
+            reason="Initial stock for fulfillment dispatch test",
+        )
 
 
 @pytest.mark.asyncio
@@ -153,7 +167,11 @@ async def test_dispatch_creation_with_courier_and_awb():
 
     async with sessionmaker() as session:
         await _seed_sales_invoice(session, inv_id)
-        await _seed_product(session, f"prod_dsp_{unique_suffix}")
+        await _seed_product(
+            session,
+            f"prod_dsp_{unique_suffix}",
+            opening_stock=Decimal("10"),
+        )
         # Create pack slip
         ps = await FulfillmentEngine.create_packing_slip(
             session=session,
@@ -198,13 +216,14 @@ async def test_delivery_status_progression_and_commission_settlement():
     async with sessionmaker() as session:
         inv_id = f"inv_stat_{unique_suffix}"
         await _seed_sales_invoice(session, inv_id)
-        await _seed_product(session, "prod_test")
+        product_id = f"prod_stat_{unique_suffix}"
+        await _seed_product(session, product_id, opening_stock=Decimal("10"))
         ps = await FulfillmentEngine.create_packing_slip(
             session=session,
             company_id="COMP-001",
             req=PackingSlipCreateRequest(
                 sales_invoice_id=inv_id,
-                items=[PackingSlipItemCreate(product_id="prod_test", sku="SKU-TEST", quantity=Decimal("1"))],
+                items=[PackingSlipItemCreate(product_id=product_id, sku="SKU-TEST", quantity=Decimal("1"))],
             ),
             branch_id="MAIN",
         )
@@ -258,13 +277,14 @@ async def test_tracking_query_by_awb():
     async with sessionmaker() as session:
         inv_id = f"inv_trk_{unique_suffix}"
         await _seed_sales_invoice(session, inv_id)
-        await _seed_product(session, "prod_test")
+        product_id = f"prod_trk_{unique_suffix}"
+        await _seed_product(session, product_id, opening_stock=Decimal("10"))
         ps = await FulfillmentEngine.create_packing_slip(
             session=session,
             company_id="COMP-001",
             req=PackingSlipCreateRequest(
                 sales_invoice_id=inv_id,
-                items=[PackingSlipItemCreate(product_id="prod_test", sku="SKU-TEST", quantity=Decimal("1"))],
+                items=[PackingSlipItemCreate(product_id=product_id, sku="SKU-TEST", quantity=Decimal("1"))],
             ),
             branch_id="MAIN",
         )
@@ -294,13 +314,14 @@ async def test_reverse_logistics_and_commission_reversal():
     async with sessionmaker() as session:
         inv_id = f"inv_ret_{unique_suffix}"
         await _seed_sales_invoice(session, inv_id)
-        await _seed_product(session, "prod_test")
+        product_id = f"prod_ret_{unique_suffix}"
+        await _seed_product(session, product_id, opening_stock=Decimal("10"))
         ps = await FulfillmentEngine.create_packing_slip(
             session=session,
             company_id="COMP-001",
             req=PackingSlipCreateRequest(
                 sales_invoice_id=inv_id,
-                items=[PackingSlipItemCreate(product_id="prod_test", sku="SKU-TEST", quantity=Decimal("1"))],
+                items=[PackingSlipItemCreate(product_id=product_id, sku="SKU-TEST", quantity=Decimal("1"))],
             ),
             branch_id="MAIN",
         )
@@ -333,7 +354,12 @@ async def test_api_fulfillment_endpoints_and_timeline():
     sessionmaker = get_company_sessionmaker("smriti001")
     async with sessionmaker() as session:
         await _seed_sales_invoice(session, inv_id, branch_id="BR-001")
-        await _seed_product(session, f"prod_api_{unique_suffix}", branch_id="BR-001")
+        await _seed_product(
+            session,
+            f"prod_api_{unique_suffix}",
+            branch_id="BR-001",
+            opening_stock=Decimal("10"),
+        )
         await session.commit()
     transport = ASGITransport(app=app)
 
