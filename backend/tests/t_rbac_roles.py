@@ -83,7 +83,7 @@ COMP_B = "COMP-RBAC-B"   # second tenant used for cross-tenant tests
 def sysadmin_token():
     """SYSADMIN token -- global scope, no company_id."""
     return create_access_token(data={
-        "sub": "usr-sysadmin",
+        "sub": "usr-super",
         "username": "usr_sysadmin",
         "role": UserRole.SYSADMIN.value,
         "company_id": None,
@@ -235,7 +235,7 @@ async def test_D_custom_role_creation_scoped_to_company(sysadmin_token):
     SYSADMIN creates a role for COMP_A by carrying company_id=COMP_A in the token.
     """
     sysadmin_comp_a_token = create_access_token(data={
-        "sub": "usr-sysadmin",
+        "sub": "usr-super",
         "username": "usr_sysadmin",
         "role": UserRole.SYSADMIN.value,
         "company_id": COMP_A,
@@ -382,7 +382,7 @@ async def test_I_duplicate_custom_role_rejected(sysadmin_token):
     same company must be rejected with 400.
     """
     sysadmin_comp_a_token = create_access_token(data={
-        "sub": "usr-sysadmin", "username": "usr_sysadmin",
+        "sub": "usr-super", "username": "usr_sysadmin",
         "role": UserRole.SYSADMIN.value, "company_id": COMP_A,
     })
     role_name = f"RBAC-I-Dup-{uuid.uuid4().hex[:6].upper()}"
@@ -419,14 +419,14 @@ async def test_J_same_role_name_allowed_across_companies(sysadmin_token):
     _ensure_comp_b()
     shared_name = f"RBAC-J-Supervisor-{uuid.uuid4().hex[:4].upper()}"
     token_a = create_access_token(data={
-        "sub": "usr-sysadmin",
+        "sub": "usr-super",
         "username": "usr_sysadmin",
         "role": UserRole.SYSADMIN.value, "company_id": COMP_A,
     })
     token_b = create_access_token(data={
         # Same DB user, different JWT company_id claim --
         # company_id in the token drives tenant scoping.
-        "sub": "usr-sysadmin",
+        "sub": "usr-super",
         "username": "usr_sysadmin",
         "role": UserRole.SYSADMIN.value, "company_id": COMP_B,
     })
@@ -574,7 +574,7 @@ async def test_unauthenticated_cannot_list_roles():
     assert res.status_code == 401, f"Expected 401 for unauthenticated list, got {res.status_code}"
 
 # ===========================================================================
-# Phase 1F — SEC-RBAC-001 Security Regression Tests (Scenarios N–R)
+# Phase 1F â€” SEC-RBAC-001 Security Regression Tests (Scenarios Nâ€“R)
 # ===========================================================================
 
 def _make_wildcard_custom_role(role_id: str, company_id: str = COMP_A) -> str:
@@ -724,7 +724,7 @@ async def test_R_sysadmin_can_write_wildcard_to_role():
     SYSADMIN must still be able to set permissions=["*"] on any role.
     """
     sysadmin_comp_a_token = create_access_token(data={
-        "sub": "usr-sysadmin",
+        "sub": "usr-super",
         "username": "usr_sysadmin",
         "role": UserRole.SYSADMIN.value,
         "company_id": COMP_A,
