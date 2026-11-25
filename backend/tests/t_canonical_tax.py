@@ -122,6 +122,7 @@ from pathlib import Path
 WORKSPACE_ROOT = Path(__file__).resolve().parents[2]
 
 
+@requires_canonical_tax_snapshot
 def test_03_rendered_pdf_grid_borders_and_zero_wrap():
     """Verify that generated PDF has horizontal and vertical borders on every row and column with 0 wrapping."""
     import fitz
