@@ -455,7 +455,7 @@ def test_api_analytics_and_integration_endpoints():
 
     # 1. Analytics daily sales summary
     r_daily = client.get("/api/v1/analytics/daily-sales-summary", headers=headers)
-    assert r_daily.status_code == 200
+    assert r_daily.status_code == 200, r_daily.text
     data_daily = r_daily.json()
     assert "facts" in data_daily
     assert "company_id" in data_daily
