@@ -192,6 +192,8 @@ async def test_sales_invoice_fefo_auto_deduction_and_cancellation():
 
     unique_suffix = uuid.uuid4().hex[:8]
     prod_id = f"prod-test-{unique_suffix}"
+    item_id = f"itm-test-{unique_suffix}"
+    variant_id = f"var-test-{unique_suffix}"
     prod_code = f"TEST-PROD-{unique_suffix.upper()}"
     inv_no = f"INV-TEST-{unique_suffix.upper()}"
 
@@ -206,10 +208,38 @@ async def test_sales_invoice_fefo_auto_deduction_and_cancellation():
         created_invoice_id = None
 
         try:
-            # 1. Create a dedicated isolated test product
+            # 1. Create a canonical item/variant and its legacy product projection.
+            item = Item(
+                id=item_id,
+                company_id="COMP-001",
+                item_code=prod_code,
+                item_name="FEFO Test Energy Drink",
+                category="Beverages",
+                primary_uom="PCS",
+                mrp=Decimal("150.00"),
+                selling_price=Decimal("150.00"),
+                cost_price=Decimal("100.00"),
+            )
+            session.add(item)
+            await session.flush()
+            variant = ItemVariant(
+                id=variant_id,
+                company_id="COMP-001",
+                item_id=item.id,
+                variant_sku=prod_code,
+                variant_name="FEFO Test Energy Drink",
+                mrp=Decimal("150.00"),
+                selling_price=Decimal("150.00"),
+                cost_price=Decimal("100.00"),
+            )
+            session.add(variant)
+            await session.flush()
+
             prod = Product(
                 id=prod_id,
                 uuid=str(uuid.uuid4()),
+                item_id=item.id,
+                item_variant_id=variant.id,
                 code=prod_code,
                 sku=f"SKU-{prod_code}",
                 name="FEFO Test Energy Drink",
@@ -303,6 +333,8 @@ async def test_sales_invoice_fefo_auto_deduction_and_cancellation():
             await utmih_delete_stock_movements(session, "product_id = :pid", {"pid": prod_id})
             await session.execute(text("DELETE FROM product_batch_stocks WHERE product_id = :pid"), {"pid": prod_id})
             await session.execute(text("DELETE FROM products WHERE id = :pid"), {"pid": prod_id})
+            await session.execute(text("DELETE FROM item_variants WHERE id = :vid"), {"vid": variant_id})
+            await session.execute(text("DELETE FROM items WHERE id = :iid"), {"iid": item_id})
             await session.commit()
 
 
@@ -317,6 +349,9 @@ async def test_retailer_credit_limit_enforcement():
     unique_suffix = uuid.uuid4().hex[:6]
     group_id = f"cg-test-{unique_suffix}"
     cust_id = f"cust-test-{unique_suffix}"
+    item_id = f"itm-cred-{unique_suffix}"
+    variant_id = f"var-cred-{unique_suffix}"
+    prod_id = f"prod-cred-{unique_suffix}"
 
     async with session_factory() as session:
         tenant = TenantContext(company_id="COMP-001", branch_id="BR-001")
@@ -351,15 +386,41 @@ async def test_retailer_credit_limit_enforcement():
             session.add(customer)
             await session.commit()
 
-            prod_id = f"prod-cred-{unique_suffix}"
             batch_no = f"BATCH-CRED-{unique_suffix.upper()}"
 
             # 3. Create dedicated product with stock in the test warehouse.
+            item = Item(
+                id=item_id,
+                company_id="COMP-001",
+                item_code=f"CRED-{unique_suffix.upper()}",
+                item_name=f"Credit Test Product {unique_suffix}",
+                category="General",
+                primary_uom="PCS",
+                mrp=Decimal("500.00"),
+                selling_price=Decimal("500.00"),
+                cost_price=Decimal("300.00"),
+            )
+            session.add(item)
+            await session.flush()
+            variant = ItemVariant(
+                id=variant_id,
+                company_id="COMP-001",
+                item_id=item.id,
+                variant_sku=f"CRED-{unique_suffix.upper()}",
+                variant_name=f"Credit Test Product {unique_suffix}",
+                mrp=Decimal("500.00"),
+                selling_price=Decimal("500.00"),
+                cost_price=Decimal("300.00"),
+            )
+            session.add(variant)
+            await session.flush()
             prod = Product(
                 id=prod_id,
                 uuid=str(uuid.uuid4()),
                 company_id="COMP-001",
                 branch_id="BR-001",
+                item_id=item.id,
+                item_variant_id=variant.id,
                 name=f"Credit Test Product {unique_suffix}",
                 code=f"CRED-{unique_suffix.upper()}",
                 sku=f"SKU-CRED-{unique_suffix.upper()}",
@@ -420,5 +481,7 @@ async def test_retailer_credit_limit_enforcement():
             await session.execute(text("DELETE FROM customer_groups WHERE id = :gid"), {"gid": group_id})
             await session.execute(text("DELETE FROM product_batch_stocks WHERE product_id = :pid"), {"pid": prod_id})
             await session.execute(text("DELETE FROM products WHERE id = :pid"), {"pid": prod_id})
+            await session.execute(text("DELETE FROM item_variants WHERE id = :vid"), {"vid": variant_id})
+            await session.execute(text("DELETE FROM items WHERE id = :iid"), {"iid": item_id})
             await session.commit()
 
