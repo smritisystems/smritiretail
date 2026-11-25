@@ -13,17 +13,15 @@ Classification: Internal
 """
 
 import time
-from decimal import Decimal
-from typing import Dict, Any, List, Optional, Set
-from sqlalchemy import select, or_, and_, func
-from sqlalchemy.orm import selectinload
+from typing import Dict, List, Set
+from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models.item_master import Item, ItemVariant, ItemBarcode
+from ..models.item_master import Item, ItemBarcode
 from ..models.party import Party
 from ..models.sales import SalesInvoice
 from ..models.purchase import PurchaseOrder
-from ..models.fulfillment import Dispatch, PackingSlip
+from ..models.fulfillment import Dispatch
 from ..models.approval import ApprovalRequest
 from ..models.payment_ledger import PaymentTransaction
 from ..models.inventory import Warehouse
@@ -175,7 +173,7 @@ class UniversalSearchEngine:
                 select(Item)
                 .where(
                     Item.company_id == company_id,
-                    Item.is_deleted == False,
+                    Item.is_deleted.is_(False),
                     or_(
                         Item.item_code.ilike(q_like),
                         Item.item_name.ilike(q_like),
@@ -214,7 +212,7 @@ class UniversalSearchEngine:
                 select(Party)
                 .where(
                     Party.company_id == company_id,
-                    Party.is_deleted == False,
+                    Party.is_deleted.is_(False),
                     or_(
                         Party.party_code.ilike(q_like),
                         Party.legal_name.ilike(q_like),
@@ -257,7 +255,7 @@ class UniversalSearchEngine:
                 .join(Item, ItemBarcode.item_id == Item.id)
                 .where(
                     ItemBarcode.company_id == company_id,
-                    ItemBarcode.is_deleted == False,
+                    ItemBarcode.is_deleted.is_(False),
                     ItemBarcode.barcode.ilike(q_like),
                 )
                 .limit(limit)
@@ -292,7 +290,7 @@ class UniversalSearchEngine:
                 select(SalesInvoice)
                 .where(
                     SalesInvoice.company_id == company_id,
-                    SalesInvoice.is_deleted == False,
+                    SalesInvoice.is_deleted.is_(False),
                     SalesInvoice.invoice_no.ilike(q_like),
                 )
                 .limit(limit)
@@ -318,7 +316,7 @@ class UniversalSearchEngine:
                 select(PurchaseOrder)
                 .where(
                     PurchaseOrder.company_id == company_id,
-                    PurchaseOrder.is_deleted == False,
+                    PurchaseOrder.is_deleted.is_(False),
                     PurchaseOrder.order_no.ilike(q_like),
                 )
                 .limit(limit)
@@ -344,7 +342,7 @@ class UniversalSearchEngine:
                 select(Dispatch)
                 .where(
                     Dispatch.company_id == company_id,
-                    Dispatch.is_deleted == False,
+                    Dispatch.is_deleted.is_(False),
                     or_(
                         Dispatch.dispatch_number.ilike(q_like),
                         Dispatch.tracking_number.ilike(q_like),
@@ -373,7 +371,7 @@ class UniversalSearchEngine:
                 select(ApprovalRequest)
                 .where(
                     ApprovalRequest.company_id == company_id,
-                    ApprovalRequest.is_deleted == False,
+                    ApprovalRequest.is_deleted.is_(False),
                     ApprovalRequest.request_no.ilike(q_like),
                 )
                 .limit(limit)
@@ -406,7 +404,7 @@ class UniversalSearchEngine:
                 select(Warehouse)
                 .where(
                     Warehouse.company_id == company_id,
-                    Warehouse.is_deleted == False,
+                    Warehouse.is_deleted.is_(False),
                     or_(
                         Warehouse.code.ilike(q_like),
                         Warehouse.name.ilike(q_like),
@@ -425,7 +423,13 @@ class UniversalSearchEngine:
                         type="WAREHOUSE",
                         title=wh.name,
                         subtitle=f"Code: {wh.code} | City: {wh.city or 'N/A'}",
-                        badge=wh.warehouse_type or "STORE",
+                        badge=(
+                            "TRANSIT"
+                            if wh.is_transit
+                            else "CENTRAL_GODOWN"
+                            if wh.is_central_godown
+                            else "STORE"
+                        ),
                         score=score,
                         metadata={"code": wh.code, "city": wh.city},
                         navigation_url=f"/inventory/warehouses/{wh.id}",
@@ -443,7 +447,7 @@ class UniversalSearchEngine:
                 select(PaymentTransaction)
                 .where(
                     PaymentTransaction.company_id == company_id,
-                    PaymentTransaction.is_deleted == False,
+                    PaymentTransaction.is_deleted.is_(False),
                     or_(
                         PaymentTransaction.transaction_no.ilike(q_like),
                         PaymentTransaction.idempotency_key.ilike(q_like),
