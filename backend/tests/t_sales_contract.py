@@ -12,19 +12,20 @@ License      : Proprietary Commercial Software
 Classification: Internal
 """
 
-import sys, os
+import os
+import sys
 import pytest
-import asyncio
-from decimal import Decimal
+import uuid
 import httpx
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from app.main import app
-from app.api.deps import get_current_user, get_db
+from app.api.deps import get_current_user
 from app.db.session import async_session
 from app.models.auth import User, UserRole
 from app.core.security import create_access_token
+from sqlalchemy import text
 
 
 BASE_URL = "http://test/api/v1"
@@ -32,7 +33,7 @@ BASE_URL = "http://test/api/v1"
 sysadmin_user_a = User(id="usr-super", username="usr_super", role=UserRole.SYSADMIN, company_id="COMP-001", branch_id="MAIN", is_active=True, is_deleted=False)
 # COMP-002 is registered in smritisys.company_database_registries -> smriti002 (READY).
 # Using COMPANY_B (fictitious code) caused 403 fail-closed from resolve_company_database_name.
-sysadmin_user_b = User(id="usr-super", username="usr_super", role=UserRole.SYSADMIN, company_id="COMP-002", branch_id="BR-002", is_active=True, is_deleted=False)
+sysadmin_user_b = User(id="usr-super", username="usr_super", role=UserRole.SYSADMIN, company_id="COMP-SALES-002", branch_id="BR-SALES-002", is_active=True, is_deleted=False)
 cashier_user = User(id="usr-cashier", username="usr_cashier", role=UserRole.CASHIER, company_id="comp-default", branch_id="br-default", is_active=True, is_deleted=False)
 
 from sqlalchemy.pool import NullPool
@@ -48,18 +49,86 @@ COMPANY_001_ASYNC_URL = f"postgresql+asyncpg://postgres:postgres@localhost:{_PG_
 test_engine = create_async_engine(COMPANY_001_ASYNC_URL, poolclass=NullPool)
 test_sessionmaker = async_sessionmaker(bind=test_engine, class_=AsyncSession, expire_on_commit=False)
 
-from sqlalchemy import text, delete
-
 _cleaned_once = False
+
+@pytest.fixture(scope="module", autouse=True)
+async def seed_company_b_routing():
+    company_id = "COMP-SALES-002"
+    branch_id = "BR-SALES-002"
+    async with async_session() as session:
+        await session.execute(
+            text("""
+                INSERT INTO companies (
+                    id, uuid, name, company_code, is_active, is_deleted, created_at, modified_at
+                )
+                VALUES (:company_id, :uuid, 'Sales Contract Test Company B', 'SALES002',
+                    true, false, NOW(), NOW())
+                ON CONFLICT (id) DO UPDATE SET
+                    name = EXCLUDED.name, company_code = EXCLUDED.company_code,
+                    is_active = true, is_deleted = false
+            """),
+            {"company_id": company_id, "uuid": str(uuid.uuid4())},
+        )
+        await session.execute(
+            text("""
+                INSERT INTO branches (
+                    id, uuid, company_id, name, code, is_default, is_active, is_deleted,
+                    created_at, modified_at
+                )
+                VALUES (:branch_id, :uuid, :company_id, 'Sales Contract Test Branch B',
+                    'SALES002', true, true, false, NOW(), NOW())
+                ON CONFLICT (id) DO UPDATE SET
+                    company_id = EXCLUDED.company_id, code = EXCLUDED.code,
+                    is_default = true, is_active = true, is_deleted = false
+            """),
+            {
+                "branch_id": branch_id,
+                "uuid": str(uuid.uuid4()),
+                "company_id": company_id,
+            },
+        )
+        await session.execute(
+            text("""
+                INSERT INTO company_database_registries (
+                    company_id, database_id, database_name, database_engine, host_reference,
+                    port_reference, status, schema_version, provisioning_status, migration_status,
+                    created_at, updated_at
+                )
+                VALUES (:company_id, :database_id, 'smriti002', 'postgresql', 'localhost',
+                    :port, 'READY', '3.29.0', 'COMPLETED', 'UP_TO_DATE', NOW(), NOW())
+                ON CONFLICT (company_id) DO UPDATE SET
+                    database_name = 'smriti002', status = 'READY', updated_at = NOW()
+            """),
+            {
+                "company_id": company_id,
+                "database_id": str(uuid.uuid4()),
+                "port": _PG_PORT,
+            },
+        )
+        await session.commit()
+
+    yield
+
+    async with async_session() as session:
+        await session.execute(
+            text("DELETE FROM company_database_registries WHERE company_id = :company_id"),
+            {"company_id": company_id},
+        )
+        await session.execute(
+            text("DELETE FROM branches WHERE company_id = :company_id"),
+            {"company_id": company_id},
+        )
+        await session.execute(
+            text("DELETE FROM companies WHERE id = :company_id"),
+            {"company_id": company_id},
+        )
+        await session.commit()
+
 
 @pytest.fixture(autouse=True)
 async def setup_user_override():
     global _cleaned_once
     app.dependency_overrides[get_current_user] = lambda: sysadmin_user_a
-    async def _test_get_db():
-        async with test_sessionmaker() as session:
-            yield session
-    app.dependency_overrides[get_db] = _test_get_db
 
     if not _cleaned_once:
         async with test_sessionmaker() as session:
@@ -92,13 +161,12 @@ def auth_headers_company_a():
 
 @pytest.fixture
 def auth_headers_company_b():
-    # COMP-002 is the registered company_id for smriti002 in smritisys.company_database_registries.
-    token = create_access_token({"sub": "usr-super", "company_id": "COMP-002", "branch_id": "BR-002"})
+    token = create_access_token({"sub": "usr-super", "company_id": "COMP-SALES-002", "branch_id": "BR-SALES-002"})
     return {
         "Authorization": f"Bearer {token}",
         "X-Company-Code": "002",
-        "X-Company-ID": "COMP-002",
-        "X-Branch-Code": "BR-002",
+        "X-Company-ID": "COMP-SALES-002",
+        "X-Branch-Code": "SALES002",
         "Content-Type": "application/json"
     }
 
@@ -118,8 +186,6 @@ async def test_02_multi_tenant_routing_company_b(auth_headers_company_b):
         assert res.status_code == 200
         invoices = res.json()
         assert isinstance(invoices, list)
-        # smriti002 may contain existing invoices from prior migrations.
-        # The architectural invariant is: SYSADMIN can route to COMP-002 and get a 200.
 
 @pytest.mark.asyncio
 async def test_03_header_tampering_and_cross_tenant_isolation_forbidden(auth_headers_company_b):
