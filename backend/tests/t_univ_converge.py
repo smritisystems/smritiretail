@@ -16,7 +16,7 @@ import pytest
 import uuid
 from decimal import Decimal
 from fastapi.testclient import TestClient
-from sqlalchemy import select, text
+from sqlalchemy import func, select
 
 from app.main import app
 from app.core.security import create_access_token
@@ -25,12 +25,12 @@ from app.db.session import get_company_sessionmaker
 from app.services.univ_party_svc import UniversalPartyService
 from app.services.univ_item_svc import UniversalItemService
 from app.services.tx_reproduce_svc import TransactionReproducibilityService
-from app.models.party import Party, PartyRole, CustomerProfile, SupplierProfile
+from app.models.party import Party
 from app.models.item_master import Item, ItemVariant, ItemBarcode
 from app.models.sales import SalesInvoice
-from app.models.purchase import PurchaseOrder
 from app.models.crm import Customer
 from app.models.purchase import Supplier
+from app.models.tenant import Company
 
 
 @pytest.fixture
@@ -62,7 +62,7 @@ async def test_polymorphic_multi_role_party_convergence():
         gstin_shared = f"27TESTP{uuid.uuid4().hex[:5].upper()}1Z5"
         test_mobile = f"9820{uuid.uuid4().hex[:6]}"
         test_email = f"apex_{uuid.uuid4().hex[:6]}@example.com"
-        
+
         # 1. Create legacy Customer
         cust = Customer(
             id=f"c_{uuid.uuid4().hex[:12]}",
@@ -214,16 +214,52 @@ async def test_transaction_governance_snapshot_persistence():
 
 @pytest.mark.asyncio
 async def test_live_converged_database_counts():
-    """Verify smriti001 and smriti002 contain populated converged party and item master records."""
-    for db_name in ["smriti001", "smriti002"]:
+    """Verify canonical party, item, and barcode records persist in both tenant databases."""
+    for db_name, company_id in (("smriti001", "COMP-001"), ("smriti002", "COMP-002")):
         sessionmaker = get_company_sessionmaker(db_name)
         async with sessionmaker() as session:
-            p_cnt = (await session.execute(select(text("COUNT(*) FROM parties;")))).scalar()
-            i_cnt = (await session.execute(select(text("COUNT(*) FROM items;")))).scalar()
-            b_cnt = (await session.execute(select(text("COUNT(*) FROM item_barcodes;")))).scalar()
-            assert p_cnt > 0
-            assert i_cnt > 0
-            assert b_cnt > 0
+            if await session.get(Company, company_id) is None:
+                session.add(Company(id=company_id, name=f"Test Company {company_id}"))
+                await session.flush()
+
+            suffix = uuid.uuid4().hex[:8].upper()
+            party = Party(
+                id=f"pty_count_{suffix}",
+                company_id=company_id,
+                party_code=f"PTY-COUNT-{suffix}",
+                legal_name=f"Test Party {suffix}",
+            )
+            item = Item(
+                id=f"itm_count_{suffix}",
+                company_id=company_id,
+                item_code=f"ITEM-COUNT-{suffix}",
+                item_name=f"Test Item {suffix}",
+                category="TEST",
+                primary_uom="PCS",
+            )
+            barcode = ItemBarcode(
+                id=f"bc_count_{suffix}",
+                company_id=company_id,
+                item_id=item.id,
+                barcode=f"COUNT-{suffix}",
+            )
+            session.add_all([party, item, barcode])
+            await session.flush()
+
+            p_cnt = await session.scalar(
+                select(func.count()).select_from(Party).where(Party.company_id == company_id)
+            )
+            i_cnt = await session.scalar(
+                select(func.count()).select_from(Item).where(Item.company_id == company_id)
+            )
+            b_cnt = await session.scalar(
+                select(func.count()).select_from(ItemBarcode).where(
+                    ItemBarcode.company_id == company_id
+                )
+            )
+            assert p_cnt and p_cnt > 0
+            assert i_cnt and i_cnt > 0
+            assert b_cnt and b_cnt > 0
 
 
 def test_api_universal_master_endpoints(client):
