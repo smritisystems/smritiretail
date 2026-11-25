@@ -13,27 +13,26 @@ Classification: Internal
 """
 
 import uuid
-import pytest
+from datetime import UTC, date, datetime
 from decimal import Decimal
-from datetime import date, datetime, timezone, timedelta
-from fastapi.testclient import TestClient
-from sqlalchemy import select, text
 
-from app.main import app
+import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy import select
+
 from app.core.security import create_access_token
-from app.models.auth import UserRole
 from app.db.session import get_company_sessionmaker
-from app.models.sales import SalesInvoice, SalesInvoiceItem
-from app.models.inventory import Product, StockMovement
-from app.models.accounting import JournalVoucher, GeneralLedgerEntry, Account
+from app.main import app
+from app.models.accounting import Account
 from app.models.analytics import AnalyticsDailySalesFact
-from app.models.audit import ComplianceImmutableAuditLog
-from app.models.crm import Customer
+from app.models.auth import UserRole
+from app.models.inventory import Product
+from app.models.sales import SalesInvoice, SalesInvoiceItem
 from app.services.analytics_svc import AnalyticalIntelligenceService
-from app.services.tally_service import TallyIntegrationService
 from app.services.compliance_audit import ComplianceAuditService
 from app.services.sales_ledger_svc import UnifiedSalesLedgerService
 from app.services.stock_ledger import StockLedger
+from app.services.tally_service import TallyIntegrationService
 from app.services.unified_ledger import UnifiedAccountingLedgerService
 
 
@@ -109,13 +108,15 @@ async def test_daily_sales_aggregates_computation():
         session.add(prod)
         await session.flush()
 
-        await StockLedger.post_admin_opening_stock(
+        opening_stock = await StockLedger.post_admin_opening_stock(
             session=session,
             company_id=comp_id,
             product_id=prod.id,
             quantity=Decimal("100"),
             reason="Analytics integration test opening inventory",
         )
+        assert opening_stock.product_balance_after == Decimal("100")
+        await session.commit()
 
         # 2. Post a Confirmed Sales Invoice (10 units @ 1000 = 10,000 + 18% GST (1800) = 11,800)
         inv_no = f"INV-AN-{uuid.uuid4().hex[:6].upper()}"
@@ -302,7 +303,7 @@ async def test_tally_journal_voucher_xml_generation():
             session=session,
             company_id=comp_id,
             voucher_type="JOURNAL",
-            voucher_date=datetime.now(timezone.utc).date(),
+            voucher_date=datetime.now(UTC).date(),
             narration="Cash deposited into HDFC Bank",
             lines=[
                 {"account_id": acc1_id, "debit_amount": Decimal("5000.00"), "credit_amount": Decimal("0.00")},
