@@ -391,8 +391,9 @@ async def test_07_get_html_preview_matches_db(auth_headers_company_a):
 async def test_08_get_pdf_rendered_successfully(auth_headers_company_a):
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test/api/v1") as client:
         res = await client.get(f"{BASE_URL}/sales/invoices/{_created_invoice_id}/pdf", headers=auth_headers_company_a)
-        assert res.status_code == 200
-        assert "TAX INVOICE" in res.text
+        assert res.status_code == 200, res.text
+        assert res.headers["content-type"] == "application/pdf"
+        assert res.content.startswith(b"%PDF")
 
 @pytest.mark.asyncio
 async def test_09_print_preview_structure(auth_headers_company_a):

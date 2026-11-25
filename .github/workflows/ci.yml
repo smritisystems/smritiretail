@@ -204,6 +204,9 @@ jobs:
           POSTGRES_PORT: "5432"
           SMRITI_TENANT_DATABASES: "smriti_test_001,smriti_test_002"
 
+      - name: Install Playwright Chromium for Backend PDF Tests
+        run: playwright install chromium --with-deps
+
       - name: Run Backend Tests
         run: >
           pytest tests/ app/tests/ app/compliance/tests/
@@ -213,7 +216,6 @@ jobs:
       - name: Run Retail Transaction Lifecycle E2E Suite (Cross-Workspace Parity)
         # Executes the full retail transactional lifecycle: Article Creation -> PO -> GRN -> POS Sale -> Stock Ledger
         run: |
-          playwright install chromium --with-deps || true
           uvicorn app.main:app --host 127.0.0.1 --port 1981 &
           UVICORN_PID=$!
           echo "Waiting for FastAPI backend daemon on port 1981..."
