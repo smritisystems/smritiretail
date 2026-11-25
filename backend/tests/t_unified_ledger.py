@@ -176,7 +176,7 @@ async def test_sales_invoice_automated_gl_posting():
         inv_no = f"INV-GL-{unique_suffix.upper()}"
         cust_id = f"cust_gl_{unique_suffix}"
 
-        # 1. Setup Customer & Existing Product
+        # 1. Setup Customer & Product with a deterministic unit cost.
         cust = Customer(
             id=cust_id,
             company_id="COMP-001",
@@ -186,11 +186,23 @@ async def test_sales_invoice_automated_gl_posting():
         )
         session.add(cust)
 
-        res_prod = await session.execute(select(Product).where(Product.company_id == "COMP-001", Product.is_deleted == False).limit(1))
-        product = res_prod.scalars().first()
-        assert product is not None
+        product = Product(
+            id=f"prod_gl_{unique_suffix}",
+            company_id="COMP-001",
+            code=f"PROD-GL-{unique_suffix.upper()}",
+            name=f"GL Test Product {unique_suffix}",
+            price=Decimal("500.00"),
+            cost_price=Decimal("10.00"),
+            stock=10,
+            category="GL Test",
+            barcode=f"GL-{unique_suffix.upper()}",
+            is_active=True,
+            is_deleted=False,
+        )
+        session.add(product)
+        await session.flush()
 
-        # Invoice: Taxable value = 1000.00, CGST = 90.00, SGST = 90.00, Roundoff = 0.40 -> Grand Total = 1180.40
+        # Invoice total is 1180.40; perpetual COGS adds a balanced 20.00 debit/credit.
         inv = SalesInvoice(
             id=inv_id,
             company_id="COMP-001",
@@ -234,19 +246,19 @@ async def test_sales_invoice_automated_gl_posting():
 
         assert voucher.voucher_type == "SALES_INVOICE"
         assert voucher.reference_doc_id == inv_id
-        assert voucher.total_debit == Decimal("1180.40")
-        assert voucher.total_credit == Decimal("1180.40")
+        assert voucher.total_debit == Decimal("1200.40")
+        assert voucher.total_credit == Decimal("1200.40")
 
-        # Verify entry lines: Debtors (1180.40 Dr), Sales (1000.00 Cr), CGST (90.00 Cr), SGST (90.00 Cr), Roundoff (0.40 Cr)
+        # Verify revenue/tax/roundoff plus COGS and inventory recognition.
         gl_entries = (await session.execute(
             select(GeneralLedgerEntry).where(GeneralLedgerEntry.voucher_id == voucher.id)
         )).scalars().all()
 
-        assert len(gl_entries) == 5
+        assert len(gl_entries) == 7
         debit_sum = sum(e.debit_amount for e in gl_entries)
         credit_sum = sum(e.credit_amount for e in gl_entries)
-        assert debit_sum == Decimal("1180.40")
-        assert credit_sum == Decimal("1180.40")
+        assert debit_sum == Decimal("1200.40")
+        assert credit_sum == Decimal("1200.40")
 
 
 @pytest.mark.asyncio
