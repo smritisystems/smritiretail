@@ -18,10 +18,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 
-from app.api.deps import get_company_db, get_current_user
-from app.models.auth import User, UserRole
+from app.api.deps import get_current_user, get_db
+from app.models.auth import User
 from app.models.ui_control_plane import (
-    SmritiTheme, SmritiThemeVariant, SmritiWorkspaceProfile,
+    SmritiTheme, SmritiWorkspaceProfile,
     ScreenDefinition, FieldDefinition, ActionDefinition, IconRegistry,
 )
 from app.schemas.ui_control_plane import ThemeResponse, WorkspaceProfileResponse
@@ -32,13 +32,13 @@ router = APIRouter()
 @router.get("/themes", response_model=List[ThemeResponse])
 async def get_active_themes(
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_company_db),
+    db: AsyncSession = Depends(get_db),
 ):
     """Fetch all active system themes and visual variants from smriti_themes."""
     stmt = (
         select(SmritiTheme)
         .options(selectinload(SmritiTheme.variants))
-        .where(SmritiTheme.is_active == True)
+        .where(SmritiTheme.is_active.is_(True))
     )
     result = await db.execute(stmt)
     return result.scalars().all()
@@ -47,12 +47,12 @@ async def get_active_themes(
 @router.get("/workspace-profiles", response_model=List[WorkspaceProfileResponse])
 async def get_workspace_profiles(
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_company_db),
+    db: AsyncSession = Depends(get_db),
 ):
     """Fetch available AWE workspace profiles from smriti_workspace_profiles."""
     stmt = select(SmritiWorkspaceProfile).where(
-        SmritiWorkspaceProfile.is_active == True,
-        SmritiWorkspaceProfile.is_deleted == False
+        SmritiWorkspaceProfile.is_active.is_(True),
+        SmritiWorkspaceProfile.is_deleted.is_(False)
     )
     result = await db.execute(stmt)
     return result.scalars().all()
@@ -61,7 +61,7 @@ async def get_workspace_profiles(
 @router.get("/workspace-profiles/my-profile", response_model=WorkspaceProfileResponse)
 async def get_my_workspace_profile(
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_company_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """Resolve active AWE workspace profile for the current user persona."""
     role_str = (
@@ -81,12 +81,12 @@ async def get_my_workspace_profile(
 
     stmt = select(SmritiWorkspaceProfile).where(
         SmritiWorkspaceProfile.code == target_code,
-        SmritiWorkspaceProfile.is_active == True
+        SmritiWorkspaceProfile.is_active.is_(True)
     )
     profile = (await db.execute(stmt)).scalar_one_or_none()
 
     if not profile:
-        def_stmt = select(SmritiWorkspaceProfile).where(SmritiWorkspaceProfile.is_default == True)
+        def_stmt = select(SmritiWorkspaceProfile).where(SmritiWorkspaceProfile.is_default.is_(True))
         profile = (await db.execute(def_stmt)).scalar_one_or_none()
 
     if not profile:
@@ -103,7 +103,7 @@ async def get_screen_definitions(
     module_code: str = None,
     capability_code: str = None,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_company_db),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Returns screen layout definitions from smritisys.screen_definitions.
@@ -111,8 +111,8 @@ async def get_screen_definitions(
     Control Plane defines WHAT; application renders HOW.
     """
     stmt = select(ScreenDefinition).where(
-        ScreenDefinition.is_active == True,
-        ScreenDefinition.is_deleted == False,
+        ScreenDefinition.is_active.is_(True),
+        ScreenDefinition.is_deleted.is_(False),
     )
     if module_code:
         stmt = stmt.where(ScreenDefinition.module_code == module_code.upper())
@@ -143,15 +143,15 @@ async def get_field_definitions(
     field_type: str = None,
     entity_key: str = None,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_company_db),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Returns field metadata definitions from smritisys.field_definitions.
     Optional filters: field_type, entity_key.
     """
     stmt = select(FieldDefinition).where(
-        FieldDefinition.is_active == True,
-        FieldDefinition.is_deleted == False,
+        FieldDefinition.is_active.is_(True),
+        FieldDefinition.is_deleted.is_(False),
     )
     if field_type:
         stmt = stmt.where(FieldDefinition.field_type == field_type.upper())
@@ -186,15 +186,15 @@ async def get_field_definitions(
 async def get_action_definitions(
     screen_code: str = None,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_company_db),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Returns action (button/link) definitions from smritisys.action_definitions.
     Optional filter: screen_code.
     """
     stmt = select(ActionDefinition).where(
-        ActionDefinition.is_active == True,
-        ActionDefinition.is_deleted == False,
+        ActionDefinition.is_active.is_(True),
+        ActionDefinition.is_deleted.is_(False),
     )
     if screen_code:
         stmt = stmt.where(ActionDefinition.screen_code == screen_code)
@@ -226,14 +226,14 @@ async def get_icon_registry(
     module_scope: str = None,
     icon_category: str = None,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_company_db),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Returns platform icon catalogue from smritisys.icon_registry.
     Optional filters: module_scope, icon_category.
     Decouples icon key references from application source code.
     """
-    stmt = select(IconRegistry).where(IconRegistry.is_active == True)
+    stmt = select(IconRegistry).where(IconRegistry.is_active.is_(True))
     if module_scope:
         stmt = stmt.where(IconRegistry.module_scope == module_scope.upper())
     if icon_category:
