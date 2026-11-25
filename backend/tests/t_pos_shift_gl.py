@@ -15,7 +15,6 @@ Classification: Internal
 import pytest
 import uuid
 from decimal import Decimal
-from datetime import datetime, timezone, date
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from sqlalchemy.future import select
@@ -25,9 +24,9 @@ from app.main import app
 from app.db.session import get_company_sessionmaker
 from app.api.deps import TenantContext, get_db, get_tenant_context, get_current_user
 from app.models.auth import User, UserRole
-from app.models.pos import CashRegister, Shift
+from app.models.pos import Shift
 from app.models.sales import SalesInvoice
-from app.models.accounting import JournalVoucher, GeneralLedgerEntry, Account
+from app.models.accounting import JournalVoucher, GeneralLedgerEntry
 from app.services.pos import POSService
 from app.services.unified_ledger import UnifiedAccountingLedgerService
 from app.schemas.pos import ShiftOpen, ShiftClose, CashRegisterCreate
@@ -75,11 +74,11 @@ async def test_shift_close_zero_variance_no_adjustment_needed():
         ))
 
         # 2. Open Shift with ₹5,000 opening cash
-        shift_id = f"SH-{unique_suffix}"
         shift = await pos_svc.open_shift(
-            ShiftOpen(id=shift_id, register_id=reg_id, opening_balance=Decimal("5000.00")),
+            ShiftOpen(register_id=reg_id, opening_balance=Decimal("5000.00")),
             cashier_id=cashier_id
         )
+        shift_id = shift.id
         assert shift.status == "OPEN"
         assert shift.opening_balance == Decimal("5000.00")
 
@@ -143,11 +142,11 @@ async def test_shift_close_cash_shortage_gl_balancing_posting():
         ))
 
         # 2. Open Shift with ₹4,000 opening cash
-        shift_id = f"SH-SHORT-{unique_suffix}"
-        await pos_svc.open_shift(
-            ShiftOpen(id=shift_id, register_id=reg_id, opening_balance=Decimal("4000.00")),
+        shift = await pos_svc.open_shift(
+            ShiftOpen(register_id=reg_id, opening_balance=Decimal("4000.00")),
             cashier_id=cashier_id
         )
+        shift_id = shift.id
 
         # 3. Simulate Cash Sale ₹2,000 -> Expected Cash = ₹6,000
         inv = SalesInvoice(
@@ -227,11 +226,11 @@ async def test_shift_close_cash_overage_gl_balancing_posting():
         ))
 
         # 2. Open Shift with ₹3,000 opening cash
-        shift_id = f"SH-OVER-{unique_suffix}"
-        await pos_svc.open_shift(
-            ShiftOpen(id=shift_id, register_id=reg_id, opening_balance=Decimal("3000.00")),
+        shift = await pos_svc.open_shift(
+            ShiftOpen(register_id=reg_id, opening_balance=Decimal("3000.00")),
             cashier_id=cashier_id
         )
+        shift_id = shift.id
 
         # 3. Simulate Cash Sale ₹1,500 and Card Sale ₹1,000 -> Expected Cash = ₹4,500
         inv1 = SalesInvoice(
@@ -324,11 +323,11 @@ async def test_shift_close_gl_posting_idempotent():
             code=f"PID-{unique_suffix}"
         ))
 
-        shift_id = f"SH-IDEMP-{unique_suffix}"
-        await pos_svc.open_shift(
-            ShiftOpen(id=shift_id, register_id=reg_id, opening_balance=Decimal("1000.00")),
+        shift = await pos_svc.open_shift(
+            ShiftOpen(register_id=reg_id, opening_balance=Decimal("1000.00")),
             cashier_id=cashier_id
         )
+        shift_id = shift.id
 
         # Close shift with ₹50 shortage
         await pos_svc.close_shift(
@@ -386,11 +385,11 @@ async def test_unclosed_shift_gl_posting_rejected():
             code=f"PUN-{unique_suffix}"
         ))
 
-        shift_id = f"SH-UNCL-{unique_suffix}"
-        await pos_svc.open_shift(
-            ShiftOpen(id=shift_id, register_id=reg_id, opening_balance=Decimal("1000.00")),
+        shift = await pos_svc.open_shift(
+            ShiftOpen(register_id=reg_id, opening_balance=Decimal("1000.00")),
             cashier_id=cashier_id
         )
+        shift_id = shift.id
 
         with pytest.raises(HTTPException) as exc:
             await UnifiedAccountingLedgerService.post_shift_close_to_gl(
@@ -434,7 +433,6 @@ async def test_api_pos_z_report_endpoint():
 
     client = TestClient(app)
     reg_id = f"REG-API-{unique_suffix}"
-    shift_id = f"SH-API-{unique_suffix}"
 
     # 1. Create Register
     reg_res = client.post("/api/v1/registers/", json={
@@ -446,11 +444,11 @@ async def test_api_pos_z_report_endpoint():
 
     # 2. Open Shift
     open_res = client.post("/api/v1/pos/shifts/open", json={
-        "id": shift_id,
         "register_id": reg_id,
         "opening_balance": 2000.00
     })
     assert open_res.status_code == 201
+    shift_id = open_res.json()["id"]
 
     # 3. Close Shift with ₹100 overage
     close_res = client.post(f"/api/v1/pos/shifts/close/{shift_id}", json={
@@ -484,8 +482,6 @@ async def test_pos_shift_gl_tenant_isolation():
     session_factory_2 = get_company_sessionmaker("smriti002")
 
     unique_suffix = uuid.uuid4().hex[:6]
-    shift_id = f"SH-ISO-{unique_suffix}"
-
     async with session_factory_1() as session1:
         cashier_id = await ensure_test_cashier(session1, f"usr-iso-{unique_suffix}")
         tenant1 = TenantContext(company_id="COMP-001", branch_id="BR-001")
@@ -496,10 +492,11 @@ async def test_pos_shift_gl_tenant_isolation():
             name=f"Iso Counter {unique_suffix}",
             code=f"ISO-{unique_suffix}"
         ))
-        await pos_svc1.open_shift(
-            ShiftOpen(id=shift_id, register_id=reg_id, opening_balance=Decimal("1000.00")),
+        shift = await pos_svc1.open_shift(
+            ShiftOpen(register_id=reg_id, opening_balance=Decimal("1000.00")),
             cashier_id=cashier_id
         )
+        shift_id = shift.id
         await pos_svc1.close_shift(
             shift_id=shift_id,
             req=ShiftClose(

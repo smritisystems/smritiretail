@@ -19,7 +19,6 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 import pytest
 import uuid
 from decimal import Decimal
-from datetime import datetime, timezone
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from sqlalchemy.future import select
@@ -29,9 +28,8 @@ from app.main import app
 from app.db.session import get_company_sessionmaker
 from app.api.deps import TenantContext, get_db, get_company_db, get_tenant_context, get_current_user
 from app.models.auth import User, UserRole
-from app.models.pos import CashRegister, Shift, ShiftCashTransaction
 from app.models.sales import SalesInvoice
-from app.models.accounting import JournalVoucher, GeneralLedgerEntry, Account
+from app.models.accounting import JournalVoucher, GeneralLedgerEntry
 from app.services.pos import POSService
 from app.services.unified_ledger import UnifiedAccountingLedgerService
 from app.schemas.pos import (
@@ -83,11 +81,11 @@ async def test_physical_cash_denominations_calculation_and_closing():
             code=f"POS-D-{unique_suffix}"
         ))
 
-        shift_id = f"SH-DENOM-{unique_suffix}"
         shift = await pos_svc.open_shift(
-            ShiftOpen(id=shift_id, register_id=reg_id, opening_balance=Decimal("2000.00")),
+            ShiftOpen(register_id=reg_id, opening_balance=Decimal("2000.00")),
             cashier_id=cashier_id
         )
+        shift_id = shift.id
 
         # Record Sales Invoice: ₹3,750 Cash
         inv = SalesInvoice(
@@ -166,11 +164,11 @@ async def test_mid_shift_cash_drop_to_bank_safe():
             code=f"POS-DR-{unique_suffix}"
         ))
 
-        shift_id = f"SH-DROP-{unique_suffix}"
         shift = await pos_svc.open_shift(
-            ShiftOpen(id=shift_id, register_id=reg_id, opening_balance=Decimal("10000.00")),
+            ShiftOpen(register_id=reg_id, opening_balance=Decimal("10000.00")),
             cashier_id=cashier_id
         )
+        shift_id = shift.id
 
         # Record Cash Drop of ₹6,000 to main safe/bank
         drop_req = ShiftCashDropRequest(
@@ -241,11 +239,11 @@ async def test_mid_shift_till_expense_payout():
             code=f"POS-EX-{unique_suffix}"
         ))
 
-        shift_id = f"SH-EXP-{unique_suffix}"
         shift = await pos_svc.open_shift(
-            ShiftOpen(id=shift_id, register_id=reg_id, opening_balance=Decimal("5000.00")),
+            ShiftOpen(register_id=reg_id, opening_balance=Decimal("5000.00")),
             cashier_id=cashier_id
         )
+        shift_id = shift.id
 
         # Record Till Expense of ₹350 for courier
         exp_req = ShiftTillExpenseRequest(
@@ -315,12 +313,12 @@ async def test_combined_cash_movements_and_closing_shortage_gl_balancing():
             code=f"POS-CMB-{unique_suffix}"
         ))
 
-        shift_id = f"SH-COMB-{unique_suffix}"
         # 1. Opening Cash = ₹10,000
-        await pos_svc.open_shift(
-            ShiftOpen(id=shift_id, register_id=reg_id, opening_balance=Decimal("10000.00")),
+        shift = await pos_svc.open_shift(
+            ShiftOpen(register_id=reg_id, opening_balance=Decimal("10000.00")),
             cashier_id=cashier_id
         )
+        shift_id = shift.id
 
         # 2. Cash Sales = ₹15,000
         inv = SalesInvoice(
@@ -410,7 +408,6 @@ async def test_api_pos_cash_drop_and_till_expense_endpoints():
     company_id = "COMP-001"
     branch_id = "BR-001"
     unique_suffix = uuid.uuid4().hex[:6]
-    shift_id = f"SH-API-{unique_suffix}"
     reg_id = f"REG-API-{unique_suffix}"
 
     user_id = f"usr-api-{unique_suffix}"
@@ -459,11 +456,11 @@ async def test_api_pos_cash_drop_and_till_expense_endpoints():
 
         # 2. Open Shift
         open_resp = client.post("/api/v1/pos/shifts/open", json={
-            "id": shift_id,
             "register_id": reg_id,
             "opening_balance": 8000.00
         })
         assert open_resp.status_code == 201
+        shift_id = open_resp.json()["id"]
 
         # 3. Record Cash Drop via API
         drop_resp = client.post(f"/api/v1/pos/shifts/{shift_id}/cash-drop", json={
@@ -561,11 +558,11 @@ async def test_ephemeral_clean_database_cash_movements_verification():
                 code="POS-EPH-01"
             ))
 
-            shift_id = "SH-EPH-01"
-            await pos_svc.open_shift(
-                ShiftOpen(id=shift_id, register_id=reg_id, opening_balance=Decimal("20000.00")),
+            shift = await pos_svc.open_shift(
+                ShiftOpen(register_id=reg_id, opening_balance=Decimal("20000.00")),
                 cashier_id=cashier_id
             )
+            shift_id = shift.id
 
             # 2. Record Cash Drop of ₹15,000
             drop_sct = await pos_svc.record_cash_drop(
@@ -623,11 +620,11 @@ async def test_cash_in_movement_end_to_end_and_gl_posting():
             code=f"POS-CI-{unique_suffix}"
         ))
 
-        shift_id = f"SH-CIN-{unique_suffix}"
         shift = await pos_svc.open_shift(
-            ShiftOpen(id=shift_id, register_id=reg_id, opening_balance=Decimal("1000.00")),
+            ShiftOpen(register_id=reg_id, opening_balance=Decimal("1000.00")),
             cashier_id=cashier_id
         )
+        shift_id = shift.id
 
         # 1. Record Cash In of ₹4,000 from main safe
         in_sct = await pos_svc.record_cash_in(
@@ -684,11 +681,11 @@ async def test_cash_drop_and_till_expense_insufficient_cash_rejection():
             code=f"POS-IC-{unique_suffix}"
         ))
 
-        shift_id = f"SH-IC-{unique_suffix}"
-        await pos_svc.open_shift(
-            ShiftOpen(id=shift_id, register_id=reg_id, opening_balance=Decimal("1000.00")),
+        shift = await pos_svc.open_shift(
+            ShiftOpen(register_id=reg_id, opening_balance=Decimal("1000.00")),
             cashier_id=cashier_id
         )
+        shift_id = shift.id
 
         # 1. Attempt Cash Drop of ₹2,500 when drawer only has ₹1,000 -> Expect 400
         with pytest.raises(HTTPException) as exc_drop:
@@ -739,11 +736,11 @@ async def test_cash_movement_and_close_idempotency_deduplication():
             code=f"POS-ID-{unique_suffix}"
         ))
 
-        shift_id = f"SH-IDEMP-{unique_suffix}"
         shift = await pos_svc.open_shift(
-            ShiftOpen(id=shift_id, register_id=reg_id, opening_balance=Decimal("2000.00")),
+            ShiftOpen(register_id=reg_id, opening_balance=Decimal("2000.00")),
             cashier_id=cashier_id
         )
+        shift_id = shift.id
 
         # 1. Cash In idempotency test
         idemp_in = f"idemp-in-{unique_suffix}"
@@ -832,11 +829,11 @@ async def test_invalid_source_and_expense_account_rejection():
             code=f"POS-AC-{unique_suffix}"
         ))
 
-        shift_id = f"SH-ACC-{unique_suffix}"
-        await pos_svc.open_shift(
-            ShiftOpen(id=shift_id, register_id=reg_id, opening_balance=Decimal("3000.00")),
+        shift = await pos_svc.open_shift(
+            ShiftOpen(register_id=reg_id, opening_balance=Decimal("3000.00")),
             cashier_id=cashier_id
         )
+        shift_id = shift.id
 
         # 1. Non-existent source account on Cash In
         with pytest.raises(HTTPException) as exc_in:
@@ -898,7 +895,6 @@ async def test_api_pos_company_db_and_permissions_enforcement():
 
         # 1. Unauthenticated request to /pos/shifts/open should fail with 401 or 403
         open_resp = client.post("/api/v1/pos/shifts/open", json={
-            "id": f"SH-UNAUTH-{unique_suffix}",
             "register_id": f"REG-UNAUTH-{unique_suffix}",
             "opening_balance": 1000.00
         })
@@ -931,17 +927,15 @@ async def test_database_level_one_open_shift_unique_constraint_rejection():
         ))
 
         # 1. Open first shift
-        shift_1_id = f"SH-UQ1-{unique_suffix}"
         await pos_svc.open_shift(
-            ShiftOpen(id=shift_1_id, register_id=reg_id, opening_balance=Decimal("1000.00")),
+            ShiftOpen(register_id=reg_id, opening_balance=Decimal("1000.00")),
             cashier_id=cashier_id
         )
 
         # 2. Attempt to open second shift on same register -> HTTP 400 rejection
-        shift_2_id = f"SH-UQ2-{unique_suffix}"
         with pytest.raises(HTTPException) as exc:
             await pos_svc.open_shift(
-                ShiftOpen(id=shift_2_id, register_id=reg_id, opening_balance=Decimal("500.00")),
+                ShiftOpen(register_id=reg_id, opening_balance=Decimal("500.00")),
                 cashier_id=cashier_id
             )
         assert exc.value.status_code == 400
@@ -971,11 +965,11 @@ async def test_database_level_idempotency_unique_constraint_enforcement():
             code=f"POS-UQSCT-{unique_suffix}"
         ))
 
-        shift_id = f"SH-UQSCT-{unique_suffix}"
-        await pos_svc.open_shift(
-            ShiftOpen(id=shift_id, register_id=reg_id, opening_balance=Decimal("5000.00")),
+        shift = await pos_svc.open_shift(
+            ShiftOpen(register_id=reg_id, opening_balance=Decimal("5000.00")),
             cashier_id=cashier_id
         )
+        shift_id = shift.id
 
         # Replayed call returns deduplicated object seamlessly
         idemp_key = f"key-dedup-{unique_suffix}"
@@ -1012,11 +1006,11 @@ async def test_pos_checkout_versus_closed_shift_concurrency_lock():
             code=f"POS-CHK-{unique_suffix}"
         ))
 
-        shift_id = f"SH-CHK-{unique_suffix}"
-        await pos_svc.open_shift(
-            ShiftOpen(id=shift_id, register_id=reg_id, opening_balance=Decimal("1000.00")),
+        shift = await pos_svc.open_shift(
+            ShiftOpen(register_id=reg_id, opening_balance=Decimal("1000.00")),
             cashier_id=cashier_id
         )
+        shift_id = shift.id
 
         # Close shift
         await pos_svc.close_shift(
@@ -1062,11 +1056,11 @@ async def test_idempotency_key_collision_with_different_amount_raises_409():
             code=f"POS-IDC-{unique_suffix}"
         ))
 
-        shift_id = f"SH-IDC-{unique_suffix}"
-        await pos_svc.open_shift(
-            ShiftOpen(id=shift_id, register_id=reg_id, opening_balance=Decimal("5000.00")),
+        shift = await pos_svc.open_shift(
+            ShiftOpen(register_id=reg_id, opening_balance=Decimal("5000.00")),
             cashier_id=cashier_id
         )
+        shift_id = shift.id
 
         idemp_key = f"key-conflict-{unique_suffix}"
         # 1. First request with 1000.00 -> Success
@@ -1116,11 +1110,11 @@ async def test_cashier_closing_another_cashier_shift_forbidden_403():
             code=f"POS-RBAC-{unique_suffix}"
         ))
 
-        shift_id = f"SH-RBAC-{unique_suffix}"
-        await pos_svc.open_shift(
-            ShiftOpen(id=shift_id, register_id=reg_id, opening_balance=Decimal("2000.00")),
+        shift = await pos_svc.open_shift(
+            ShiftOpen(register_id=reg_id, opening_balance=Decimal("2000.00")),
             cashier_id=cashier_1
         )
+        shift_id = shift.id
 
         # 1. Cashier 2 tries to close Cashier 1's shift -> HTTP 403
         with pytest.raises(HTTPException) as exc:
@@ -1165,11 +1159,11 @@ async def test_cashier_account_override_forbidden_403():
             code=f"POS-ACO-{unique_suffix}"
         ))
 
-        shift_id = f"SH-ACO-{unique_suffix}"
-        await pos_svc.open_shift(
-            ShiftOpen(id=shift_id, register_id=reg_id, opening_balance=Decimal("3000.00")),
+        shift = await pos_svc.open_shift(
+            ShiftOpen(register_id=reg_id, opening_balance=Decimal("3000.00")),
             cashier_id=cashier_id
         )
+        shift_id = shift.id
 
         # Cashier role attempts custom GL source account override -> HTTP 403
         with pytest.raises(HTTPException) as exc:
