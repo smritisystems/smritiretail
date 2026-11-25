@@ -54,6 +54,46 @@ def tenant_ctx():
     )
 
 
+async def _ensure_test_warehouses(
+    session: AsyncSession,
+    tenant: TenantContext,
+    unique_suffix: str,
+    count: int = 2,
+):
+    warehouses = (
+        await session.execute(
+            select(Warehouse)
+            .where(
+                Warehouse.company_id == tenant.company_id,
+                Warehouse.branch_id == tenant.branch_id,
+                Warehouse.is_active.is_(True),
+                Warehouse.is_deleted.is_(False),
+            )
+            .order_by(Warehouse.code)
+            .limit(count)
+        )
+    ).scalars().all()
+    created_ids = []
+    while len(warehouses) < count:
+        index = len(warehouses)
+        warehouse_id = f"wh-eway-{unique_suffix}-{index}"
+        warehouse = Warehouse(
+            id=warehouse_id,
+            uuid=str(uuid.uuid4()),
+            company_id=tenant.company_id,
+            branch_id=tenant.branch_id,
+            code=f"EWAY-{unique_suffix.upper()}-{index}",
+            name=f"E-Way Test Warehouse {index + 1}",
+            is_active=True,
+            is_deleted=False,
+        )
+        session.add(warehouse)
+        warehouses.append(warehouse)
+        created_ids.append(warehouse_id)
+    await session.flush()
+    return warehouses, created_ids
+
+
 @pytest.mark.asyncio
 async def test_transfer_eway_bill_and_delivery_challan_generation(async_db: AsyncSession, tenant_ctx: TenantContext):
     """
@@ -67,35 +107,11 @@ async def test_transfer_eway_bill_and_delivery_challan_generation(async_db: Asyn
     created_warehouse_ids = []
 
     try:
-        warehouses = (
-            await async_db.execute(
-                select(Warehouse)
-                .where(
-                    Warehouse.company_id == tenant_ctx.company_id,
-                    Warehouse.branch_id == tenant_ctx.branch_id,
-                    Warehouse.is_active.is_(True),
-                    Warehouse.is_deleted.is_(False),
-                )
-                .order_by(Warehouse.code)
-                .limit(2)
-            )
-        ).scalars().all()
-        while len(warehouses) < 2:
-            warehouse_id = f"wh-eway-{unique_suffix}-{len(warehouses)}"
-            warehouse = Warehouse(
-                id=warehouse_id,
-                uuid=str(uuid.uuid4()),
-                company_id=tenant_ctx.company_id,
-                branch_id=tenant_ctx.branch_id,
-                code=f"EWAY-{unique_suffix.upper()}-{len(warehouses)}",
-                name=f"E-Way Test Warehouse {len(warehouses) + 1}",
-                is_active=True,
-                is_deleted=False,
-            )
-            async_db.add(warehouse)
-            warehouses.append(warehouse)
-            created_warehouse_ids.append(warehouse_id)
-        await async_db.flush()
+        warehouses, created_warehouse_ids = await _ensure_test_warehouses(
+            async_db,
+            tenant_ctx,
+            unique_suffix,
+        )
 
         # 1. Insert product
         product = Product(
@@ -208,8 +224,15 @@ async def test_sales_invoice_eway_bill_generation(async_db: AsyncSession, tenant
     inv_no = f"INV-B2B-{unique_suffix.upper()}"
     custom_customer_created = False
     cust_id = None
+    created_warehouse_ids = []
 
     try:
+        warehouses, created_warehouse_ids = await _ensure_test_warehouses(
+            async_db,
+            tenant_ctx,
+            unique_suffix,
+            count=1,
+        )
         # 1. Product
         product = Product(
             id=prod_id,
@@ -259,7 +282,7 @@ async def test_sales_invoice_eway_bill_generation(async_db: AsyncSession, tenant
             branch_id=tenant_ctx.branch_id,
             invoice_no=inv_no,
             customer_id=customer.id,
-            warehouse_id="wh-central-001",
+            warehouse_id=warehouses[0].id,
             payment_mode="BANK_TRANSFER",
             status="PAID",
             taxable_value=60000.0,
@@ -324,6 +347,11 @@ async def test_sales_invoice_eway_bill_generation(async_db: AsyncSession, tenant
         await async_db.execute(text("DELETE FROM products WHERE id = :pid"), {"pid": prod_id})
         if custom_customer_created and cust_id:
             await async_db.execute(text("DELETE FROM customers WHERE id = :cid"), {"cid": cust_id})
+        for warehouse_id in created_warehouse_ids:
+            await async_db.execute(
+                text("DELETE FROM warehouses WHERE id = :warehouse_id"),
+                {"warehouse_id": warehouse_id},
+            )
         await async_db.commit()
 
 
@@ -339,8 +367,14 @@ async def test_strict_statutory_validation_rejections(async_db: AsyncSession, te
     prod_id = f"prod-nohsn-{unique_suffix}"
     transfer_id = f"st-strict-{unique_suffix}"
     transfer_no = f"STO-STRICT-{unique_suffix.upper()}"
+    created_warehouse_ids = []
 
     try:
+        warehouses, created_warehouse_ids = await _ensure_test_warehouses(
+            async_db,
+            tenant_ctx,
+            unique_suffix,
+        )
         # 1. Insert product WITHOUT HSN code
         product = Product(
             id=prod_id,
@@ -367,8 +401,8 @@ async def test_strict_statutory_validation_rejections(async_db: AsyncSession, te
             company_id=tenant_ctx.company_id,
             branch_id=tenant_ctx.branch_id,
             transfer_no=transfer_no,
-            source_warehouse_id="wh-central-001",
-            dest_warehouse_id="wh-shop-001",
+            source_warehouse_id=warehouses[0].id,
+            dest_warehouse_id=warehouses[1].id,
             status="DRAFT",
             transporter_name=None,
             vehicle_number=None, # Missing Vehicle Number
@@ -433,6 +467,11 @@ async def test_strict_statutory_validation_rejections(async_db: AsyncSession, te
         await async_db.execute(text("DELETE FROM stock_transfer_items WHERE transfer_id = :tid"), {"tid": transfer_id})
         await async_db.execute(text("DELETE FROM stock_transfers WHERE id = :tid"), {"tid": transfer_id})
         await async_db.execute(text("DELETE FROM products WHERE id = :pid"), {"pid": prod_id})
+        for warehouse_id in created_warehouse_ids:
+            await async_db.execute(
+                text("DELETE FROM warehouses WHERE id = :warehouse_id"),
+                {"warehouse_id": warehouse_id},
+            )
         await async_db.commit()
 
 
@@ -471,9 +510,15 @@ async def test_strict_statutory_mode_config_toggle(async_db: AsyncSession, tenan
     prod_id = f"prod-cfg-{unique_suffix}"
     transfer_id = f"st-cfg-{unique_suffix}"
     transfer_no = f"STO-CFG-{unique_suffix.upper()}"
+    created_warehouse_ids = []
 
     original_mode = settings.STRICT_STATUTORY_MODE
     try:
+        warehouses, created_warehouse_ids = await _ensure_test_warehouses(
+            async_db,
+            tenant_ctx,
+            unique_suffix,
+        )
         # Insert product without HSN
         product = Product(
             id=prod_id,
@@ -499,8 +544,8 @@ async def test_strict_statutory_mode_config_toggle(async_db: AsyncSession, tenan
             company_id=tenant_ctx.company_id,
             branch_id=tenant_ctx.branch_id,
             transfer_no=transfer_no,
-            source_warehouse_id="wh-central-001",
-            dest_warehouse_id="wh-shop-001",
+            source_warehouse_id=warehouses[0].id,
+            dest_warehouse_id=warehouses[1].id,
             status="DRAFT",
             vehicle_number="MH-04-TR-1000"
         )
@@ -554,6 +599,11 @@ async def test_strict_statutory_mode_config_toggle(async_db: AsyncSession, tenan
         await async_db.execute(text("DELETE FROM stock_transfer_items WHERE transfer_id = :tid"), {"tid": transfer_id})
         await async_db.execute(text("DELETE FROM stock_transfers WHERE id = :tid"), {"tid": transfer_id})
         await async_db.execute(text("DELETE FROM products WHERE id = :pid"), {"pid": prod_id})
+        for warehouse_id in created_warehouse_ids:
+            await async_db.execute(
+                text("DELETE FROM warehouses WHERE id = :warehouse_id"),
+                {"warehouse_id": warehouse_id},
+            )
         await async_db.commit()
 
 
