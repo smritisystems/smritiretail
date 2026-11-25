@@ -49,7 +49,7 @@ def isolated_company_database():
 @pytest.fixture(autouse=True)
 async def cleanup_and_setup_test_sales(isolated_company_database):
     """Clean up and set up test customer and test sales invoices."""
-    for db in ["smriti001", isolated_company_database]:
+    for db in ["smriti_test_001", isolated_company_database]:
         session_factory = get_company_sessionmaker(db)
         async with session_factory() as session:
             if db == isolated_company_database:
@@ -100,7 +100,7 @@ async def cleanup_and_setup_test_sales(isolated_company_database):
 
             await session.commit()
     yield
-    for db in ["smriti001", isolated_company_database]:
+    for db in ["smriti_test_001", isolated_company_database]:
         session_factory = get_company_sessionmaker(db)
         async with session_factory() as session:
             await session.execute(delete(StockMovement).where(StockMovement.remarks.like("%TEST-INV%")))
@@ -111,7 +111,7 @@ async def cleanup_and_setup_test_sales(isolated_company_database):
 @pytest.mark.asyncio
 async def test_b2b_sales_invoice_posting_and_stock_debit():
     """Verify B2B sales invoice creates immutable tax snapshots and posts outward stock movements."""
-    session_factory = get_company_sessionmaker("smriti001")
+    session_factory = get_company_sessionmaker("smriti_test_001")
     async with session_factory() as session:
         prod_stmt = select(Product).where(Product.code == "PROD-SALES-TEST-01")
         prod = (await session.execute(prod_stmt)).scalar_one()
@@ -168,7 +168,7 @@ async def test_b2b_sales_invoice_posting_and_stock_debit():
 @pytest.mark.asyncio
 async def test_interstate_sales_invoice_igst_calculation():
     """Verify inter-state invoice correctly calculates and snapshots IGST."""
-    session_factory = get_company_sessionmaker("smriti001")
+    session_factory = get_company_sessionmaker("smriti_test_001")
     async with session_factory() as session:
         prod_stmt = select(Product).where(Product.code == "PROD-SALES-TEST-01")
         prod = (await session.execute(prod_stmt)).scalar_one_or_none()
@@ -208,7 +208,7 @@ async def test_interstate_sales_invoice_igst_calculation():
 @pytest.mark.asyncio
 async def test_invoice_cancellation_and_stock_reversal():
     """Verify cancelling an invoice creates RETURN_INWARD movements and restores stock."""
-    session_factory = get_company_sessionmaker("smriti001")
+    session_factory = get_company_sessionmaker("smriti_test_001")
     async with session_factory() as session:
         prod_stmt = select(Product).where(Product.code == "PROD-SALES-TEST-01")
         prod = (await session.execute(prod_stmt)).scalar_one_or_none()
@@ -254,8 +254,8 @@ async def test_invoice_cancellation_and_stock_reversal():
 
 @pytest.mark.asyncio
 async def test_sales_invoice_tenant_isolation(isolated_company_database):
-    """Verify invoice posted in smriti001 is completely absent in smriti002."""
-    session_001 = get_company_sessionmaker("smriti001")
+    """Verify invoice posted in smriti_test_001 is absent in the isolated tenant DB."""
+    session_001 = get_company_sessionmaker("smriti_test_001")
     session_002 = get_company_sessionmaker(isolated_company_database)
 
     async with session_001() as s1:
@@ -278,4 +278,4 @@ async def test_sales_invoice_tenant_isolation(isolated_company_database):
     async with session_002() as s2:
         stmt2 = select(SalesInvoice).where(SalesInvoice.invoice_no == "TEST-INV-ISO-04")
         inv2 = (await s2.execute(stmt2)).scalar_one_or_none()
-        assert inv2 is None, "Invoice from smriti001 must not leak into smriti002!"
+        assert inv2 is None, "Invoice from smriti_test_001 must not leak into the isolated tenant DB!"
