@@ -1556,7 +1556,14 @@ class CanonicalSalesPostingWriter:
 
         if effective_credit_amount > 0 and db_customer and not req.is_draft:
             prev_outstanding = Decimal(str(db_customer.outstanding or "0.00"))
-            db_customer.outstanding = prev_outstanding + effective_credit_amount
+            projected_outstanding = prev_outstanding + effective_credit_amount
+            invoice_snapshots = dict(db_invoice.rule_snapshots or {})
+            invoice_snapshots["credit_terms"] = {
+                "previous_outstanding": str(prev_outstanding),
+                "projected_outstanding": str(projected_outstanding),
+            }
+            db_invoice.rule_snapshots = invoice_snapshots
+            db_customer.outstanding = projected_outstanding
             db_customer.modified_at = datetime.now(timezone.utc)
             session.add(db_customer)
 
