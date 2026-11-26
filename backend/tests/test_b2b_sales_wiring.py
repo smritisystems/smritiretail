@@ -193,6 +193,7 @@ async def setup_seed_data(tenant_ctx, other_tenant_ctx):
             credit_days=45,
             tax_inclusive=False,
             is_tax_inclusive=False,
+            can_purchase_on_credit=True,
             is_active=True,
             is_deleted=False
         )
