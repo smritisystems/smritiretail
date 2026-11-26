@@ -116,6 +116,18 @@ class CanonicalSalesPostingWriter:
                 detail="SMRITI-VAL-001: Sales transaction must contain at least one line item.",
             )
 
+        for tender in req.tenders:
+            if Decimal(str(tender.amount)) <= Decimal("0.00"):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"SMRITI-VAL-004: Tender amount for mode '{tender.tender_type}' must be greater than zero.",
+                )
+            if tender.tender_type.upper() == "CASH" and Decimal(str(tender.amount)) >= Decimal("200000.00"):
+                raise HTTPException(
+                    status_code=400,
+                    detail="SMRITI-TAX-269ST: Cash receipt of ₹2,00,000 or more in a single transaction is prohibited under Section 269ST of the Income Tax Act.",
+                )
+
         company_id = req.context.company_id
         branch_id = req.context.branch_id
         warehouse_id = req.context.warehouse_id
@@ -227,18 +239,6 @@ class CanonicalSalesPostingWriter:
                 raise HTTPException(
                     status_code=400,
                     detail=f"SMRITI-TAX-003: Authoritative seller GSTIN '{seller_gstin}' is invalid. Statutory tax invoice issuance blocked.",
-                )
-
-        for t in req.tenders:
-            if Decimal(str(t.amount)) <= Decimal("0.00"):
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"SMRITI-VAL-004: Tender amount for mode '{t.tender_type}' must be greater than zero.",
-                )
-            if t.tender_type.upper() == "CASH" and Decimal(str(t.amount)) >= Decimal("200000.00"):
-                raise HTTPException(
-                    status_code=400,
-                    detail="SMRITI-TAX-269ST: Cash receipt of ₹2,00,000 or more in a single transaction is prohibited under Section 269ST of the Income Tax Act.",
                 )
 
         # 0B. Authoritative Company Billing Profile Policy Verification
