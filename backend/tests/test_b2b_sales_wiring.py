@@ -37,7 +37,7 @@ from app.api.deps import TenantContext
 from app.models.tenant import Company, Branch
 from app.models.auth import User, UserRole
 from app.models.crm import Customer, CustomerGroup, CustomerGSTRegistration, CustomerDeliveryLocation
-from app.models.inventory import Product, Warehouse
+from app.models.inventory import Product, StockMovement, Warehouse
 from app.models.sales import SalesInvoice, SalesInvoiceItem
 from app.schemas.sales import SalesInvoiceCreate, SalesInvoiceItemCreate
 from app.services.sales import SalesService
@@ -456,6 +456,11 @@ async def test_01_corporate_customer_with_single_gst_registration(setup_seed_dat
         assert inv.customer_id == data["cust_ril"].id
         assert inv.billed_party_gstin_id == data["reg_mh"].id
         assert inv.customer_gstin == "27AAACR7015K1Z0"
+        assert inv.status == "Draft"
+        stock_movements = await session.execute(
+            select(StockMovement.id).where(StockMovement.product_id == data["product_id"])
+        )
+        assert stock_movements.scalars().all() == []
 
 
 @pytest.mark.anyio

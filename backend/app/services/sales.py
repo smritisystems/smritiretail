@@ -329,7 +329,10 @@ class SalesService:
             # Pass explicit invoice date for backdated/bulk-import workflows
             invoice_date=invoice_in.date if invoice_in.date else None,
             adjustments=parsed_adjustments,
-            is_draft=bool(getattr(invoice_in, "is_draft", False) or str(getattr(invoice_in, "status", "")).strip().upper() in ("SUSPENDED", "HOLD")),
+            is_draft=bool(
+                getattr(invoice_in, "is_draft", False)
+                or str(getattr(invoice_in, "status", "")).strip().upper() in ("DRAFT", "SUSPENDED", "HOLD")
+            ),
         )
 
         result = await CanonicalSalesPostingWriter.post_sales_transaction(
