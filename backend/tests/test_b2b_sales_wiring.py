@@ -481,7 +481,7 @@ async def test_invoice_totals_ignore_tampered_client_totals(setup_seed_data, ten
                         product_id=data["product_id"],
                         code=data["product_code"],
                         name="Authoritative total test",
-                        price=Decimal("100.00"),
+                        price=Decimal("1000.00"),
                         quantity=Decimal("1.0000"),
                         gst_rate=Decimal("18.00"),
                     )
@@ -491,7 +491,7 @@ async def test_invoice_totals_ignore_tampered_client_totals(setup_seed_data, ten
 
         assert invoice.discount_amount == Decimal("0.00")
         assert invoice.net_amount == invoice.grand_total
-        assert invoice.grand_total == Decimal("118.00")
+        assert invoice.grand_total == Decimal("1180.00")
 
 
 @pytest.mark.anyio
