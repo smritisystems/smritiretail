@@ -15,6 +15,7 @@ Classification: Internal
 import uuid
 import pytest
 from datetime import datetime, timezone
+from decimal import Decimal
 from sqlalchemy import text, select
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
@@ -24,6 +25,7 @@ from app.models.inventory import (
     ProductBatchStock, StockMovement
 )
 from app.services.stock_audit_service import StockAuditService
+from app.services.stock_ledger import MovementRequest, StockLedger
 from app.api.deps import TenantContext
 from conftest import utmih_delete_stock_movements
 
@@ -325,19 +327,16 @@ async def test_stock_audit_reconciliation_deficit_write_off(async_db: AsyncSessi
         )
         async_db.add(product)
 
-        pb = ProductBatchStock(
-            id=f"pbs-def-{unique_suffix}",
-            uuid=str(uuid.uuid4()),
+        await async_db.flush()
+        await StockLedger.post_admin_opening_stock(
+            session=async_db,
             company_id=tenant_ctx.company_id,
-            branch_id=tenant_ctx.branch_id,
-            warehouse_id=warehouse_id,
             product_id=prod_id,
+            quantity=Decimal("50"),
+            reason="Stock audit reconciliation test opening inventory",
+            warehouse_id=warehouse_id,
             batch_no=batch_no,
-            quantity=50.0,
-            reserved_quantity=0.0,
-            damaged_quantity=0.0
         )
-        async_db.add(pb)
         await async_db.commit()
 
         service = StockAuditService(async_db, tenant_ctx)
@@ -365,7 +364,11 @@ async def test_stock_audit_reconciliation_deficit_write_off(async_db: AsyncSessi
 
         # Verify Batch Stock mutated to 42.0
         pbs_res = await async_db.execute(
-            select(ProductBatchStock).where(ProductBatchStock.id == pb.id)
+            select(ProductBatchStock).where(
+                ProductBatchStock.product_id == prod_id,
+                ProductBatchStock.warehouse_id == warehouse_id,
+                ProductBatchStock.batch_no == batch_no,
+            )
         )
         updated_pbs = pbs_res.scalar_one()
         assert float(updated_pbs.quantity) == 42.0
@@ -438,19 +441,16 @@ async def test_stock_audit_reconciliation_surplus_inward(async_db: AsyncSession,
         )
         async_db.add(product)
 
-        pb = ProductBatchStock(
-            id=f"pbs-sur-{unique_suffix}",
-            uuid=str(uuid.uuid4()),
+        await async_db.flush()
+        await StockLedger.post_admin_opening_stock(
+            session=async_db,
             company_id=tenant_ctx.company_id,
-            branch_id=tenant_ctx.branch_id,
-            warehouse_id=warehouse_id,
             product_id=prod_id,
+            quantity=Decimal("10"),
+            reason="Stock audit surplus test opening inventory",
+            warehouse_id=warehouse_id,
             batch_no=batch_no,
-            quantity=10.0,
-            reserved_quantity=0.0,
-            damaged_quantity=0.0
         )
-        async_db.add(pb)
         await async_db.commit()
 
         service = StockAuditService(async_db, tenant_ctx)
@@ -475,7 +475,11 @@ async def test_stock_audit_reconciliation_surplus_inward(async_db: AsyncSession,
 
         # Verify Batch Stock increased to 14.0
         pbs_res = await async_db.execute(
-            select(ProductBatchStock).where(ProductBatchStock.id == pb.id)
+            select(ProductBatchStock).where(
+                ProductBatchStock.product_id == prod_id,
+                ProductBatchStock.warehouse_id == warehouse_id,
+                ProductBatchStock.batch_no == batch_no,
+            )
         )
         updated_pbs = pbs_res.scalar_one()
         assert float(updated_pbs.quantity) == 14.0
@@ -644,19 +648,16 @@ async def test_stock_audit_intervening_movement_detection_and_locking(async_db: 
         )
         async_db.add(product)
 
-        pb = ProductBatchStock(
-            id=f"pbs-inter-{unique_suffix}",
-            uuid=str(uuid.uuid4()),
+        await async_db.flush()
+        await StockLedger.post_admin_opening_stock(
+            session=async_db,
             company_id=tenant_ctx.company_id,
-            branch_id=tenant_ctx.branch_id,
-            warehouse_id=warehouse_id,
             product_id=prod_id,
+            quantity=Decimal("100"),
+            reason="Intervening movement test opening inventory",
+            warehouse_id=warehouse_id,
             batch_no=batch_no,
-            quantity=100.0,
-            reserved_quantity=0.0,
-            damaged_quantity=0.0
         )
-        async_db.add(pb)
         await async_db.commit()
 
         # Step 1: Snapshot audit
@@ -665,23 +666,22 @@ async def test_stock_audit_intervening_movement_detection_and_locking(async_db: 
         created_audit_id = audit.id
 
         # Step 2: Intervening sale / dispatch occurs while counting
-        intervening_sm = StockMovement(
-            id=f"sm-inter-{unique_suffix}",
-            uuid=str(uuid.uuid4()),
-            company_id=tenant_ctx.company_id,
-            branch_id=tenant_ctx.branch_id,
-            product_id=prod_id,
-            product_name=product.name,
-            sku=product.sku,
-            movement_type="OUT",
-            quantity=10.0,
-            warehouse_id=warehouse_id,
-            batch=batch_no,
-            reference_doc_type="SALES_INVOICE",
-            reference_doc_id=f"INV-{unique_suffix.upper()}",
-            remarks="Concurrent dispatch during audit"
+        await StockLedger.post(
+            async_db,
+            MovementRequest(
+                company_id=tenant_ctx.company_id,
+                branch_id=tenant_ctx.branch_id,
+                product_id=prod_id,
+                movement_type="OUTWARD_SALE",
+                quantity=Decimal("10"),
+                reference_doc_type="SALES_INVOICE",
+                reference_doc_id=f"INV-{unique_suffix.upper()}",
+                warehouse_id=warehouse_id,
+                batch_no=batch_no,
+                remarks="Concurrent dispatch during audit",
+                source_module="StockAuditTest",
+            )
         )
-        async_db.add(intervening_sm)
         await async_db.commit()
 
         # Step 3: Count physical inventory (found 95 units -> variance is -5 vs snapshot of 100)
