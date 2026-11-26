@@ -355,13 +355,13 @@ async def test_03_idempotency_replay_protection():
                     code="PROD-CANON-01",
                     product_id="prod_canon_01",
                     quantity=Decimal("1.0000"),
-                    unit_price=Decimal("500.00"),
+                    unit_price=Decimal("1000.00"),
                     gst_rate=Decimal("18.00"),
                     is_tax_inclusive=True,
                 )
             ],
             tenders=[
-                CanonicalTenderItem(tender_type="UPI", amount=Decimal("500.00"))
+                CanonicalTenderItem(tender_type="UPI", amount=Decimal("1000.00"))
             ],
         )
 
