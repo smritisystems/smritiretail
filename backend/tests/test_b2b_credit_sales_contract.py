@@ -17,7 +17,6 @@ import uuid
 import pytest
 from pathlib import Path
 from decimal import Decimal
-from unittest.mock import AsyncMock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -30,6 +29,7 @@ from app.models.inventory import Product, ProductBatchStock, StockMovement
 from app.models.psv import PSVParty, PSVPartySkuTracking, PSVStockBalance, PSVStockEvent
 from app.models.sales import SalesInvoice, SalesInvoiceItem
 from app.schemas.sales import SalesInvoiceCreate, SalesInvoiceItemCreate
+from app.services.billing_profile_service import BillingProfileService
 from app.services.sales import SalesService
 
 
@@ -283,11 +283,11 @@ async def test_credit_invoice_nonzero_opening_outstanding_delta(credit_test_env)
 
 
 @pytest.mark.asyncio
-async def test_credit_control_fails_closed_on_unexpected_crm_error(credit_test_env):
+async def test_credit_control_fails_closed_on_unexpected_policy_error(credit_test_env, monkeypatch):
     """
     Scenario 5 (Contract Requirement 3):
     Credit control must strictly FAIL CLOSED.
-    If an unexpected infrastructure/CRM error occurs during credit checking,
+    If an unexpected error occurs during credit-policy validation,
     the exception MUST NOT be swallowed, and no credit invoice must be completed.
     """
     env = credit_test_env
@@ -295,10 +295,14 @@ async def test_credit_control_fails_closed_on_unexpected_crm_error(credit_test_e
     session_factory = get_company_sessionmaker("smriti001")
     async with session_factory() as session:
         sales_svc = SalesService(session, _get_tenant_context())
-        
-        # Inject an unexpected CRM service error
-        sales_svc.crm_service.check_credit_limit = AsyncMock(
-            side_effect=RuntimeError("CRM Engine Connection Timeout")
+
+        def raise_policy_error(*args, **kwargs):
+            raise RuntimeError("Credit policy resolver failure")
+
+        monkeypatch.setattr(
+            BillingProfileService,
+            "resolve_customer_payment_options",
+            raise_policy_error,
         )
 
         inv_payload = SalesInvoiceCreate(
@@ -326,12 +330,16 @@ async def test_credit_control_fails_closed_on_unexpected_crm_error(credit_test_e
                 authorized_transaction_mode_change=True,
             )
         
-        assert "CRM Engine Connection Timeout" in str(exc_info.value)
+        assert "Credit policy resolver failure" in str(exc_info.value)
 
     # Verify that the invoice was NOT created and customer outstanding was NOT altered
     async with session_factory() as session:
         cust_check = (await session.execute(select(Customer).where(Customer.id == cust_id))).scalars().first()
         assert Decimal(str(cust_check.outstanding)) == Decimal("0.00")
+        invoice_ids = await session.scalars(
+            select(SalesInvoice.id).where(SalesInvoice.customer_id == cust_id)
+        )
+        assert invoice_ids.all() == []
 
 
 @pytest.mark.asyncio
