@@ -246,7 +246,7 @@ def create_mock_service(mem_db: InMemoryCrmDB, company_id="COMP-001", branch_id=
         res.sort(key=lambda x: x.store_code)
         return res
 
-    async def mock_deliv_get_by_id(customer_id: str, id: str):
+    async def mock_deliv_get_by_id(customer_id: str, id: str, with_for_update: bool = False):
         l = mem_db.delivery_locations.get(id)
         if l and l.customer_id == customer_id and not l.is_deleted:
             if not tenant_ctx.company_id or l.company_id == tenant_ctx.company_id:
