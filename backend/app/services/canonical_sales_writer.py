@@ -110,6 +110,12 @@ class CanonicalSalesPostingWriter:
                 detail="Sales Order and Packing Slip invoices must use the atomic /billing/sources/commit workflow.",
             )
 
+        if not req.items:
+            raise HTTPException(
+                status_code=400,
+                detail="SMRITI-VAL-001: Sales transaction must contain at least one line item.",
+            )
+
         company_id = req.context.company_id
         branch_id = req.context.branch_id
         warehouse_id = req.context.warehouse_id
@@ -176,14 +182,7 @@ class CanonicalSalesPostingWriter:
         if not required_transactions.issubset(set(billing_configuration["allowed_transactions"])):
             raise HTTPException(status_code=422, detail="The selected cash or credit transaction type is not permitted by company or branch billing policy.")
 
-        # 0. Authoritative Input & Identity Validations
-        if not req.items:
-            raise HTTPException(
-                status_code=400,
-                detail="SMRITI-VAL-001: Sales transaction must contain at least one line item.",
-            )
-
-        # 0A. Authoritative Company and Seller Identity Validation
+        # 0. Authoritative Company and Seller Identity Validation
         q_comp = select(Company).where(Company.id == company_id)
         res_comp = await session.execute(q_comp)
         comp_obj = res_comp.scalars().first()

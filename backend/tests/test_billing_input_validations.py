@@ -177,6 +177,7 @@ async def test_canonical_sales_writer_rejects_empty_items():
         await CanonicalSalesPostingWriter.post_sales_transaction(mock_session, req)
     assert exc_info.value.status_code == 400
     assert "SMRITI-VAL-001" in exc_info.value.detail
+    mock_session.execute.assert_not_awaited()
 
 
 @pytest.mark.asyncio
