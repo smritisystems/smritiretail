@@ -577,7 +577,10 @@ class IM001ControlledFieldValidator:
         "SIZE_GROUP": ("size_group", "sizeGroup", "size_group_id", "sizeGroupId", "SIZE_GROUP", "sizegroup"),
         "GENDER": ("gender", "Gender", "GENDER", "Gndr"),
         "MERCHANDISE_DEPARTMENT": ("department", "Department", "MERCHANDISE_DEPARTMENT", "dept", "division"),
-        "MERCHANDISE_CATEGORY": ("MERCHANDISE_CATEGORY", "merchandiseCategory", "merchandise_category", "product_category"),
+        "MERCHANDISE_CATEGORY": (
+            "MERCHANDISE_CATEGORY", "merchandiseCategory", "merchandise_category",
+            "product_category", "product_type", "productType", "PRODUCT_TYPE",
+        ),
         "PRODUCT_TYPE": (
             "product_type", "productType", "PRODUCT_TYPE", "Product_Type", "Product Type",
             "merchandise_category", "MERCHANDISE CATEGORY", "MERCHANDISE_CATEGORY"

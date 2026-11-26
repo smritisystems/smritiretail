@@ -32,14 +32,24 @@ async def setup_catalog_dimension_lookups():
     async with async_session() as session:
         for type_code, canonical_value in (
             ("category", "Footwear"),
+            ("department", "FOOTWEAR"),
             ("style_article", "CH-01-A"),
             ("vendor_code", "JRM"),
+            ("tax_category", "STANDARD"),
         ):
             master_type = (
                 await session.execute(select(MasterType).where(MasterType.code == type_code))
             ).scalar_one_or_none()
             if master_type is None:
-                raise AssertionError(f"The {type_code} master type must be seeded by the control-plane migration.")
+                if type_code != "tax_category":
+                    raise AssertionError(f"The {type_code} master type must be seeded by the control-plane migration.")
+                master_type = MasterType(
+                    code=type_code,
+                    label="Tax Category",
+                    field_schema={"type": "object"},
+                )
+                session.add(master_type)
+                await session.flush()
 
             values = (
                 await session.execute(
@@ -318,6 +328,7 @@ async def test_universal_item_master_service_dimension_governance():
             item_code=f"ITEM-TEST-{uuid.uuid4().hex[:6]}",
             item_name="Governed Test Item",
             category="footwear",
+            department="FOOTWEAR",
             brand="smriti",
             style_code="ch-01-a",
             color="black",
@@ -325,6 +336,12 @@ async def test_universal_item_master_service_dimension_governance():
             vendor_code="jrm",
             tax_rate=18.0,
             primary_uom="PCS",
+            gender="WOMEN",
+            product_type="SHOE",
+            heel_type="WEDGE",
+            upper_material="FABRIC",
+            design_attribute="COMFORT",
+            attributes_json={"size_group": "FOOTWEAR_EU", "tax_category": "STANDARD"},
         )
         try:
             created_item = await UniversalItemMasterService.create_item(session, req=req, company_id="COMP-001")
@@ -336,13 +353,12 @@ async def test_universal_item_master_service_dimension_governance():
             assert created_item.vendor_code == "JRM"
 
             # Verify unapproved color rejection
-            unapproved_req = ItemCreateRequest(
-                item_code=f"ITEM-TEST-FAIL-{uuid.uuid4().hex[:6]}",
-                item_name="Unapproved Color Item",
-                category="footwear",
-                color="NEON_REJECT_ME",
-                tax_rate=18.0,
-                primary_uom="PCS",
+            unapproved_req = req.model_copy(
+                update={
+                    "item_code": f"ITEM-TEST-FAIL-{uuid.uuid4().hex[:6]}",
+                    "item_name": "Unapproved Color Item",
+                    "color": "NEON_REJECT_ME",
+                }
             )
             with pytest.raises(HTTPException) as exc_info:
                 await UniversalItemMasterService.create_item(session, req=unapproved_req, company_id="COMP-001")
