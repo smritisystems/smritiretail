@@ -72,27 +72,11 @@ def tenant_ctx_002():
     )
 
 
-async def _ensure_test_warehouse(
+async def _create_test_warehouse(
     session: AsyncSession,
     tenant: TenantContext,
     unique_suffix: str,
 ):
-    warehouse = (
-        await session.execute(
-            select(Warehouse)
-            .where(
-                Warehouse.company_id == tenant.company_id,
-                Warehouse.branch_id == tenant.branch_id,
-                Warehouse.is_active.is_(True),
-                Warehouse.is_deleted.is_(False),
-            )
-            .order_by(Warehouse.code)
-            .limit(1)
-        )
-    ).scalar_one_or_none()
-    if warehouse:
-        return warehouse.id, None
-
     warehouse_id = f"wh-audit-{unique_suffix}"
     session.add(
         Warehouse(
@@ -107,7 +91,7 @@ async def _ensure_test_warehouse(
         )
     )
     await session.flush()
-    return warehouse_id, warehouse_id
+    return warehouse_id
 
 
 @pytest.mark.asyncio
@@ -124,7 +108,8 @@ async def test_stock_audit_creation_and_baseline_snapshot(async_db: AsyncSession
     created_warehouse_id = None
 
     try:
-        warehouse_id, created_warehouse_id = await _ensure_test_warehouse(async_db, tenant_ctx, unique_suffix)
+        warehouse_id = await _create_test_warehouse(async_db, tenant_ctx, unique_suffix)
+        created_warehouse_id = warehouse_id
         # 1. Insert test product with reserved_stock
         product = Product(
             id=prod_id,
@@ -230,7 +215,8 @@ async def test_stock_audit_barcode_scanning_and_secondary_barcodes(async_db: Asy
     created_warehouse_id = None
 
     try:
-        warehouse_id, created_warehouse_id = await _ensure_test_warehouse(async_db, tenant_ctx, unique_suffix)
+        warehouse_id = await _create_test_warehouse(async_db, tenant_ctx, unique_suffix)
+        created_warehouse_id = warehouse_id
         product = Product(
             id=prod_id,
             uuid=str(uuid.uuid4()),
@@ -319,7 +305,8 @@ async def test_stock_audit_reconciliation_deficit_write_off(async_db: AsyncSessi
     created_warehouse_id = None
 
     try:
-        warehouse_id, created_warehouse_id = await _ensure_test_warehouse(async_db, tenant_ctx, unique_suffix)
+        warehouse_id = await _create_test_warehouse(async_db, tenant_ctx, unique_suffix)
+        created_warehouse_id = warehouse_id
         product = Product(
             id=prod_id,
             uuid=str(uuid.uuid4()),
@@ -431,7 +418,8 @@ async def test_stock_audit_reconciliation_surplus_inward(async_db: AsyncSession,
     created_warehouse_id = None
 
     try:
-        warehouse_id, created_warehouse_id = await _ensure_test_warehouse(async_db, tenant_ctx, unique_suffix)
+        warehouse_id = await _create_test_warehouse(async_db, tenant_ctx, unique_suffix)
+        created_warehouse_id = warehouse_id
         product = Product(
             id=prod_id,
             uuid=str(uuid.uuid4()),
@@ -636,7 +624,8 @@ async def test_stock_audit_intervening_movement_detection_and_locking(async_db: 
     created_warehouse_id = None
 
     try:
-        warehouse_id, created_warehouse_id = await _ensure_test_warehouse(async_db, tenant_ctx, unique_suffix)
+        warehouse_id = await _create_test_warehouse(async_db, tenant_ctx, unique_suffix)
+        created_warehouse_id = warehouse_id
         product = Product(
             id=prod_id,
             uuid=str(uuid.uuid4()),
