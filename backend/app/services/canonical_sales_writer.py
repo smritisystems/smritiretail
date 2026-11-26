@@ -508,14 +508,11 @@ class CanonicalSalesPostingWriter:
                         detail=f"SMRITI-CONC-002: Concurrent transaction collision on idempotency key '{idempotency_key}'.",
                     )
 
-        # Check rule_snapshots JSONB for idempotency_key or direct invoice_no
+        # Check rule_snapshots JSONB for invoices written before the idempotency table existed.
         q_idem = select(SalesInvoice).options(selectinload(SalesInvoice.items)).where(
             SalesInvoice.company_id == company_id,
             SalesInvoice.is_deleted == False,
-            (
-                (SalesInvoice.invoice_no == (req.context.client_invoice_no or idempotency_key))
-                | (text("rule_snapshots->>'idempotency_key' = :ikey").params(ikey=idempotency_key))
-            ),
+            text("rule_snapshots->>'idempotency_key' = :ikey").params(ikey=idempotency_key),
         )
         res_idem = await session.execute(q_idem)
         existing_inv = res_idem.scalars().first()

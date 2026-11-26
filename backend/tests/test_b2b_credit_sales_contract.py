@@ -563,7 +563,8 @@ async def test_duplicate_invoice_number_raises_409(credit_test_env):
                 idempotency_key=f"idemp-2-{uuid.uuid4().hex}"
             )
         assert exc_info.value.status_code == 409
-        assert "duplicate" in exc_info.value.detail.lower()
+        assert exc_info.value.detail["code"] == "SMRITI-INV-DUP-001"
+        assert exc_info.value.detail["invoice_no"] == custom_inv_no
 
 
 @pytest.mark.asyncio
