@@ -85,7 +85,7 @@ async def cleanup_outbox_test_data():
                 session.add(Product(
                     id="prod_outbox_test_01",
                     company_id=comp_id,
-                    code="PROD-OBX-01",
+                    code="PROD-OBX-STATS-01",
                     name="Outbox Test SKU",
                     category="General",
                     price=500.00,
@@ -123,7 +123,7 @@ async def test_real_domain_service_sales_invoice_outbox_atomicity():
             customer_id="cust_outbox_test_01",
             items_data=[{
                 "product_id": "prod_outbox_test_01",
-                "code": "PROD-OBX-01",
+                "code": "PROD-OBX-STATS-01",
                 "name": "Outbox Test SKU",
                 "quantity": 2,
                 "price": 500.00,
@@ -160,7 +160,7 @@ async def test_real_domain_service_sales_invoice_cancellation_outbox_atomicity()
             customer_id="cust_outbox_test_01",
             items_data=[{
                 "product_id": "prod_outbox_test_01",
-                "code": "PROD-OBX-01",
+                "code": "PROD-OBX-STATS-01",
                 "name": "Outbox Test SKU",
                 "quantity": 1,
                 "price": 500.00,
