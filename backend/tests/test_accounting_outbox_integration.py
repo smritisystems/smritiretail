@@ -118,6 +118,10 @@ async def setup_integration_master_data():
                     branch_id="MAIN",
                     code="WH-OBX-01",
                     name="Outbox Integration Warehouse",
+                    address="Outbox integration warehouse",
+                    city="Mumbai",
+                    state="Maharashtra",
+                    pincode="400001",
                     is_active=True,
                     is_deleted=False,
                 )
