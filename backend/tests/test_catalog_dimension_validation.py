@@ -28,40 +28,44 @@ from app.services.catalog_validation import CatalogDimensionValidator
 
 
 @pytest.fixture(scope="module", autouse=True)
-async def setup_footwear_category_lookup():
+async def setup_catalog_dimension_lookups():
     async with async_session() as session:
-        category_type = (
-            await session.execute(select(MasterType).where(MasterType.code == "category"))
-        ).scalar_one_or_none()
-        if category_type is None:
-            raise AssertionError("The category master type must be seeded by the control-plane migration.")
-
-        values = (
-            await session.execute(
-                select(MasterValue).where(
-                    MasterValue.master_type_id == category_type.id,
-                    MasterValue.active.is_(True),
-                    MasterValue.is_deleted.is_(False),
-                )
-            )
-        ).scalars().all()
-        if not any(
-            value.strip().casefold() == "footwear"
-            for item in values
-            for value in (item.code, item.name)
-            if value
+        for type_code, canonical_value in (
+            ("category", "Footwear"),
+            ("style_article", "CH-01-A"),
+            ("vendor_code", "JRM"),
         ):
-            session.add(
-                MasterValue(
-                    master_type_id=category_type.id,
-                    code="Footwear",
-                    name="Footwear",
-                    data={},
-                    active=True,
-                    is_deleted=False,
+            master_type = (
+                await session.execute(select(MasterType).where(MasterType.code == type_code))
+            ).scalar_one_or_none()
+            if master_type is None:
+                raise AssertionError(f"The {type_code} master type must be seeded by the control-plane migration.")
+
+            values = (
+                await session.execute(
+                    select(MasterValue).where(
+                        MasterValue.master_type_id == master_type.id,
+                        MasterValue.active.is_(True),
+                        MasterValue.is_deleted.is_(False),
+                    )
                 )
-            )
-            await session.commit()
+            ).scalars().all()
+            if not any(
+                item.code.strip() == canonical_value
+                for item in values
+                if item.code
+            ):
+                session.add(
+                    MasterValue(
+                        master_type_id=master_type.id,
+                        code=canonical_value,
+                        name=canonical_value,
+                        data={},
+                        active=True,
+                        is_deleted=False,
+                    )
+                )
+        await session.commit()
 
 
 @pytest.mark.asyncio
