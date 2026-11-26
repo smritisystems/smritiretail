@@ -387,7 +387,7 @@ async def test_cash_sale_preserves_existing_behavior(credit_test_env):
 async def test_credit_limit_exceeded_raises_400(credit_test_env):
     """
     Scenario 7:
-    Customer exceeding sanctioned credit limit raises SMRITI-CREDIT-001 (HTTP 400).
+    Customer exceeding available credit raises SMRITI-CREDIT-003 (HTTP 400).
     """
     env = credit_test_env
     cust_id = env["cust_id"]
@@ -424,7 +424,7 @@ async def test_credit_limit_exceeded_raises_400(credit_test_env):
             )
 
         assert exc_info.value.status_code == 400
-        assert "SMRITI-CREDIT-001" in exc_info.value.detail or "credit limit" in exc_info.value.detail.lower()
+        assert "SMRITI-CREDIT-003" in exc_info.value.detail or "available credit" in exc_info.value.detail.lower()
 
 
 @pytest.mark.asyncio
