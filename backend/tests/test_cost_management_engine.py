@@ -44,6 +44,7 @@ from app.models.purchase import (
 from app.models.sales import SalesInvoice, SalesInvoiceItem
 from app.models.inward_cost import InwardCostAllocation, InwardCostComponent
 from app.models.accounting import JournalVoucher, GeneralLedgerEntry, Account
+from app.models.tenant import Company
 
 TEST_DB_NAME = "smriti_test_cost_engine"
 TEST_COMPANY_ID = "COMP-COST-TEST"
@@ -82,6 +83,15 @@ async def enforce_test_db_isolation():
     """P0 Test Isolation: Route all API dependencies to dedicated test DB and mock auth context."""
     assert TEST_DB_NAME not in ("smriti001", "smritisys"), "Must never target shared database"
     session_factory = get_company_sessionmaker(TEST_DB_NAME)
+    async with session_factory() as session:
+        if await session.get(Company, TEST_COMPANY_ID) is None:
+            session.add(
+                Company(
+                    id=TEST_COMPANY_ID,
+                    name="Cost Engine Test Company",
+                )
+            )
+            await session.commit()
 
     async def _override_get_company_db():
         async with session_factory() as session:
