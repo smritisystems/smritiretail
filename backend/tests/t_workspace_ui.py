@@ -17,6 +17,7 @@ from httpx import AsyncClient, ASGITransport
 
 from app.main import app
 from app.core.security import create_access_token
+from app.db.seed_ui_master import seed_ui_master_data
 
 
 def _get_auth_headers(role: str = "SYSADMIN", company_id: str = "COMP-001") -> dict:
@@ -157,6 +158,7 @@ async def test_theme_design_tokens():
 @pytest.mark.asyncio
 async def test_complete_screen_package_pos_billing():
     """Verify complete screen definition package for SCR_POS_BILLING."""
+    seed_ui_master_data()
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         res = await client.get(

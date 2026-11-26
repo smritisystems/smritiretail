@@ -13,12 +13,13 @@ Classification: Internal
 """
 
 import json
+import os
 import psycopg2
 from psycopg2.extras import execute_values
 from datetime import datetime, timezone
 
 
-def seed_ui_master_data():
+def seed_ui_master_data(database_name="smritisys", port=None):
     """
     Authoritative seeder for Workspace Templates, Profiles, Themes, Design Tokens, and Screen Definitions.
     """
@@ -64,9 +65,16 @@ def seed_ui_master_data():
         ("act_pos_cancel", "uuid_act_pos_cancel", "ACT_POS_CANCEL", "Void / Cancel Shift Bill", "pos.action.cancel", "DANGER_BUTTON", "SCR_POS_BILLING", "FOOTER_BAR", "delete", "danger", 3, "POS", True, None, "/api/v1/pos/void", "POST", "VOID_BILL", "ACTIVE", True, False),
     ]
 
-    print("\n--- Seeding Workspace & UI Experience Master Data into [smritisys] ---")
+    print(f"\n--- Seeding Workspace & UI Experience Master Data into [{database_name}] ---")
+    conn = None
     try:
-        conn = psycopg2.connect("postgresql://postgres:postgres@localhost:5432/smritisys")
+        conn = psycopg2.connect(
+            host=os.getenv("POSTGRES_HOST", "localhost"),
+            port=port or int(os.getenv("POSTGRES_PORT", "5432")),
+            dbname=database_name,
+            user=os.getenv("POSTGRES_USER", "postgres"),
+            password=os.getenv("POSTGRES_PASSWORD", "postgres"),
+        )
         cur = conn.cursor()
 
         # 1. Workspace Templates
@@ -183,10 +191,14 @@ def seed_ui_master_data():
         )
 
         conn.commit()
-        conn.close()
-        print("Successfully seeded Workspace & UI Experience Master Data into [smritisys].")
-    except Exception as e:
-        print(f"Error seeding [smritisys]: {e}")
+        print(f"Successfully seeded Workspace & UI Experience Master Data into [{database_name}].")
+    except Exception:
+        if conn is not None:
+            conn.rollback()
+        raise
+    finally:
+        if conn is not None:
+            conn.close()
 
 
 if __name__ == "__main__":
