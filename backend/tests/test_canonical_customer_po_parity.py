@@ -62,6 +62,7 @@ TEST_BRANCH_ID = "MAIN"
 TEST_SHIFT_ID = "shift_cpo_parity_01"
 TEST_REGISTER_ID = "reg_cpo_parity_01"
 TEST_CUST_ID = "cust_cpo_canon_01"
+TEST_CUST_GROUP_ID = "group_cpo_canon_01"
 TEST_PROD1_ID = "prod_cpo_canon_01"
 TEST_PROD2_ID = "prod_cpo_canon_02"
 TEST_LOC_ID = "cdl_cpo_canon_01"
@@ -144,13 +145,37 @@ async def setup_cpo_parity_master_data():
 
         await session.flush()
 
-        # 3. Customer
+        # 3. Credit-eligible customer group for the CPO credit-tender scenarios
+        customer_group = (
+            await session.execute(
+                select(CustomerGroup).where(CustomerGroup.id == TEST_CUST_GROUP_ID)
+            )
+        ).scalar_one_or_none()
+        if not customer_group:
+            customer_group = CustomerGroup(
+                id=TEST_CUST_GROUP_ID,
+                company_id=TEST_COMPANY_ID,
+                name="Customer PO Parity Credit Group",
+                credit_limit=Decimal("100000.00"),
+                can_purchase_on_credit=True,
+                is_active=True,
+                is_deleted=False,
+            )
+            session.add(customer_group)
+        else:
+            customer_group.credit_limit = Decimal("100000.00")
+            customer_group.can_purchase_on_credit = True
+
+        await session.flush()
+
+        # 4. Customer
         cust = (await session.execute(select(Customer).where(Customer.id == TEST_CUST_ID))).scalar_one_or_none()
         if not cust:
             cust = Customer(
                 id=TEST_CUST_ID,
                 company_id=TEST_COMPANY_ID,
                 branch_id=TEST_BRANCH_ID,
+                customer_group_id=TEST_CUST_GROUP_ID,
                 code="CUST-CPO-01",
                 name="Reliance Retail Modern Trade",
                 mobile="9820199999",
@@ -160,8 +185,10 @@ async def setup_cpo_parity_master_data():
                 is_deleted=False,
             )
             session.add(cust)
+        else:
+            cust.customer_group_id = TEST_CUST_GROUP_ID
 
-        # 4. Customer Delivery Location
+        # 5. Customer Delivery Location
         loc = (await session.execute(select(CustomerDeliveryLocation).where(CustomerDeliveryLocation.id == TEST_LOC_ID))).scalar_one_or_none()
         if not loc:
             loc = CustomerDeliveryLocation(
@@ -179,7 +206,7 @@ async def setup_cpo_parity_master_data():
             )
             session.add(loc)
 
-        # 5. Canonical Items, Variants, and Barcodes
+        # 6. Canonical Items, Variants, and Barcodes
         from app.models.item_master import Item, ItemVariant, ItemBarcode
         from app.models.inventory import ProductBatchStock
 
@@ -273,7 +300,7 @@ async def setup_cpo_parity_master_data():
 
         await session.flush()
 
-        # 6. Legacy Products with Dual-Key Mapping
+        # 7. Legacy Products with Dual-Key Mapping
         p1 = (await session.execute(select(Product).where(Product.id == TEST_PROD1_ID))).scalar_one_or_none()
         if not p1:
             p1 = Product(
@@ -326,7 +353,7 @@ async def setup_cpo_parity_master_data():
             p2.item_id = "itm_cpo_canon_02"
             p2.item_variant_id = "var_cpo_canon_02"
 
-        # 7. Warehouses & Batch Stocks
+        # 8. Warehouses & Batch Stocks
         wh = (await session.execute(select(Warehouse).where(Warehouse.company_id == TEST_COMPANY_ID, Warehouse.is_active == True, Warehouse.is_deleted == False))).scalars().first()
         if not wh:
             wh = Warehouse(
