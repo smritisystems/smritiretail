@@ -518,13 +518,13 @@ async def test_05_caller_controlled_session_rollback():
                     code="PROD-CANON-01",
                     product_id="prod_canon_01",
                     quantity=Decimal("1.0000"),
-                    unit_price=Decimal("100.00"),
+                    unit_price=Decimal("1000.00"),
                     gst_rate=Decimal("0.00"),
                     is_tax_inclusive=True,
                 )
             ],
             tenders=[
-                CanonicalTenderItem(tender_type="CASH", amount=Decimal("100.00"))
+                CanonicalTenderItem(tender_type="CASH", amount=Decimal("1000.00"))
             ],
         )
 
