@@ -401,15 +401,12 @@ async def test_save_and_generate_tt2026_2027_18_standard_sales():
     from sqlalchemy import text
     async with async_session_factory() as db:
         service = NumberingService(db)
-        comp_res = await db.execute(text("SELECT id FROM companies WHERE is_deleted = false LIMIT 1"))
-        test_company = comp_res.scalar_one_or_none()
-        if not test_company:
-            test_company = f"comp-test-{uuid.uuid4().hex[:6]}"
-            await db.execute(
-                text("INSERT INTO companies (id, name, is_active, is_deleted) VALUES (:id, :name, true, false)"),
-                {"id": test_company, "name": "Test Company"}
-            )
-            await db.commit()
+        test_company = f"comp-bill-prefix-{uuid.uuid4().hex[:8]}"
+        await db.execute(
+            text("INSERT INTO companies (id, name, is_active, is_deleted) VALUES (:id, :name, true, false)"),
+            {"id": test_company, "name": "Bill Prefix Test Company"}
+        )
+        await db.commit()
 
         # Clean up any leftover series from prior runs
         await db.execute(
@@ -478,5 +475,15 @@ async def test_save_and_generate_tt2026_2027_18_standard_sales():
             username="TEST_CASHIER"
         )
         assert second_doc_no == "TT2026-2027/19"
+
+        await db.execute(
+            text("DELETE FROM document_series WHERE company_id = :comp"),
+            {"comp": test_company}
+        )
+        await db.execute(
+            text("DELETE FROM companies WHERE id = :comp"),
+            {"comp": test_company}
+        )
+        await db.commit()
 
 
