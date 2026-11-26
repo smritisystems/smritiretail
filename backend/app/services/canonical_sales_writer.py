@@ -589,6 +589,11 @@ class CanonicalSalesPostingWriter:
                 and customer_group.allow_override
             ),
         )
+        if "CREDIT" in required_transactions and payment_options["credit_hold"]:
+            raise HTTPException(
+                status_code=400,
+                detail="SMRITI-CREDIT-002: Customer account is on credit hold. Invoicing blocked.",
+            )
         if not required_transactions.issubset(set(payment_options["allowed_transactions"])):
             raise HTTPException(
                 status_code=403,
