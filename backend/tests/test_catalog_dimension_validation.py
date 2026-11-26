@@ -17,13 +17,51 @@ import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
-from sqlalchemy import delete
+from sqlalchemy import delete, select
 from app.main import app
 from app.core.security import create_access_token
 from app.models.auth import User, UserRole
 from app.db.session import async_session, get_company_sessionmaker
 from app.models.inventory import Product
+from app.models.master_lookup import MasterType, MasterValue
 from app.services.catalog_validation import CatalogDimensionValidator
+
+
+@pytest.fixture(scope="module", autouse=True)
+async def setup_footwear_category_lookup():
+    async with async_session() as session:
+        category_type = (
+            await session.execute(select(MasterType).where(MasterType.code == "category"))
+        ).scalar_one_or_none()
+        if category_type is None:
+            raise AssertionError("The category master type must be seeded by the control-plane migration.")
+
+        values = (
+            await session.execute(
+                select(MasterValue).where(
+                    MasterValue.master_type_id == category_type.id,
+                    MasterValue.active.is_(True),
+                    MasterValue.is_deleted.is_(False),
+                )
+            )
+        ).scalars().all()
+        if not any(
+            value.strip().casefold() == "footwear"
+            for item in values
+            for value in (item.code, item.name)
+            if value
+        ):
+            session.add(
+                MasterValue(
+                    master_type_id=category_type.id,
+                    code="Footwear",
+                    name="Footwear",
+                    data={},
+                    active=True,
+                    is_deleted=False,
+                )
+            )
+            await session.commit()
 
 
 @pytest.mark.asyncio
