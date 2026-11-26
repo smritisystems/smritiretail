@@ -449,11 +449,12 @@ def seed_control_plane_test_assignments():
         comp_cur = comp_conn.cursor()
 
         comp_cur.execute("""
-            INSERT INTO companies (id, uuid, name, gst_number, is_active, is_deleted, created_at, modified_at)
-            VALUES ('COMP-001', %s, 'Tattly Threads', '27AAXFT2508H1ZR', true, false, NOW(), NOW())
+            INSERT INTO companies (id, uuid, name, gst_number, pan, is_active, is_deleted, created_at, modified_at)
+            VALUES ('COMP-001', %s, 'Tattly Threads', '27AAXFT2508H1ZR', 'AAXFT2508H', true, false, NOW(), NOW())
             ON CONFLICT (id) DO UPDATE SET
                 name = 'Tattly Threads',
                 gst_number = '27AAXFT2508H1ZR',
+                pan = 'AAXFT2508H',
                 is_active = true,
                 is_deleted = false;
         """, (str(uuid.uuid4()),))
