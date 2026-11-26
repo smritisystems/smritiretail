@@ -198,6 +198,22 @@ async def setup_seed_data(tenant_ctx, other_tenant_ctx):
         )
         session.add_all([prod, cg])
         await session.flush()
+        session.add(
+            StockMovement(
+                id=f"stock-opening-{suffix}",
+                company_id="COMP-001",
+                branch_id="MAIN",
+                product_id=prod.id,
+                product_name=prod.name,
+                sku=prod.code,
+                quantity=Decimal("10000.00"),
+                movement_type="OPENING_STOCK",
+                reference_doc_type="OPENING_STOCK",
+                reference_doc_id=f"b2b-sales-wiring-{suffix}",
+                warehouse_id=wh.id,
+                is_deleted=False,
+            )
+        )
 
         # 5. Primary Corporate Customer (e.g. Reliance Retail Limited)
         cust1 = Customer(
@@ -458,7 +474,10 @@ async def test_01_corporate_customer_with_single_gst_registration(setup_seed_dat
         assert inv.customer_gstin == "27AAACR7015K1Z0"
         assert inv.status == "Draft"
         stock_movements = await session.execute(
-            select(StockMovement.id).where(StockMovement.product_id == data["product_id"])
+            select(StockMovement.id).where(
+                StockMovement.product_id == data["product_id"],
+                StockMovement.movement_type == "OUTWARD_SALE",
+            )
         )
         assert stock_movements.scalars().all() == []
 
@@ -512,7 +531,7 @@ async def test_02_corporate_customer_with_multiple_gst_registrations(setup_seed_
                     product_id=data["product_id"],
                     code=data["product_code"],
                     name="Test Item",
-                    price=Decimal("500.00"),
+                    price=Decimal("1000.00"),
                     quantity=Decimal("1.0000"),
                     gst_rate=Decimal("18.00")
                 )
@@ -597,7 +616,7 @@ async def test_07_invoice_request_contains_all_phase2c_fields(setup_seed_data, t
                     product_id=data["product_id"],
                     code=data["product_code"],
                     name="Test Item",
-                    price=Decimal("100.00"),
+                    price=Decimal("1000.00"),
                     quantity=Decimal("1.0000"),
                     gst_rate=Decimal("18.00")
                 )
@@ -637,7 +656,7 @@ async def test_08_and_09_invoice_snapshot_persistence_and_immutability(setup_see
                     product_id=data["product_id"],
                     code=data["product_code"],
                     name="Test Item",
-                    price=Decimal("200.00"),
+                    price=Decimal("1000.00"),
                     quantity=Decimal("1.0000"),
                     gst_rate=Decimal("18.00")
                 )
@@ -686,7 +705,7 @@ async def test_10_cross_customer_gst_registration_rejected(setup_seed_data, tena
                     product_id=data["product_id"],
                     code=data["product_code"],
                     name="Test Item",
-                    price=Decimal("100.00"),
+                    price=Decimal("1000.00"),
                     quantity=Decimal("1.0000")
                 )
             ]
@@ -715,7 +734,7 @@ async def test_11_cross_customer_delivery_location_rejected(setup_seed_data, ten
                     product_id=data["product_id"],
                     code=data["product_code"],
                     name="Test Item",
-                    price=Decimal("100.00"),
+                    price=Decimal("1000.00"),
                     quantity=Decimal("1.0000")
                 )
             ]
@@ -744,7 +763,7 @@ async def test_12_cross_company_gst_registration_rejected(setup_seed_data, tenan
                     product_id=data["product_id"],
                     code=data["product_code"],
                     name="Test Item",
-                    price=Decimal("100.00"),
+                    price=Decimal("1000.00"),
                     quantity=Decimal("1.0000")
                 )
             ]
@@ -772,7 +791,7 @@ async def test_13_cross_company_delivery_location_rejected(setup_seed_data, tena
                     product_id=data["product_id"],
                     code=data["product_code"],
                     name="Test Item",
-                    price=Decimal("100.00"),
+                    price=Decimal("1000.00"),
                     quantity=Decimal("1.0000")
                 )
             ]
@@ -802,7 +821,7 @@ async def test_14_delivery_gstin_state_invariant_rejected(setup_seed_data, tenan
                     product_id=data["product_id"],
                     code=data["product_code"],
                     name="Test Item",
-                    price=Decimal("100.00"),
+                    price=Decimal("1000.00"),
                     quantity=Decimal("1.0000")
                 )
             ]
@@ -837,7 +856,10 @@ async def test_15_credit_billing_regression(setup_seed_data, tenant_ctx):
                 )
             ]
         )
-        inv = await service.create_sales_invoice(inv_in)
+        inv = await service.create_sales_invoice(
+            inv_in,
+            authorized_transaction_mode_change=True,
+        )
         await session.commit()
 
         assert inv.payment_mode == "CREDIT"
@@ -861,7 +883,7 @@ async def test_16_cash_billing_regression(setup_seed_data, tenant_ctx):
             customer_id=data["cust_ril"].id,
             warehouse_id=data["warehouse_id"],
             payment_mode="CASH",
-            paid_amount=Decimal("118.00"),
+            paid_amount=Decimal("1180.00"),
             balance_amount=Decimal("0.00"),
             status="Completed",
             items=[
@@ -869,7 +891,7 @@ async def test_16_cash_billing_regression(setup_seed_data, tenant_ctx):
                     product_id=data["product_id"],
                     code=data["product_code"],
                     name="Test Cash Item",
-                    price=Decimal("100.00"),
+                    price=Decimal("1000.00"),
                     quantity=Decimal("1.0000"),
                     gst_rate=Decimal("18.00")
                 )
@@ -879,7 +901,7 @@ async def test_16_cash_billing_regression(setup_seed_data, tenant_ctx):
         await session.commit()
 
         assert inv.payment_mode == "CASH"
-        assert inv.paid_amount == Decimal("118.00")
+        assert inv.paid_amount == Decimal("1180.00")
         assert inv.balance_amount == Decimal("0.00")
 
 
@@ -901,7 +923,7 @@ async def test_17_document_series_numbering_regression(setup_seed_data, tenant_c
                     product_id=data["product_id"],
                     code=data["product_code"],
                     name="Test Item",
-                    price=Decimal("50.00"),
+                    price=Decimal("1000.00"),
                     quantity=Decimal("1.0000")
                 )
             ]
@@ -938,7 +960,11 @@ async def test_18_customer_group_credit_policy_enforcement(setup_seed_data, tena
             ]
         )
         with pytest.raises(HTTPException) as exc_info:
-            await service.create_sales_invoice(inv_in)
+            await service.create_sales_invoice(
+                inv_in,
+                authorized_price_override=True,
+                authorized_transaction_mode_change=True,
+            )
         assert exc_info.value.status_code == 400
         assert "exceeded" in str(exc_info.value.detail).lower() or "credit" in str(exc_info.value.detail).lower()
 
@@ -974,7 +1000,11 @@ async def test_section_q_direct_postgresql_database_assertions(setup_seed_data, 
                 )
             ]
         )
-        created = await service.create_sales_invoice(inv_in)
+        created = await service.create_sales_invoice(
+            inv_in,
+            authorized_price_override=True,
+            authorized_transaction_mode_change=True,
+        )
         await session.commit()
         invoice_id = created.id
 
