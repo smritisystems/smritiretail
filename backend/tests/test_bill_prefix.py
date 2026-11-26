@@ -403,8 +403,11 @@ async def test_save_and_generate_tt2026_2027_18_standard_sales():
         service = NumberingService(db)
         test_company = f"comp-bill-prefix-{uuid.uuid4().hex[:8]}"
         await db.execute(
-            text("INSERT INTO companies (id, name, is_active, is_deleted) VALUES (:id, :name, true, false)"),
-            {"id": test_company, "name": "Bill Prefix Test Company"}
+            text(
+                "INSERT INTO companies (id, uuid, name, is_active, is_deleted) "
+                "VALUES (:id, :uuid, :name, true, false)"
+            ),
+            {"id": test_company, "uuid": str(uuid.uuid4()), "name": "Bill Prefix Test Company"}
         )
         await db.commit()
 
