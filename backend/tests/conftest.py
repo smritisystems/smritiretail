@@ -234,6 +234,7 @@ def seed_control_plane_test_assignments():
         users_data = [
             ("usr-super", "usr_super", "SYSADMIN", True),
             ("usr_sysadmin", "usr_sysadmin", "SYSADMIN", True),
+            ("usr-manager-direct", "manager", "MANAGER", False),
             ("usr-cashier", "usr_cashier", "CASHIER", False),
             ("usr-manager", "usr_manager", "MANAGER", False),
             ("usr_store_manager_a", "usr_store_manager_a", "MANAGER", False),
