@@ -732,7 +732,7 @@ async def test_02_exhausted_customer_po_quantities_rejection():
         with pytest.raises(HTTPException) as exc_info:
             await CanonicalSalesPostingWriter.post_sales_transaction(session=session, req=req2, commit=False)
         assert exc_info.value.status_code == 409
-        assert "Overbilling blocked" in str(exc_info.value.detail)
+        assert "SMRITI-CPO-003" in str(exc_info.value.detail)
 
 
 @pytest.mark.asyncio
