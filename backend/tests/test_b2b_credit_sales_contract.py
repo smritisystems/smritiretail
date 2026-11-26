@@ -716,8 +716,8 @@ async def test_partial_tender_checks_credit_limit_only_on_unpaid_balance_amount(
         cg.credit_hold = False
         await session.commit()
 
-    # 2. Case A: Total is ₹1,180.00. Paid cash ₹1,000.00 leaves ₹180.00 balance.
-    # Because ₹180.00 > credit_limit (₹100.00), partial tender MUST fail closed with 400.
+    # 2. Case A: Allocate ₹1,000.00 to cash and ₹180.00 to credit.
+    # Because the credit portion exceeds the ₹100.00 limit, the sale must fail closed.
     async with session_factory() as session:
         sales_svc = SalesService(session, _get_tenant_context())
         with pytest.raises(HTTPException) as exc_info:
@@ -725,9 +725,15 @@ async def test_partial_tender_checks_credit_limit_only_on_unpaid_balance_amount(
                 SalesInvoiceCreate(
                     customer_id=cust_id,
                     status="Completed",
-                    payment_mode="CASH",
-                    paid_amount=Decimal("1000.00"),
+                    payment_mode="SPLIT",
+                    paid_amount=Decimal("1180.00"),
                     balance_amount=Decimal("180.00"),
+                    rule_snapshots={
+                        "payments": [
+                            {"mode": "CASH", "amount": "1000.00"},
+                            {"mode": "CREDIT", "amount": "180.00"},
+                        ]
+                    },
                     items=[
                         SalesInvoiceItemCreate(
                             product_id=env["prod_id"],
@@ -740,22 +746,28 @@ async def test_partial_tender_checks_credit_limit_only_on_unpaid_balance_amount(
                             total_amount=Decimal("1180.00")
                         )
                     ]
-                )
+                ),
+                authorized_transaction_mode_change=True,
             )
         assert exc_info.value.status_code == 400
         assert "credit limit" in exc_info.value.detail.lower()
 
-    # 3. Case B: Same customer with ₹100.00 credit limit pays ₹1,100.00 cash, leaving ₹80.00 balance.
-    # Because ₹80.00 <= credit_limit (₹100.00), partial tender MUST SUCCEED!
+    # 3. Case B: Allocate ₹1,100.00 to cash and ₹80.00 to credit; the credit portion is within limit.
     async with session_factory() as session:
         sales_svc = SalesService(session, _get_tenant_context())
         inv = await sales_svc.create_sales_invoice(
             SalesInvoiceCreate(
                 customer_id=cust_id,
                 status="Completed",
-                payment_mode="CASH",
-                paid_amount=Decimal("1100.00"),
+                payment_mode="SPLIT",
+                paid_amount=Decimal("1180.00"),
                 balance_amount=Decimal("80.00"),
+                rule_snapshots={
+                    "payments": [
+                        {"mode": "CASH", "amount": "1100.00"},
+                        {"mode": "CREDIT", "amount": "80.00"},
+                    ]
+                },
                 items=[
                     SalesInvoiceItemCreate(
                         product_id=env["prod_id"],
@@ -768,7 +780,8 @@ async def test_partial_tender_checks_credit_limit_only_on_unpaid_balance_amount(
                         total_amount=Decimal("1180.00")
                     )
                 ]
-            )
+            ),
+            authorized_transaction_mode_change=True,
         )
         assert Decimal(str(inv.paid_amount)) == Decimal("1100.00")
         assert Decimal(str(inv.balance_amount)) == Decimal("80.00")
