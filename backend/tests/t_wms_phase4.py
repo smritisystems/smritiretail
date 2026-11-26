@@ -27,6 +27,7 @@ from app.models.inventory import (
 from app.services.stock_audit_service import StockAuditService
 from app.services.stock_ledger import MovementRequest, StockLedger
 from app.api.deps import TenantContext
+from app.models.tenant import Branch
 from conftest import utmih_delete_stock_movements
 
 from db_test_config import COMPANY_001_ASYNC_URL, COMPANY_002_ASYNC_URL
@@ -522,16 +523,29 @@ async def test_stock_audit_multi_company_isolation_smriti002(async_db_002: Async
     batch_no = f"BATCH-COMP2-{unique_suffix.upper()}"
     created_audit_id = None
     created_warehouse_id = None
+    created_branch_id = f"BR-AUDIT-{unique_suffix.upper()}"
+    tenant = TenantContext(company_id=tenant_ctx_002.company_id, branch_id=created_branch_id)
 
     try:
-        warehouse_id = await _create_test_warehouse(async_db_002, tenant_ctx_002, unique_suffix)
+        async_db_002.add(
+            Branch(
+                id=created_branch_id,
+                company_id=tenant.company_id,
+                code=created_branch_id,
+                name=f"Stock Audit Test Branch {unique_suffix}",
+                is_active=True,
+                is_deleted=False,
+            )
+        )
+        await async_db_002.flush()
+        warehouse_id = await _create_test_warehouse(async_db_002, tenant, unique_suffix)
         created_warehouse_id = warehouse_id
 
         product = Product(
             id=prod_id,
             uuid=str(uuid.uuid4()),
-            company_id=tenant_ctx_002.company_id,
-            branch_id=tenant_ctx_002.branch_id,
+            company_id=tenant.company_id,
+            branch_id=tenant.branch_id,
             name=f"Comp2 Audit Product {unique_suffix}",
             code=f"C2-{unique_suffix.upper()}",
             sku=f"SKU-C2-{unique_suffix.upper()}",
@@ -548,8 +562,8 @@ async def test_stock_audit_multi_company_isolation_smriti002(async_db_002: Async
         pb = ProductBatchStock(
             id=f"pbs-c2-{unique_suffix}",
             uuid=str(uuid.uuid4()),
-            company_id=tenant_ctx_002.company_id,
-            branch_id=tenant_ctx_002.branch_id,
+            company_id=tenant.company_id,
+            branch_id=tenant.branch_id,
             warehouse_id=warehouse_id,
             product_id=prod_id,
             batch_no=batch_no,
@@ -560,7 +574,7 @@ async def test_stock_audit_multi_company_isolation_smriti002(async_db_002: Async
         async_db_002.add(pb)
         await async_db_002.commit()
 
-        service = StockAuditService(async_db_002, tenant_ctx_002)
+        service = StockAuditService(async_db_002, tenant)
         audit = await service.create_stock_audit(warehouse_id=warehouse_id, notes="Tenant 002 audit")
         created_audit_id = audit.id
 
@@ -595,6 +609,7 @@ async def test_stock_audit_multi_company_isolation_smriti002(async_db_002: Async
         await async_db_002.execute(text("DELETE FROM products WHERE id = :pid"), {"pid": prod_id})
         if created_warehouse_id:
             await async_db_002.execute(text("DELETE FROM warehouses WHERE id = :wid"), {"wid": created_warehouse_id})
+        await async_db_002.execute(text("DELETE FROM branches WHERE id = :bid"), {"bid": created_branch_id})
         await async_db_002.commit()
 
 
