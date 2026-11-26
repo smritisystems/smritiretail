@@ -213,7 +213,7 @@ jobs:
       - name: Run Backend Tests
         run: >
           pytest tests/ app/tests/ app/compliance/tests/
-          -v --tb=short --timeout=120
+          -v --tb=short --timeout=120 --maxfail=20
         # Includes all unit, compliance, and stock movement ledger tests (self-provisioned)
 
       - name: Run Retail Transaction Lifecycle E2E Suite (Cross-Workspace Parity)
