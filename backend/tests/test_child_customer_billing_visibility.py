@@ -126,7 +126,7 @@ def test_customer_repository_billing_filter_ast_construction():
     assert "customer_relationships" in sql_str
     assert "show_child_customers_in_billing" in sql_str
     assert "company_id" in sql_str
-    assert "count(" in sql_str.lower()
+    assert "exists" in sql_str.lower()
 
 
 @pytest.mark.asyncio
