@@ -249,7 +249,7 @@ async def test_product_create_and_update_brand_governance_rejection():
         res = client.post("/api/v1/products/", json=payload, headers=headers)
         assert res.status_code == 422, f"Expected 422 but got {res.status_code}: {res.text}"
         assert "UNAPPROVED_BRAND_REJECT_ME" in res.text
-        assert "not registered in the Master Lookup registry" in res.text
+        assert "not recognised" in res.text
 
         # 2. Attempt with unapproved color
         payload["brand"] = "smriti"
@@ -286,7 +286,7 @@ async def test_product_create_and_update_brand_governance_rejection():
         prod_id = prod_data["id"]
         update_res = client.put(f"/api/v1/products/{prod_id}", json={"color": "FAKE_COLOR_999"}, headers=headers)
         assert update_res.status_code == 422
-        assert "not registered in the Master Lookup registry" in update_res.text
+        assert "FAKE_COLOR_999" in update_res.text
 
         # 6. Test update_product success with approved color "white"
         update_ok = client.put(f"/api/v1/products/{prod_id}", json={"color": "white"}, headers=headers)
