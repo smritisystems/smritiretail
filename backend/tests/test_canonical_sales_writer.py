@@ -347,7 +347,12 @@ async def test_02_b2b_wholesale_base_rate_exclusive_with_discount():
             ],
         )
 
-        result = await CanonicalSalesPostingWriter.post_sales_transaction(session=session, req=req, commit=True)
+        result = await CanonicalSalesPostingWriter.post_sales_transaction(
+            session=session,
+            req=req,
+            commit=True,
+            authorized_transaction_mode_change=True,
+        )
 
         assert result.success is True
         assert result.gross_amount == Decimal("2000.00")
