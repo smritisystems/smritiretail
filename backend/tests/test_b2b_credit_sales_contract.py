@@ -547,7 +547,18 @@ async def test_duplicate_invoice_number_raises_409(credit_test_env):
                     invoice_no=custom_inv_no,
                     customer_id=cust_id,
                     status="Draft",
-                    items=[]
+                    items=[
+                        SalesInvoiceItemCreate(
+                            product_id=env["prod_id"],
+                            code=env["prod_code"],
+                            name="Widget",
+                            quantity=Decimal("1.00"),
+                            price=Decimal("100.00"),
+                            gst_rate=Decimal("18.00"),
+                            is_tax_inclusive=False,
+                            total_amount=Decimal("118.00"),
+                        )
+                    ],
                 ),
                 idempotency_key=f"idemp-2-{uuid.uuid4().hex}"
             )
