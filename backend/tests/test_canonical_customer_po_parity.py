@@ -38,7 +38,7 @@ from app.models.auth import User
 from app.models.tenant import Company, Branch
 from app.models.sales import SalesInvoice, SalesInvoiceItem
 from app.models.inventory import Product, Warehouse
-from app.models.crm import Customer, CustomerGroup, CustomerDeliveryLocation
+from app.models.crm import Customer, CustomerDeliveryLocation, CustomerGroup, CustomerPolicy
 from app.models.pos import Shift, CashRegister
 from app.models.customer_po import (
     CustomerPurchaseOrder,
@@ -187,6 +187,24 @@ async def setup_cpo_parity_master_data():
             session.add(cust)
         else:
             cust.customer_group_id = TEST_CUST_GROUP_ID
+
+        customer_policy = (
+            await session.execute(
+                select(CustomerPolicy).where(CustomerPolicy.customer_id == TEST_CUST_ID)
+            )
+        ).scalar_one_or_none()
+        if not customer_policy:
+            customer_policy = CustomerPolicy(
+                id=f"policy_{TEST_CUST_ID}",
+                company_id=TEST_COMPANY_ID,
+                customer_id=TEST_CUST_ID,
+                payment_category="CREDIT",
+                allow_credit_invoice=True,
+            )
+            session.add(customer_policy)
+        else:
+            customer_policy.payment_category = "CREDIT"
+            customer_policy.allow_credit_invoice = True
 
         # 5. Customer Delivery Location
         loc = (await session.execute(select(CustomerDeliveryLocation).where(CustomerDeliveryLocation.id == TEST_LOC_ID))).scalar_one_or_none()
