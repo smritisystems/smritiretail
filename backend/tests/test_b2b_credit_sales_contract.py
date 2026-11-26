@@ -750,7 +750,7 @@ async def test_partial_tender_checks_credit_limit_only_on_unpaid_balance_amount(
                 authorized_transaction_mode_change=True,
             )
         assert exc_info.value.status_code == 400
-        assert "credit limit" in exc_info.value.detail.lower()
+        assert "SMRITI-CREDIT-003" in exc_info.value.detail
 
     # 3. Case B: Allocate ₹1,100.00 to cash and ₹80.00 to credit; the credit portion is within limit.
     async with session_factory() as session:
