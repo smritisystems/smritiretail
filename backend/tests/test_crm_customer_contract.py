@@ -56,7 +56,7 @@ async def test_corporate_customer_creation_and_response_mapping():
         payload = CustomerCreate(
             name=f"Corporate Test Corp {suffix}",
             customer_group_id="CG-Corporate",
-            mobile=f"98{suffix[:8]}",
+            mobile=f"98{int(suffix, 16) % 100000000:08d}",
             email=f"corp_{suffix}@example.com",
             gst_number=f"29AABCT{test_digits}L1ZV",
             status="Active"
@@ -112,7 +112,7 @@ async def test_customer_group_remains_authoritative():
         payload = CustomerCreate(
             name=f"Authoritative Client {suffix}",
             customer_group_id=cg_id,
-            mobile=f"97{suffix[:8]}",
+            mobile=f"97{int(suffix, 16) % 100000000:08d}",
             status="Active"
         )
         created = await service.create_customer(payload)
@@ -150,7 +150,7 @@ async def test_invalid_customer_group_id_handling():
         payload = CustomerCreate(
             name=f"Invalid Group Cust {suffix}",
             customer_group_id=f"cg-nonexistent-{suffix}",
-            mobile=f"96{suffix[:8]}",
+            mobile=f"96{int(suffix, 16) % 100000000:08d}",
             status="Active"
         )
         created = await service.create_customer(payload)
@@ -169,7 +169,7 @@ async def test_duplicate_mobile_constraint():
     - Duplicate mobile number raises HTTPException 400
     """
     suffix = uuid.uuid4().hex[:6]
-    test_mobile = f"95{suffix[:8]}"
+    test_mobile = f"95{int(suffix, 16) % 100000000:08d}"
     session_factory = get_company_sessionmaker("smriti001")
     tenant_ctx = _get_tenant_context()
 

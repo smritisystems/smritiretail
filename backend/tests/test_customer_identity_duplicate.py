@@ -35,6 +35,7 @@ os.environ["INTERNAL_SERVICE_KEY"] = "test-internal-key-smriti"
 os.environ["SGIP_VAULT_MASTER_KEY"] = "test-vault-master-key-smriti-32chars"
 
 from app.api.deps import TenantContext
+from app.models.auth import UserRole
 from app.models.tenant import Company, Branch
 from app.models.crm import (
     Customer, CustomerGroup, CustomerGSTRegistration,
@@ -74,7 +75,11 @@ def make_test_gstin(state_code: str = "27") -> str:
 
 @pytest.fixture
 def tenant_ctx() -> TenantContext:
-    return TenantContext(company_id="COMP-001", branch_id="MAIN")
+    return TenantContext(
+        company_id="COMP-001",
+        branch_id="MAIN",
+        role=UserRole.SYSADMIN,
+    )
 
 
 @pytest.fixture

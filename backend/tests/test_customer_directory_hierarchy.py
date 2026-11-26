@@ -22,6 +22,7 @@ from app.api.v1.crm import customer_directory, list_customer_dependants
 from app.db.session import _company_database_name_cache, get_company_sessionmaker
 from app.models.auth import User, UserRole
 from app.models.crm import CustomerRelationship
+from app.models.tenant import Branch, Company
 from app.schemas.crm import CustomerCreate, CustomerUpdate
 from app.services.crm import CrmService
 
@@ -35,6 +36,34 @@ def ensure_test_db_routing():
     """Ensure company routes strictly to the isolated test database."""
     _company_database_name_cache[TEST_COMPANY_ID] = (TEST_DB, time.time() + 99999)
     _company_database_name_cache["001"] = (TEST_DB, time.time() + 99999)
+
+
+@pytest.fixture(autouse=True)
+async def ensure_test_company_and_branch(ensure_test_db_routing):
+    sessionmaker = get_company_sessionmaker(TEST_DB)
+    async with sessionmaker() as session:
+        company = await session.get(Company, TEST_COMPANY_ID)
+        if company is None:
+            session.add(Company(
+                id=TEST_COMPANY_ID,
+                company_code="COMP001",
+                name="Customer Directory Test Company",
+                is_active=True,
+                is_deleted=False,
+            ))
+            await session.flush()
+
+        branch = await session.get(Branch, TEST_BRANCH_ID)
+        if branch is None:
+            session.add(Branch(
+                id=TEST_BRANCH_ID,
+                code=TEST_BRANCH_ID,
+                name="Customer Directory Test Branch",
+                company_id=TEST_COMPANY_ID,
+                is_active=True,
+                is_deleted=False,
+            ))
+        await session.commit()
 
 
 @pytest.fixture

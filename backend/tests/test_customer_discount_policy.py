@@ -13,6 +13,16 @@ from app.services.customer_discount_policy import (
 from app.api.deps import TenantContext
 from app.schemas.pos import POSCheckoutItem, POSCheckoutRequest
 from app.services.pos import POSService
+from app.services.system_parameter import SystemParameterService
+
+
+@pytest.fixture
+def disable_walk_in_parameter_lookup(monkeypatch):
+    monkeypatch.setattr(
+        SystemParameterService,
+        "resolve_parameter",
+        AsyncMock(return_value=None),
+    )
 
 
 def _policy(*, max_percent="10.00", can_receive=True):
@@ -39,13 +49,14 @@ def test_customer_group_without_discount_permission_is_rejected():
 
 
 @pytest.mark.asyncio
-async def test_pos_bill_percent_discount_over_limit_is_rejected():
+async def test_pos_bill_percent_discount_over_limit_is_rejected(disable_walk_in_parameter_lookup):
     db = AsyncMock()
     db.execute.side_effect = [
         MagicMock(scalars=lambda: MagicMock(first=lambda: SimpleNamespace(customer_group_id="group-1"))),
         MagicMock(scalars=lambda: MagicMock(first=lambda: SimpleNamespace(
             max_discount_percent=Decimal("10.00"), can_receive_discount=True
         ))),
+        MagicMock(scalars=lambda: MagicMock(first=lambda: None)),
     ]
     service = POSService(db, TenantContext(company_id="company-1", branch_id="branch-1"))
     service.get_shift = AsyncMock(return_value=SimpleNamespace(status="OPEN", cashier_id="cashier-1"))
@@ -66,13 +77,14 @@ async def test_pos_bill_percent_discount_over_limit_is_rejected():
 
 
 @pytest.mark.asyncio
-async def test_pos_bill_flat_discount_over_limit_is_rejected():
+async def test_pos_bill_flat_discount_over_limit_is_rejected(disable_walk_in_parameter_lookup):
     db = AsyncMock()
     db.execute.side_effect = [
         MagicMock(scalars=lambda: MagicMock(first=lambda: SimpleNamespace(customer_group_id="group-1"))),
         MagicMock(scalars=lambda: MagicMock(first=lambda: SimpleNamespace(
             max_discount_percent=Decimal("10.00"), can_receive_discount=True
         ))),
+        MagicMock(scalars=lambda: MagicMock(first=lambda: None)),
     ]
     service = POSService(db, TenantContext(company_id="company-1", branch_id="branch-1"))
     service.get_shift = AsyncMock(return_value=SimpleNamespace(status="OPEN", cashier_id="cashier-1"))
