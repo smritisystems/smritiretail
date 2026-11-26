@@ -34,7 +34,7 @@ from app.models.profitability import (
     TransactionCostSnapshot,
     InvoiceProfitabilityLedger,
 )
-from app.models.inventory import Product, StockMovement
+from app.models.inventory import Product, StockMovement, Warehouse
 from app.models.purchase import (
     PurchaseReceipt,
     PurchaseReceiptItem,
@@ -48,6 +48,7 @@ from app.models.tenant import Company
 
 TEST_DB_NAME = "smriti_test_cost_engine"
 TEST_COMPANY_ID = "COMP-COST-TEST"
+TEST_WAREHOUSE_ID = "WH-COST-TEST"
 
 # P0 Database Governance & Test Isolation Guard: Abort if target is shared/live DB
 if TEST_DB_NAME in ("smriti001", "smritisys", "smriti_production", "smritiprod"):
@@ -91,7 +92,17 @@ async def enforce_test_db_isolation():
                     name="Cost Engine Test Company",
                 )
             )
-            await session.commit()
+            await session.flush()
+        if await session.get(Warehouse, TEST_WAREHOUSE_ID) is None:
+            session.add(
+                Warehouse(
+                    id=TEST_WAREHOUSE_ID,
+                    company_id=TEST_COMPANY_ID,
+                    code="COST-TEST",
+                    name="Cost Engine Test Warehouse",
+                )
+            )
+        await session.commit()
 
     async def _override_get_company_db():
         async with session_factory() as session:
@@ -235,6 +246,7 @@ async def test_inward_receipt_valuation_and_landed_costs():
             company_id=TEST_COMPANY_ID,
             receipt_no=f"GRN-COST-{uuid.uuid4().hex[:4]}",
             supplier_id=supp_id,
+            warehouse_id=TEST_WAREHOUSE_ID,
             status="RECEIVED",
             subtotal=Decimal("1000.00"),
             tax_total=Decimal("180.00"),
@@ -348,6 +360,7 @@ async def test_gl_posting_no_double_booking():
             company_id=TEST_COMPANY_ID,
             receipt_no=f"GRN-RECON-{uuid.uuid4().hex[:4]}",
             supplier_id=supp_id,
+            warehouse_id=TEST_WAREHOUSE_ID,
             status="RECEIVED",
             subtotal=Decimal("5000.00"),
             tax_total=Decimal("900.00"),
