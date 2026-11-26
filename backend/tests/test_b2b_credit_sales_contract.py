@@ -145,7 +145,8 @@ async def test_credit_invoice_payment_mode_is_credit(credit_test_env):
                         total_amount=Decimal("118.00")
                     )
                 ]
-            )
+            ),
+            authorized_transaction_mode_change=True,
         )
         assert inv.payment_mode == "CREDIT"
 
@@ -174,7 +175,8 @@ async def test_credit_invoice_paid_amount_is_zero(credit_test_env):
                         total_amount=Decimal("118.00")
                     )
                 ]
-            )
+            ),
+            authorized_transaction_mode_change=True,
         )
         assert Decimal(str(inv.paid_amount)) == Decimal("0.00")
 
@@ -203,7 +205,8 @@ async def test_credit_invoice_balance_amount_equals_grand_total(credit_test_env)
                         total_amount=Decimal("236.00")
                     )
                 ]
-            )
+            ),
+            authorized_transaction_mode_change=True,
         )
         assert Decimal(str(inv.balance_amount)) == Decimal("236.00")
         assert Decimal(str(inv.balance_amount)) == Decimal(str(inv.grand_total))
@@ -249,7 +252,8 @@ async def test_credit_invoice_nonzero_opening_outstanding_delta(credit_test_env)
                         total_amount=Decimal("1180.00")
                     )
                 ]
-            )
+            ),
+            authorized_transaction_mode_change=True,
         )
         assert Decimal(str(inv.grand_total)) == Decimal("1180.00")
         assert Decimal(str(inv.paid_amount)) == Decimal("0.00")
@@ -309,7 +313,10 @@ async def test_credit_control_fails_closed_on_unexpected_crm_error(credit_test_e
 
         # Must raise RuntimeError and NOT succeed
         with pytest.raises(RuntimeError) as exc_info:
-            await sales_svc.create_sales_invoice(inv_payload)
+            await sales_svc.create_sales_invoice(
+                inv_payload,
+                authorized_transaction_mode_change=True,
+            )
         
         assert "CRM Engine Connection Timeout" in str(exc_info.value)
 
@@ -395,7 +402,10 @@ async def test_credit_limit_exceeded_raises_400(credit_test_env):
             ]
         )
         with pytest.raises(HTTPException) as exc_info:
-            await sales_svc.create_sales_invoice(inv_payload)
+            await sales_svc.create_sales_invoice(
+                inv_payload,
+                authorized_transaction_mode_change=True,
+            )
 
         assert exc_info.value.status_code == 400
         assert "SMRITI-CREDIT-001" in exc_info.value.detail or "credit limit" in exc_info.value.detail.lower()
@@ -436,7 +446,10 @@ async def test_credit_hold_raises_400(credit_test_env):
             ]
         )
         with pytest.raises(HTTPException) as exc_info:
-            await sales_svc.create_sales_invoice(inv_payload)
+            await sales_svc.create_sales_invoice(
+                inv_payload,
+                authorized_transaction_mode_change=True,
+            )
 
         assert exc_info.value.status_code == 400
         assert "SMRITI-CREDIT-002" in exc_info.value.detail or "credit hold" in exc_info.value.detail.lower()
