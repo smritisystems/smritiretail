@@ -446,7 +446,7 @@ class ProductResolutionService:
                         success=True,
                         product_id=str(authoritative_product_id),
                         item_id=legacy_row.get("canonical_item_id"),
-                        variant_id=legacy_row.get("canonical_variant_id") or str(authoritative_product_id),
+                        variant_id=legacy_row.get("canonical_variant_id"),
                         sku=legacy_row.get("code") or legacy_row.get("sku") or legacy_row.get("style_code"),
                         barcode=legacy_row.get("barcode"),
                         name=legacy_row.get("name"),
