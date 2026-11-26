@@ -515,7 +515,7 @@ async def test_10_multiple_article_series_category_resolution(test_company):
 
 @pytest.mark.asyncio
 async def test_11_ambiguous_fallback_prevention(test_company):
-    """Test 11 — Ambiguous Fallback: Multiple active category IS NULL series fail with HTTP 409 Conflict."""
+    """Test 11 — Fallback series for multiple terminals fail with HTTP 409 when no terminal is supplied."""
     company_id = test_company
     sessionmaker = get_company_sessionmaker("smriti001")
     async with sessionmaker() as session:
@@ -526,6 +526,7 @@ async def test_11_ambiguous_fallback_prevention(test_company):
             name="Fallback Series 1",
             document_type="ARTICLE",
             category=None,
+            terminal_id="TERM-01",
             prefix="ART1-",
             start_number=1,
             current_number=0,
@@ -539,6 +540,7 @@ async def test_11_ambiguous_fallback_prevention(test_company):
             name="Fallback Series 2",
             document_type="ARTICLE",
             category=None,
+            terminal_id="TERM-02",
             prefix="ART2-",
             start_number=1,
             current_number=0,
