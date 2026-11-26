@@ -34,6 +34,7 @@ from ..models.ui_control_plane import (
 )
 from ..models.menu import SmritiMenu
 from ..models.auth import User
+from .workspace_cap_svc import STANDARD_TEMPLATES
 
 
 class WorkspaceUIRegistryService:
@@ -91,7 +92,14 @@ class WorkspaceUIRegistryService:
             )
             tpl = (await db.execute(stmt_fb)).scalars().first()
 
-        layout_config = tpl.layout_config if tpl else {}
+        resolved_template_code = tpl.code if tpl else target_template_code
+        layout_config = tpl.layout_config if tpl and tpl.layout_config else None
+        if not layout_config:
+            canonical_template = next(
+                (item for item in STANDARD_TEMPLATES if item["code"] == resolved_template_code),
+                None,
+            )
+            layout_config = canonical_template["layout_config"] if canonical_template else {}
         default_widgets = layout_config.get("widgets", ["DAILY_SALES", "SHIFT_DRAWER", "FAST_ITEMS"])
 
         # 3. Resolve persona profile
@@ -117,7 +125,7 @@ class WorkspaceUIRegistryService:
                 shortcuts = []
 
         return {
-            "template_code": tpl.code if tpl else target_template_code,
+            "template_code": resolved_template_code,
             "persona": prof_code,
             "theme_code": prof.theme if prof else "theme-smriti-default",
             "active_capabilities": sorted(list(active_caps)),
