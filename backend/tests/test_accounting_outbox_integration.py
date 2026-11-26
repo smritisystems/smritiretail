@@ -349,7 +349,7 @@ async def test_outbox_gl_dispatcher_strict_idempotency():
 async def test_purchase_receipt_outbox_to_gl_dispatch():
     """
     Verifies that PURCHASE_RECEIPT_POSTED outbox events are dispatched into
-    authoritative double-entry vouchers (Inventory Asset Dr, Creditors Cr, GST Dr).
+    a net-value GR/IR voucher (Inventory Asset Dr, Unbilled GRN Clearing Cr).
     """
     session_factory = get_company_sessionmaker("smriti001")
     unique_suffix = uuid.uuid4().hex[:6]
@@ -394,8 +394,8 @@ async def test_purchase_receipt_outbox_to_gl_dispatch():
         voucher = await UnifiedAccountingLedgerService.dispatch_outbox_event(outbox_event, session=session)
         assert voucher is not None
         assert voucher.voucher_type == "PURCHASE_RECEIPT"
-        assert voucher.total_debit == Decimal("5900.00")
-        assert voucher.total_credit == Decimal("5900.00")
+        assert voucher.total_debit == Decimal("5000.00")
+        assert voucher.total_credit == Decimal("5000.00")
 
 
 @pytest.mark.asyncio
