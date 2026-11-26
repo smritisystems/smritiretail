@@ -248,9 +248,9 @@ async def test_canonical_sales_writer_to_gl_outbox_dispatch():
         assert jv.voucher_type == "SALES_INVOICE"
         assert jv.is_posted is True
 
-        # Verify Strict Double-Entry Balance Invariant: Debit == Credit
-        assert jv.total_debit == Decimal("2360.00")
-        assert jv.total_credit == Decimal("2360.00")
+        # Gross sale (2360.00) plus COGS (2 x 600.00) is posted in this voucher.
+        assert jv.total_debit == Decimal("3560.00")
+        assert jv.total_credit == Decimal("3560.00")
 
         # Verify GeneralLedgerEntry line items
         stmt_gle = select(GeneralLedgerEntry).where(GeneralLedgerEntry.voucher_id == jv.id)
@@ -259,8 +259,8 @@ async def test_canonical_sales_writer_to_gl_outbox_dispatch():
 
         debit_sum = sum(Decimal(str(e.debit_amount)) for e in entries)
         credit_sum = sum(Decimal(str(e.credit_amount)) for e in entries)
-        assert debit_sum == Decimal("2360.00")
-        assert credit_sum == Decimal("2360.00")
+        assert debit_sum == Decimal("3560.00")
+        assert credit_sum == Decimal("3560.00")
 
 
 @pytest.mark.asyncio
