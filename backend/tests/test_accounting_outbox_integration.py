@@ -21,7 +21,7 @@ from sqlalchemy import select, and_
 from app.db.session import get_company_sessionmaker
 from app.models.tenant import Company, Branch
 from app.models.crm import Customer, CustomerGroup
-from app.models.inventory import Product, StockAudit, StockAuditItem
+from app.models.inventory import Product, StockAudit, StockAuditItem, Warehouse
 from app.models.sales import SalesInvoice, SalesInvoiceItem
 from app.models.purchase import PurchaseReceipt, PurchaseReceiptItem, Supplier
 from app.models.payment_ledger import PaymentTransaction
@@ -106,6 +106,22 @@ async def setup_integration_master_data():
                 is_deleted=False,
             )
             session.add(prod)
+
+        warehouse = (
+            await session.execute(select(Warehouse).where(Warehouse.id == "wh_obx_01"))
+        ).scalar_one_or_none()
+        if not warehouse:
+            session.add(
+                Warehouse(
+                    id="wh_obx_01",
+                    company_id="COMP-001",
+                    branch_id="MAIN",
+                    code="WH-OBX-01",
+                    name="Outbox Integration Warehouse",
+                    is_active=True,
+                    is_deleted=False,
+                )
+            )
 
         # 4. Supplier
         supp = (await session.execute(select(Supplier).where(Supplier.id == "SUPP-OBX-01"))).scalar_one_or_none()
@@ -343,6 +359,7 @@ async def test_purchase_receipt_outbox_to_gl_dispatch():
             branch_id="MAIN",
             receipt_no=receipt_no,
             supplier_id="SUPP-OBX-01",
+            warehouse_id="wh_obx_01",
             subtotal=Decimal("5000.00"),
             tax_total=Decimal("900.00"),
             grand_total=Decimal("5900.00"),
