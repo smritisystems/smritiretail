@@ -37,7 +37,7 @@ from app.db.session import get_company_sessionmaker
 from app.models.auth import User
 from app.models.tenant import Company, Branch
 from app.models.sales import SalesInvoice, SalesInvoiceItem
-from app.models.inventory import Product, Warehouse
+from app.models.inventory import Product, StockMovement, Warehouse
 from app.models.crm import Customer, CustomerDeliveryLocation, CustomerGroup, CustomerPolicy
 from app.models.pos import Shift, CashRegister
 from app.models.customer_po import (
@@ -414,6 +414,34 @@ async def setup_cpo_parity_master_data():
                 session.add(pbs)
             else:
                 pbs.quantity = Decimal("1000.0000")
+
+            opening_movement_id = f"stock-opening-{pid}"
+            opening_movement = (
+                await session.execute(
+                    select(StockMovement).where(
+                        StockMovement.id == opening_movement_id
+                    )
+                )
+            ).scalar_one_or_none()
+            if not opening_movement:
+                session.add(
+                    StockMovement(
+                        id=opening_movement_id,
+                        company_id=TEST_COMPANY_ID,
+                        branch_id=TEST_BRANCH_ID,
+                        product_id=pid,
+                        product_name="SMRITI CPO Parity Product",
+                        sku=pid,
+                        quantity=Decimal("1000.00"),
+                        movement_type="OPENING_STOCK",
+                        reference_doc_type="OPENING_STOCK",
+                        reference_doc_id=f"cpo-parity-opening-{pid}",
+                        warehouse_id=wh.id,
+                        is_deleted=False,
+                    )
+                )
+            else:
+                opening_movement.quantity = Decimal("1000.00")
 
         await session.commit()
 
