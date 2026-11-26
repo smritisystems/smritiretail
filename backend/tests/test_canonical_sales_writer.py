@@ -38,7 +38,7 @@ from app.db.session import get_company_sessionmaker
 from app.models.tenant import Company, Branch
 from app.models.sales import SalesInvoice, SalesInvoiceItem
 from app.models.inventory import Product, StockMovement, Warehouse
-from app.models.crm import Customer, CustomerCreditLedgerEntry
+from app.models.crm import Customer, CustomerCreditLedgerEntry, CustomerPolicy
 from app.models.pos import Shift
 from app.schemas.canonical_posting import (
     CanonicalPostingRequest,
@@ -76,6 +76,8 @@ async def setup_test_master_data():
                 credit_limit=Decimal("5000.00"),
                 credit_days=30,
                 max_discount_percent=Decimal("10.00"),
+                can_purchase_on_credit=True,
+                allow_override=True,
                 is_active=True,
                 is_deleted=False,
             )
@@ -83,6 +85,9 @@ async def setup_test_master_data():
         else:
             cg.max_discount_percent = Decimal("10.00")
             cg.can_receive_discount = True
+            cg.credit_limit = Decimal("5000.00")
+            cg.can_purchase_on_credit = True
+            cg.allow_override = True
 
         # 3. Customer linked to CustomerGroup
         cust = (await session.execute(select(Customer).where(Customer.id == "cust_canonical_test_01"))).scalar_one_or_none()
@@ -105,6 +110,27 @@ async def setup_test_master_data():
             cust.customer_group_id = "cg_canon_test_01"
             cust.outstanding = Decimal("0.00")
             session.add(cust)
+
+        customer_policy = (
+            await session.execute(
+                select(CustomerPolicy).where(
+                    CustomerPolicy.customer_id == "cust_canonical_test_01"
+                )
+            )
+        ).scalar_one_or_none()
+        if not customer_policy:
+            session.add(
+                CustomerPolicy(
+                    id="policy_canon_test_01",
+                    company_id="COMP-001",
+                    customer_id="cust_canonical_test_01",
+                    payment_category="CREDIT",
+                    allow_credit_invoice=True,
+                )
+            )
+        else:
+            customer_policy.payment_category = "CREDIT"
+            customer_policy.allow_credit_invoice = True
 
         # 3. Product
         prod = (await session.execute(select(Product).where(Product.code == "PROD-CANON-01"))).scalar_one_or_none()
@@ -414,18 +440,18 @@ async def test_04_credit_limit_enforcement_and_supervisor_override():
         with pytest.raises(HTTPException) as exc_info:
             await CanonicalSalesPostingWriter.post_sales_transaction(session=session, req=req_blocked, commit=False)
         assert exc_info.value.status_code == 400
-        assert "credit limit exceeded" in exc_info.value.detail.lower()
+        assert "SMRITI-CREDIT-003" in exc_info.value.detail
 
-        # Retry with supervisor override code
+        # Retry with an explicitly authorized credit override
         req_allowed = CanonicalPostingRequest(
             context=CanonicalPostingContext(
                 company_id="COMP-001",
                 branch_id="MAIN",
                 idempotency_key=f"TEST-IDEM-CREDIT-ALLOW-{uuid.uuid4().hex[:6]}",
                 source_channel="B2B_WHOLESALE",
-                supervisor_override_code="SUPER-OVERRIDE-99",
             ),
             customer_id="cust_canonical_test_01",
+            credit_override_reason="Approved supervisor credit-limit override for regression test",
             items=[
                 CanonicalPostingLineItem(
                     code="PROD-CANON-01",
@@ -441,7 +467,13 @@ async def test_04_credit_limit_enforcement_and_supervisor_override():
             ],
         )
 
-        res_ok = await CanonicalSalesPostingWriter.post_sales_transaction(session=session, req=req_allowed, commit=True)
+        res_ok = await CanonicalSalesPostingWriter.post_sales_transaction(
+            session=session,
+            req=req_allowed,
+            commit=True,
+            authorized_credit_override=True,
+            credit_override_actor="SUPERVISOR-TEST",
+        )
         assert res_ok.success is True
         assert res_ok.net_amount == Decimal("6000.00")
 
