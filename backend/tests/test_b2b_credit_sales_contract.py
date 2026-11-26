@@ -25,9 +25,9 @@ from fastapi import HTTPException
 from sqlalchemy import select, delete
 from app.db.session import get_company_sessionmaker
 from app.api.deps import TenantContext
-from app.models.crm import Customer, CustomerGroup
+from app.models.crm import Customer, CustomerCreditLedgerEntry, CustomerGroup
 from app.models.inventory import Product, ProductBatchStock, StockMovement
-from app.models.psv import PSVPartySkuTracking, PSVStockBalance, PSVStockEvent
+from app.models.psv import PSVParty, PSVPartySkuTracking, PSVStockBalance, PSVStockEvent
 from app.models.sales import SalesInvoice, SalesInvoiceItem
 from app.schemas.sales import SalesInvoiceCreate, SalesInvoiceItemCreate
 from app.services.sales import SalesService
@@ -121,7 +121,9 @@ async def credit_test_env():
         await session.execute(delete(PSVStockEvent).where(PSVStockEvent.product_id == prod_id))
         await session.execute(delete(PSVStockBalance).where(PSVStockBalance.product_id == prod_id))
         await session.execute(delete(PSVPartySkuTracking).where(PSVPartySkuTracking.product_id == prod_id))
+        await session.execute(delete(PSVParty).where(PSVParty.host_customer_id == cust_id))
         await session.execute(delete(Product).where(Product.id == prod_id))
+        await session.execute(delete(CustomerCreditLedgerEntry).where(CustomerCreditLedgerEntry.customer_id == cust_id))
         await session.execute(delete(Customer).where(Customer.id == cust_id))
         await session.execute(delete(CustomerGroup).where(CustomerGroup.id == cg_id))
         await session.commit()
