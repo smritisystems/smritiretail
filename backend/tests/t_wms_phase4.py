@@ -29,15 +29,10 @@ from app.services.stock_ledger import MovementRequest, StockLedger
 from app.api.deps import TenantContext
 from conftest import utmih_delete_stock_movements
 
-import os
-from urllib.parse import urlparse
-from app.core.config import settings
-_PG_PORT = urlparse(str(settings.DATABASE_URL)).port or int(os.getenv("POSTGRES_PORT", 5432))
-
-from db_test_config import COMPANY_001_ASYNC_URL
+from db_test_config import COMPANY_001_ASYNC_URL, COMPANY_002_ASYNC_URL
 
 DB_001_URL = COMPANY_001_ASYNC_URL
-DB_002_URL = f"postgresql+asyncpg://postgres:postgres@localhost:{_PG_PORT}/smriti002"
+DB_002_URL = COMPANY_002_ASYNC_URL
 
 
 @pytest.fixture
@@ -526,25 +521,11 @@ async def test_stock_audit_multi_company_isolation_smriti002(async_db_002: Async
     prod_id = f"prod-comp2-{unique_suffix}"
     batch_no = f"BATCH-COMP2-{unique_suffix.upper()}"
     created_audit_id = None
+    created_warehouse_id = None
 
     try:
-        # Check warehouse in smriti002 or create fallback
-        wh_res = await async_db_002.execute(
-            select(Warehouse).where(Warehouse.company_id == tenant_ctx_002.company_id, Warehouse.is_deleted == False)
-        )
-        wh = wh_res.scalars().first()
-        if not wh:
-            wh = Warehouse(
-                id=f"wh-002-{unique_suffix}",
-                uuid=str(uuid.uuid4()),
-                company_id=tenant_ctx_002.company_id,
-                branch_id=tenant_ctx_002.branch_id,
-                code=f"WH2-{unique_suffix.upper()}",
-                name="COMP-002 Main Godown",
-                is_central_godown=True
-            )
-            async_db_002.add(wh)
-            await async_db_002.flush()
+        warehouse_id = await _create_test_warehouse(async_db_002, tenant_ctx_002, unique_suffix)
+        created_warehouse_id = warehouse_id
 
         product = Product(
             id=prod_id,
@@ -569,7 +550,7 @@ async def test_stock_audit_multi_company_isolation_smriti002(async_db_002: Async
             uuid=str(uuid.uuid4()),
             company_id=tenant_ctx_002.company_id,
             branch_id=tenant_ctx_002.branch_id,
-            warehouse_id=wh.id,
+            warehouse_id=warehouse_id,
             product_id=prod_id,
             batch_no=batch_no,
             quantity=25.0,
@@ -580,7 +561,7 @@ async def test_stock_audit_multi_company_isolation_smriti002(async_db_002: Async
         await async_db_002.commit()
 
         service = StockAuditService(async_db_002, tenant_ctx_002)
-        audit = await service.create_stock_audit(warehouse_id=wh.id, notes="Tenant 002 audit")
+        audit = await service.create_stock_audit(warehouse_id=warehouse_id, notes="Tenant 002 audit")
         created_audit_id = audit.id
 
         assert audit.company_id == "COMP-002"
@@ -612,6 +593,8 @@ async def test_stock_audit_multi_company_isolation_smriti002(async_db_002: Async
         await utmih_delete_stock_movements(async_db_002, "product_id = :pid", {"pid": prod_id})
         await async_db_002.execute(text("DELETE FROM product_batch_stocks WHERE product_id = :pid"), {"pid": prod_id})
         await async_db_002.execute(text("DELETE FROM products WHERE id = :pid"), {"pid": prod_id})
+        if created_warehouse_id:
+            await async_db_002.execute(text("DELETE FROM warehouses WHERE id = :wid"), {"wid": created_warehouse_id})
         await async_db_002.commit()
 
 

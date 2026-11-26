@@ -14,3 +14,8 @@ COMPANY_001_SYNC_URL = _test_database_url.set(
 COMPANY_001_ASYNC_URL = _test_database_url.set(
     drivername="postgresql+asyncpg"
 ).render_as_string(hide_password=False)
+
+COMPANY_002_ASYNC_URL = _test_database_url.set(
+    database="smriti_test_002",
+    drivername="postgresql+asyncpg",
+).render_as_string(hide_password=False)
