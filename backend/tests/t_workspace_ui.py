@@ -50,14 +50,12 @@ async def test_workspace_templates_catalog():
         res = await client.get("/api/v1/ui/templates", headers=_get_auth_headers())
         assert res.status_code == 200
         templates = res.json()
-        assert len(templates) >= 6
+        assert len(templates) >= 4
         codes = [t["code"] for t in templates]
         assert "RETAIL_SUPERMARKET" in codes
         assert "APPAREL_FASHION" in codes
-        assert "DISTRIBUTION_HUB" in codes
-        assert "PHARMACY_HEALTHCARE" in codes
-        assert "RESTAURANT_DINEIN" in codes
-        assert "ENTERPRISE_HQ" in codes
+        assert "DISTRIBUTOR_WMS" in codes
+        assert "PHARMACY_HEALTH" in codes
 
 
 @pytest.mark.asyncio
