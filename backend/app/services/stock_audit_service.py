@@ -14,6 +14,7 @@ Classification: Internal
 
 import uuid
 from datetime import datetime, timezone
+from decimal import Decimal
 from typing import Dict, Any, Optional, List, Tuple
 from fastapi import HTTPException
 from sqlalchemy import select, text
