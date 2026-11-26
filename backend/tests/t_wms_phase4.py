@@ -72,6 +72,44 @@ def tenant_ctx_002():
     )
 
 
+async def _ensure_test_warehouse(
+    session: AsyncSession,
+    tenant: TenantContext,
+    unique_suffix: str,
+):
+    warehouse = (
+        await session.execute(
+            select(Warehouse)
+            .where(
+                Warehouse.company_id == tenant.company_id,
+                Warehouse.branch_id == tenant.branch_id,
+                Warehouse.is_active.is_(True),
+                Warehouse.is_deleted.is_(False),
+            )
+            .order_by(Warehouse.code)
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if warehouse:
+        return warehouse.id, None
+
+    warehouse_id = f"wh-audit-{unique_suffix}"
+    session.add(
+        Warehouse(
+            id=warehouse_id,
+            uuid=str(uuid.uuid4()),
+            company_id=tenant.company_id,
+            branch_id=tenant.branch_id,
+            code=f"AUDIT-{unique_suffix.upper()}",
+            name=f"Stock Audit Test Warehouse {unique_suffix}",
+            is_active=True,
+            is_deleted=False,
+        )
+    )
+    await session.flush()
+    return warehouse_id, warehouse_id
+
+
 @pytest.mark.asyncio
 async def test_stock_audit_creation_and_baseline_snapshot(async_db: AsyncSession, tenant_ctx: TenantContext):
     """
@@ -83,8 +121,10 @@ async def test_stock_audit_creation_and_baseline_snapshot(async_db: AsyncSession
     batch_1 = f"BATCH-AUD1-A-{unique_suffix.upper()}"
     batch_2 = f"BATCH-AUD1-B-{unique_suffix.upper()}"
     created_audit_id = None
+    created_warehouse_id = None
 
     try:
+        warehouse_id, created_warehouse_id = await _ensure_test_warehouse(async_db, tenant_ctx, unique_suffix)
         # 1. Insert test product with reserved_stock
         product = Product(
             id=prod_id,
@@ -104,13 +144,13 @@ async def test_stock_audit_creation_and_baseline_snapshot(async_db: AsyncSession
         )
         async_db.add(product)
 
-        # 2. Insert 2 active batches in wh-central-001
+        # 2. Insert 2 active batches in the test warehouse
         pb1 = ProductBatchStock(
             id=f"pbs-aud1-a-{unique_suffix}",
             uuid=str(uuid.uuid4()),
             company_id=tenant_ctx.company_id,
             branch_id=tenant_ctx.branch_id,
-            warehouse_id="wh-central-001",
+            warehouse_id=warehouse_id,
             product_id=prod_id,
             batch_no=batch_1,
             quantity=20.0,
@@ -122,7 +162,7 @@ async def test_stock_audit_creation_and_baseline_snapshot(async_db: AsyncSession
             uuid=str(uuid.uuid4()),
             company_id=tenant_ctx.company_id,
             branch_id=tenant_ctx.branch_id,
-            warehouse_id="wh-central-001",
+            warehouse_id=warehouse_id,
             product_id=prod_id,
             batch_no=batch_2,
             quantity=10.0,
@@ -136,7 +176,7 @@ async def test_stock_audit_creation_and_baseline_snapshot(async_db: AsyncSession
         # 3. Create Audit Snapshot
         service = StockAuditService(async_db, tenant_ctx)
         audit = await service.create_stock_audit(
-            warehouse_id="wh-central-001",
+            warehouse_id=warehouse_id,
             audit_type="CYCLE_COUNT",
             notes="Snapshot test audit"
         )
@@ -144,7 +184,7 @@ async def test_stock_audit_creation_and_baseline_snapshot(async_db: AsyncSession
 
         assert audit.audit_no.startswith("AUD-")
         assert audit.status == "IN_PROGRESS"
-        assert audit.warehouse_id == "wh-central-001"
+        assert audit.warehouse_id == warehouse_id
         assert len(audit.items) >= 2
 
         # Verify our items are snapshotted
@@ -171,6 +211,8 @@ async def test_stock_audit_creation_and_baseline_snapshot(async_db: AsyncSession
             await async_db.execute(text("DELETE FROM stock_audits WHERE id = :aid"), {"aid": created_audit_id})
         await async_db.execute(text("DELETE FROM product_batch_stocks WHERE product_id = :pid"), {"pid": prod_id})
         await async_db.execute(text("DELETE FROM products WHERE id = :pid"), {"pid": prod_id})
+        if created_warehouse_id:
+            await async_db.execute(text("DELETE FROM warehouses WHERE id = :wid"), {"wid": created_warehouse_id})
         await async_db.commit()
 
 
@@ -185,8 +227,10 @@ async def test_stock_audit_barcode_scanning_and_secondary_barcodes(async_db: Asy
     sec_barcode = f"BAR-SEC-{unique_suffix.upper()}"
     batch_no = f"BATCH-SCAN-{unique_suffix.upper()}"
     created_audit_id = None
+    created_warehouse_id = None
 
     try:
+        warehouse_id, created_warehouse_id = await _ensure_test_warehouse(async_db, tenant_ctx, unique_suffix)
         product = Product(
             id=prod_id,
             uuid=str(uuid.uuid4()),
@@ -211,7 +255,7 @@ async def test_stock_audit_barcode_scanning_and_secondary_barcodes(async_db: Asy
             uuid=str(uuid.uuid4()),
             company_id=tenant_ctx.company_id,
             branch_id=tenant_ctx.branch_id,
-            warehouse_id="wh-central-001",
+            warehouse_id=warehouse_id,
             product_id=prod_id,
             batch_no=batch_no,
             quantity=15.0,
@@ -222,7 +266,7 @@ async def test_stock_audit_barcode_scanning_and_secondary_barcodes(async_db: Asy
         await async_db.commit()
 
         service = StockAuditService(async_db, tenant_ctx)
-        audit = await service.create_stock_audit(warehouse_id="wh-central-001")
+        audit = await service.create_stock_audit(warehouse_id=warehouse_id)
         created_audit_id = audit.id
 
         # Scan 1: Using Primary Barcode (+5)
@@ -257,6 +301,8 @@ async def test_stock_audit_barcode_scanning_and_secondary_barcodes(async_db: Asy
             await async_db.execute(text("DELETE FROM stock_audits WHERE id = :aid"), {"aid": created_audit_id})
         await async_db.execute(text("DELETE FROM product_batch_stocks WHERE product_id = :pid"), {"pid": prod_id})
         await async_db.execute(text("DELETE FROM products WHERE id = :pid"), {"pid": prod_id})
+        if created_warehouse_id:
+            await async_db.execute(text("DELETE FROM warehouses WHERE id = :wid"), {"wid": created_warehouse_id})
         await async_db.commit()
 
 
@@ -270,8 +316,10 @@ async def test_stock_audit_reconciliation_deficit_write_off(async_db: AsyncSessi
     prod_id = f"prod-def-{unique_suffix}"
     batch_no = f"BATCH-DEF-{unique_suffix.upper()}"
     created_audit_id = None
+    created_warehouse_id = None
 
     try:
+        warehouse_id, created_warehouse_id = await _ensure_test_warehouse(async_db, tenant_ctx, unique_suffix)
         product = Product(
             id=prod_id,
             uuid=str(uuid.uuid4()),
@@ -295,7 +343,7 @@ async def test_stock_audit_reconciliation_deficit_write_off(async_db: AsyncSessi
             uuid=str(uuid.uuid4()),
             company_id=tenant_ctx.company_id,
             branch_id=tenant_ctx.branch_id,
-            warehouse_id="wh-central-001",
+            warehouse_id=warehouse_id,
             product_id=prod_id,
             batch_no=batch_no,
             quantity=50.0,
@@ -306,7 +354,7 @@ async def test_stock_audit_reconciliation_deficit_write_off(async_db: AsyncSessi
         await async_db.commit()
 
         service = StockAuditService(async_db, tenant_ctx)
-        audit = await service.create_stock_audit(warehouse_id="wh-central-001")
+        audit = await service.create_stock_audit(warehouse_id=warehouse_id)
         created_audit_id = audit.id
 
         target_item = next(it for it in audit.items if it.product_id == prod_id)
@@ -350,7 +398,7 @@ async def test_stock_audit_reconciliation_deficit_write_off(async_db: AsyncSessi
         sm = sm_res.scalar_one()
         assert sm.movement_type == "OUTWARD_LOSS"
         assert float(sm.quantity) == 8.0
-        assert sm.warehouse_id == "wh-central-001"
+        assert sm.warehouse_id == warehouse_id
         assert sm.batch == batch_no
         assert "Audit Write-off: DAMAGED" in sm.remarks
 
@@ -365,6 +413,8 @@ async def test_stock_audit_reconciliation_deficit_write_off(async_db: AsyncSessi
         await utmih_delete_stock_movements(async_db, "product_id = :pid", {"pid": prod_id})
         await async_db.execute(text("DELETE FROM product_batch_stocks WHERE product_id = :pid"), {"pid": prod_id})
         await async_db.execute(text("DELETE FROM products WHERE id = :pid"), {"pid": prod_id})
+        if created_warehouse_id:
+            await async_db.execute(text("DELETE FROM warehouses WHERE id = :wid"), {"wid": created_warehouse_id})
         await async_db.commit()
 
 
@@ -378,8 +428,10 @@ async def test_stock_audit_reconciliation_surplus_inward(async_db: AsyncSession,
     prod_id = f"prod-sur-{unique_suffix}"
     batch_no = f"BATCH-SUR-{unique_suffix.upper()}"
     created_audit_id = None
+    created_warehouse_id = None
 
     try:
+        warehouse_id, created_warehouse_id = await _ensure_test_warehouse(async_db, tenant_ctx, unique_suffix)
         product = Product(
             id=prod_id,
             uuid=str(uuid.uuid4()),
@@ -403,7 +455,7 @@ async def test_stock_audit_reconciliation_surplus_inward(async_db: AsyncSession,
             uuid=str(uuid.uuid4()),
             company_id=tenant_ctx.company_id,
             branch_id=tenant_ctx.branch_id,
-            warehouse_id="wh-central-001",
+            warehouse_id=warehouse_id,
             product_id=prod_id,
             batch_no=batch_no,
             quantity=10.0,
@@ -414,7 +466,7 @@ async def test_stock_audit_reconciliation_surplus_inward(async_db: AsyncSession,
         await async_db.commit()
 
         service = StockAuditService(async_db, tenant_ctx)
-        audit = await service.create_stock_audit(warehouse_id="wh-central-001")
+        audit = await service.create_stock_audit(warehouse_id=warehouse_id)
         created_audit_id = audit.id
 
         target_item = next(it for it in audit.items if it.product_id == prod_id)
@@ -468,6 +520,8 @@ async def test_stock_audit_reconciliation_surplus_inward(async_db: AsyncSession,
         await utmih_delete_stock_movements(async_db, "product_id = :pid", {"pid": prod_id})
         await async_db.execute(text("DELETE FROM product_batch_stocks WHERE product_id = :pid"), {"pid": prod_id})
         await async_db.execute(text("DELETE FROM products WHERE id = :pid"), {"pid": prod_id})
+        if created_warehouse_id:
+            await async_db.execute(text("DELETE FROM warehouses WHERE id = :wid"), {"wid": created_warehouse_id})
         await async_db.commit()
 
 
@@ -579,8 +633,10 @@ async def test_stock_audit_intervening_movement_detection_and_locking(async_db: 
     prod_id = f"prod-inter-{unique_suffix}"
     batch_no = f"BATCH-INTER-{unique_suffix.upper()}"
     created_audit_id = None
+    created_warehouse_id = None
 
     try:
+        warehouse_id, created_warehouse_id = await _ensure_test_warehouse(async_db, tenant_ctx, unique_suffix)
         product = Product(
             id=prod_id,
             uuid=str(uuid.uuid4()),
@@ -604,7 +660,7 @@ async def test_stock_audit_intervening_movement_detection_and_locking(async_db: 
             uuid=str(uuid.uuid4()),
             company_id=tenant_ctx.company_id,
             branch_id=tenant_ctx.branch_id,
-            warehouse_id="wh-central-001",
+            warehouse_id=warehouse_id,
             product_id=prod_id,
             batch_no=batch_no,
             quantity=100.0,
@@ -616,7 +672,7 @@ async def test_stock_audit_intervening_movement_detection_and_locking(async_db: 
 
         # Step 1: Snapshot audit
         service = StockAuditService(async_db, tenant_ctx)
-        audit = await service.create_stock_audit(warehouse_id="wh-central-001")
+        audit = await service.create_stock_audit(warehouse_id=warehouse_id)
         created_audit_id = audit.id
 
         # Step 2: Intervening sale / dispatch occurs while counting
@@ -630,7 +686,7 @@ async def test_stock_audit_intervening_movement_detection_and_locking(async_db: 
             sku=product.sku,
             movement_type="OUT",
             quantity=10.0,
-            warehouse_id="wh-central-001",
+            warehouse_id=warehouse_id,
             batch=batch_no,
             reference_doc_type="SALES_INVOICE",
             reference_doc_id=f"INV-{unique_suffix.upper()}",
@@ -673,4 +729,6 @@ async def test_stock_audit_intervening_movement_detection_and_locking(async_db: 
         await utmih_delete_stock_movements(async_db, "product_id = :pid", {"pid": prod_id})
         await async_db.execute(text("DELETE FROM product_batch_stocks WHERE product_id = :pid"), {"pid": prod_id})
         await async_db.execute(text("DELETE FROM products WHERE id = :pid"), {"pid": prod_id})
+        if created_warehouse_id:
+            await async_db.execute(text("DELETE FROM warehouses WHERE id = :wid"), {"wid": created_warehouse_id})
         await async_db.commit()
