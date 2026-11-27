@@ -134,7 +134,8 @@ jobs:
         continue-on-error: true
       
       - name: Run pytest
-        run: cd backend && pytest tests/ -v --cov=app --cov-report=xml
+        working-directory: backend
+        run: python -m pytest tests/ -v --cov=app --cov-report=xml
         env:
           DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/smritisys
           JWT_SECRET_KEY: ci_test_secret_do_not_use_in_prod
