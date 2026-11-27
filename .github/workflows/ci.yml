@@ -95,7 +95,11 @@ jobs:
 
     env:
       DATABASE_URL: "postgresql+asyncpg://postgres:postgres@localhost:5432/smritisys"
+      POSTGRES_HOST: "localhost"
       POSTGRES_PORT: "5432"
+      POSTGRES_USER: "postgres"
+      POSTGRES_PASSWORD: "postgres"
+      POSTGRES_DB: "smritisys"
       JWT_SECRET_KEY: "ci-test-secret-key-minimum-32-chars-ok"
       INTERNAL_SERVICE_KEY: "ci-test-internal-svc-key-min-32chars"
       SGIP_VAULT_MASTER_KEY: "ci-test-vault-master-key-32-chars-k"
