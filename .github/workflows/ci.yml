@@ -158,8 +158,16 @@ jobs:
             echo "No changed backend Python files to lint."
           fi
 
+      - name: Mark control-plane CI database as disposable
+        run: |
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -c "CREATE TABLE IF NOT EXISTS public.smriti_test_database_marker (marker_name TEXT PRIMARY KEY, marker_value TEXT NOT NULL)" \
+            -c "INSERT INTO public.smriti_test_database_marker (marker_name, marker_value) VALUES ('environment', 'disposable-local-test-database') ON CONFLICT (marker_name) DO UPDATE SET marker_value = EXCLUDED.marker_value"
+        env:
+          DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/smritisys"
+
       - name: Run Alembic Migrations (smritisys control plane)
-        run: alembic -x target=control -x db=smritisys upgrade control@head
+        run: alembic -x target=control -x db=smritisys -x test_scope_filter=true upgrade control@head
         env:
           DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/smritisys"
           PYTHONPATH: ${{ github.workspace }}/backend
@@ -171,6 +179,9 @@ jobs:
             if [[ "$exists" != "1" ]]; then
               PGPASSWORD=postgres createdb -h localhost -U postgres "$db"
             fi
+            PGPASSWORD=postgres psql -h localhost -U postgres -d "$db" -v ON_ERROR_STOP=1 \
+              -c "CREATE TABLE IF NOT EXISTS public.smriti_test_database_marker (marker_name TEXT PRIMARY KEY, marker_value TEXT NOT NULL)" \
+              -c "INSERT INTO public.smriti_test_database_marker (marker_name, marker_value) VALUES ('environment', 'disposable-local-test-database') ON CONFLICT (marker_name) DO UPDATE SET marker_value = EXCLUDED.marker_value"
           done
 
       - name: Reject edits to shipped Alembic revisions
@@ -189,13 +200,13 @@ jobs:
           python ../scripts/check_immutable_migrations.py "$BASE_SHA" "$GITHUB_SHA"
 
       - name: Run Alembic Migrations (smriti_test_001 company plane)
-        run: alembic -x target=tenant -x db=smriti_test_001 upgrade tenant@head
+        run: alembic -x target=tenant -x db=smriti_test_001 -x test_scope_filter=true upgrade tenant@head
         env:
           DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/smriti_test_001"
           PYTHONPATH: ${{ github.workspace }}/backend
 
       - name: Run Alembic Migrations (smriti_test_002 company plane)
-        run: alembic -x target=tenant -x db=smriti_test_002 upgrade tenant@head
+        run: alembic -x target=tenant -x db=smriti_test_002 -x test_scope_filter=true upgrade tenant@head
         env:
           DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/smriti_test_002"
           PYTHONPATH: ${{ github.workspace }}/backend

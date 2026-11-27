@@ -359,11 +359,15 @@ def check_migration_contracts_declared(root: Path, verbose: bool) -> List[Violat
     env_file = root / "backend" / "alembic" / "env.py"
     if env_file.exists():
         content = env_file.read_text(encoding="utf-8", errors="ignore")
-        if "TENANT_OWNED_TABLES" not in content:
+        if (
+            "from app.db.migration_scope import" not in content
+            or "is_table_allowed_for_target" not in content
+            or "if not is_table_allowed_for_target(name, target)" not in content
+        ):
             violations.append(Violation(
                 env_file, 0,
-                "env.py not using TENANT_OWNED_TABLES",
-                "backend/alembic/env.py does not import TENANT_OWNED_TABLES from app.db.ownership."
+                "env.py missing target-aware table ownership filtering",
+                "backend/alembic/env.py must apply is_table_allowed_for_target() from app.db.migration_scope."
             ))
     return violations
 
