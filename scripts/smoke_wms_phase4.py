@@ -12,14 +12,15 @@ License      : Proprietary Commercial Software
 Classification: Internal
 """
 
+import asyncio
 import os
 import sys
 import uuid
-import asyncio
-import psycopg2
+from datetime import datetime, timedelta, timezone
+
 import httpx
-from datetime import datetime, timezone, timedelta
-from jose import jwt
+import jwt
+import psycopg2
 
 # Add backend directory to sys.path
 sys.path.insert(0, os.path.abspath("backend"))

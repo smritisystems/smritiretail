@@ -43,7 +43,7 @@ jobs:
           fetch-depth: 0
 
       - name: Run SMRITI Naming Guard (NGP-v1.0)
-        run: python scripts/smriti_naming_guard.py --root .
+        run: python scripts/smriti_naming_guard.py --root . --base-ref "${{ github.event.pull_request.base.sha || github.event.before }}"
 
       - name: Run Gitleaks Secret Scanner
         uses: gitleaks/gitleaks-action@v2
@@ -53,13 +53,13 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 18
+          node-version: 20
           cache: 'npm'
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: '3.12'
           cache: 'pip'
           cache-dependency-path: 'backend/requirements.txt'
 
@@ -88,21 +88,33 @@ jobs:
         working-directory: backend
         env:
           DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/smritisys
+          JWT_SECRET_KEY: ci_test_secret_do_not_use_in_prod
+          INTERNAL_SERVICE_KEY: ci_test_internal_service_key_do_not_use_in_prod
+          SGIP_VAULT_MASTER_KEY: ci_vault_master_key_do_not_use_in_prod
         run: alembic upgrade head
 
       - name: Run Alembic Company Business Database Migrations
         working-directory: backend
         env:
           DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/smriti001
+          JWT_SECRET_KEY: ci_test_secret_do_not_use_in_prod
+          INTERNAL_SERVICE_KEY: ci_test_internal_service_key_do_not_use_in_prod
+          SGIP_VAULT_MASTER_KEY: ci_vault_master_key_do_not_use_in_prod
         run: alembic upgrade head
 
       - name: Run Read-Only Schema Drift Audit
-        run: python scripts/audit_sqlalchemy_schema_drift.py smriti001 smritisys
+        env:
+          JWT_SECRET_KEY: ci_test_secret_do_not_use_in_prod
+          INTERNAL_SERVICE_KEY: ci_test_internal_service_key_do_not_use_in_prod
+          SGIP_VAULT_MASTER_KEY: ci_vault_master_key_do_not_use_in_prod
+        run: python scripts/audit_schema_drift.py smriti001 smritisys
 
       - name: Run Python Backend Tests
         working-directory: backend
         env:
           DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/smritisys
           JWT_SECRET_KEY: ci_test_secret_do_not_use_in_prod
+          INTERNAL_SERVICE_KEY: ci_test_internal_service_key_do_not_use_in_prod
           SGIP_VAULT_MASTER_KEY: ci_vault_master_key_do_not_use_in_prod
-        run: pytest -v
+          ENVIRONMENT: test
+        run: python -m pytest -v

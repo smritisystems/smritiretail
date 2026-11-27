@@ -95,6 +95,7 @@ async def _ensure_schema_compatibility(conn):
         "ALTER TABLE IF EXISTS sales_order_invoice_allocations ADD COLUMN IF NOT EXISTS invoice_qty NUMERIC(15, 4) DEFAULT 0.0000;",
         "ALTER TABLE IF EXISTS sales_order_invoice_allocations ADD COLUMN IF NOT EXISTS pending_qty NUMERIC(15, 4) DEFAULT 0.0000;",
         "ALTER TABLE IF EXISTS sales_order_invoice_allocations ADD COLUMN IF NOT EXISTS pending_amount NUMERIC(15, 2) DEFAULT 0.00;",
+        "ALTER TABLE IF EXISTS sales_order_invoice_allocations ADD COLUMN IF NOT EXISTS uuid VARCHAR(36);",
     ]
     for stmt in schema_fixes:
         try:
@@ -250,7 +251,7 @@ async def clear_db(db_session: AsyncSession):
         "branches",
         "company_financial_years",
         "company_tax_profiles",
-        "company_database_registry",
+        "company_database_registries",
         "company_center",
         "smriti_theme_variants",
         "smriti_themes",

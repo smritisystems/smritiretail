@@ -14,6 +14,8 @@ import pytest
 from httpx import AsyncClient, ASGITransport
 from app.main import app
 from app.core.config import settings
+from app.models.company_registry import CompanyDatabaseRegistry
+from app.models.tenant import Company
 
 
 @pytest.mark.asyncio
@@ -32,8 +34,26 @@ async def test_ecom_channels_status():
 import uuid
 
 @pytest.mark.asyncio
-async def test_ecom_webhook_ingress_routing():
+async def test_ecom_webhook_ingress_routing(db_session):
     unique_ord = f"SHOP-TEST-{uuid.uuid4().hex[:8]}"
+    db_session.add_all(
+        [
+            Company(
+                id="COMP-001",
+                name="E-commerce Test Company",
+                is_active=True,
+                is_deleted=False,
+            ),
+            CompanyDatabaseRegistry(
+                company_id="COMP-001",
+                database_id="db-ecom-test",
+                database_name="smritisys",
+                status="READY",
+            ),
+        ]
+    )
+    await db_session.commit()
+
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         payload = {
             "channel": "shopify",
@@ -43,7 +63,6 @@ async def test_ecom_webhook_ingress_routing():
         }
         headers = {
             "X-Company-ID": "COMP-001",
-            "X-Company-Code": "001",
             "X-Internal-Service-Key": settings.INTERNAL_SERVICE_KEY,
         }
         response = await ac.post("/api/v1/ecom/webhooks/ingress", json=payload, headers=headers)

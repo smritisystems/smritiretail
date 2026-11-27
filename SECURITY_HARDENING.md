@@ -244,7 +244,9 @@ JWT_REFRESH_EXPIRE_MINUTES=43200    # (same as 30 days)
 **Implementation** (backend):
 ```python
 from datetime import datetime, timedelta
-from jose import JWTError, jwt
+
+import jwt
+from jwt.exceptions import PyJWTError
 
 def create_access_token(subject: str, expires_delta: Optional[timedelta] = None):
     if expires_delta:
@@ -285,7 +287,7 @@ async def refresh_token(request: Request):
         
         return {"access_token": new_access_token, "token_type": "bearer"}
     
-    except JWTError:
+    except PyJWTError:
         raise HTTPException(status_code=401, detail="Invalid refresh token")
 ```
 

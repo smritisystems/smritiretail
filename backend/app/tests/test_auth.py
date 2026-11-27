@@ -35,6 +35,7 @@ from app.models.auth import User, RefreshTokenBlacklist, UserRole
 from app.models.tenant import Company, Branch
 from app.api.deps import get_db
 from app.core.security import hash_password, create_access_token, create_refresh_token
+from app.models.master_lookup import MasterType, MasterValue
 
 from app.tests.conftest import clear_db
 
@@ -59,8 +60,7 @@ from app.models.company_registry import CompanyDatabaseRegistry
 
 
 async def _make_tenant(db_session, suffix: str):
-    # Generate valid 3-character company code from suffix (e.g., "002277" -> "022")
-    valid_code = suffix[:3].upper() if len(suffix) >= 3 else (suffix + "000")[:3].upper()
+    valid_code = suffix[-3:].upper() if len(suffix) >= 3 else (suffix + "000")[:3].upper()
     
     company = Company(
         id=f"comp-auth-{suffix}",
@@ -576,6 +576,21 @@ async def test_role_guard_manager_can_create_product(db_session):
     comp, br = await _make_tenant(db_session, suffix)
     user = await _make_user(db_session, suffix, UserRole.MANAGER,
                             company_id=comp.id, branch_id=br.id)
+    category_type = MasterType(
+        code="category",
+        label="Category",
+        field_schema={},
+    )
+    db_session.add(category_type)
+    await db_session.flush()
+    db_session.add(
+        MasterValue(
+            master_type_id=category_type.id,
+            code="general",
+            name="General",
+        )
+    )
+    await db_session.commit()
 
     token = create_access_token({
         "sub": user.id, "username": user.username,

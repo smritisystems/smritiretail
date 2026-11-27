@@ -192,7 +192,6 @@ def get_target_db_url() -> str:
     if "db" in x_args:
         db_name = x_args["db"]
         from urllib.parse import urlparse
-        import os
         parsed = urlparse(settings.DATABASE_URL)
         scheme = parsed.scheme or "postgresql+asyncpg"
         user = os.getenv("POSTGRES_USER") or parsed.username
@@ -201,7 +200,7 @@ def get_target_db_url() -> str:
         port = int(os.getenv("POSTGRES_PORT") or parsed.port or 5432)
         auth = f"{user}:{password}@" if (user and password) else (f"{user}@" if user else "")
         return f"{scheme}://{auth}{host}:{port}/{db_name}"
-    return config.get_main_option("sqlalchemy.url") or settings.DATABASE_URL
+    return os.getenv("DATABASE_URL") or config.get_main_option("sqlalchemy.url") or settings.DATABASE_URL
 
 
 

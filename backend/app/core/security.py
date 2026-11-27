@@ -23,14 +23,16 @@ Founders
 * License    : Proprietary Commercial Software
 """
 
-from datetime import datetime, timezone, timedelta
-from typing import Optional
-from jose import JWTError, jwt
+import binascii
+import hashlib
+from datetime import datetime, timedelta, timezone
+
+import jwt
 from fastapi import HTTPException
+from jwt.exceptions import PyJWTError
 from passlib.context import CryptContext
 from passlib.exc import MissingBackendError
-import hashlib
-import binascii
+
 from .config import settings
 
 pwd_context = CryptContext(
@@ -110,7 +112,7 @@ def validate_password_strength(password: str) -> None:
 
 
 # ---------------------------------------------------------------------------
-# JWT helpers — python-jose
+# JWT helpers — PyJWT
 # ---------------------------------------------------------------------------
 
 def create_access_token(data: dict) -> str:
@@ -159,7 +161,7 @@ def decode_token(token: str) -> dict:
             algorithms=[settings.JWT_ALGORITHM],
         )
         return payload
-    except JWTError:
+    except PyJWTError:
         raise HTTPException(
             status_code=401,
             detail="Token is invalid or has expired. Please log in again.",

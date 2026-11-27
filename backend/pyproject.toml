@@ -26,10 +26,11 @@ pydantic-settings = "^2.3.4"
 sqlalchemy = "^2.0.30"
 asyncpg = "^0.29.0"
 alembic = "^1.13.1"
-python-dotenv = "^1.0.1"
-python-jose = {extras = ["cryptography"], version = "^3.3.0"}
+python-dotenv = "^1.2.4"
+PyJWT = {extras = ["crypto"], version = "^2.15.1"}
 passlib = {extras = ["bcrypt", "argon2"], version = "^1.7.5"}
 gunicorn = "^22.0.0"
+openpyxl = "^3.1.5"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.2.1"
