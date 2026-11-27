@@ -30,6 +30,7 @@ python-dotenv = "^1.2.4"
 PyJWT = {extras = ["crypto"], version = "^2.15.1"}
 passlib = {extras = ["bcrypt", "argon2"], version = "^1.7.5"}
 gunicorn = "^22.0.0"
+openpyxl = "^3.1.5"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.2.1"

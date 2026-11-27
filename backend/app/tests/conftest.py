@@ -250,7 +250,7 @@ async def clear_db(db_session: AsyncSession):
         "branches",
         "company_financial_years",
         "company_tax_profiles",
-        "company_database_registry",
+        "company_database_registries",
         "company_center",
         "smriti_theme_variants",
         "smriti_themes",

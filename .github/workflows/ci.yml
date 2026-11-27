@@ -82,12 +82,14 @@ jobs:
           if [ -f backend/dev.txt ]; then pip install -r backend/dev.txt; fi
 
       - name: Create Company Business Database (smriti001)
-        run: PGPASSWORD=postgres psql -h localhost -U postgres -c "CREATE DATABASE smriti001;"
+        run: |
+          PGPASSWORD=postgres psql -h localhost -U postgres -c "CREATE DATABASE smriti001;"
+          PGPASSWORD=postgres psql -h localhost -U postgres -c "CREATE DATABASE smritisys_migrations;"
 
-      - name: Run Alembic Control Plane Migrations
+      - name: Run Alembic Control Plane Migration Validation
         working-directory: backend
         env:
-          DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/smritisys
+          DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/smritisys_migrations
           JWT_SECRET_KEY: ci_test_secret_do_not_use_in_prod
           INTERNAL_SERVICE_KEY: ci_test_internal_service_key_do_not_use_in_prod
           SGIP_VAULT_MASTER_KEY: ci_vault_master_key_do_not_use_in_prod
@@ -107,7 +109,7 @@ jobs:
           JWT_SECRET_KEY: ci_test_secret_do_not_use_in_prod
           INTERNAL_SERVICE_KEY: ci_test_internal_service_key_do_not_use_in_prod
           SGIP_VAULT_MASTER_KEY: ci_vault_master_key_do_not_use_in_prod
-        run: python scripts/audit_schema_drift.py smriti001 smritisys
+        run: python scripts/audit_schema_drift.py smriti001 smritisys_migrations
 
       - name: Run Python Backend Tests
         working-directory: backend
