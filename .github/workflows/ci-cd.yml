@@ -104,6 +104,15 @@ jobs:
           pip install --upgrade pip
           pip install -r backend/dev.txt
 
+      - name: Run Alembic Control Plane Migrations
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/smritisys
+          JWT_SECRET_KEY: ci_test_secret_do_not_use_in_prod
+          INTERNAL_SERVICE_KEY: ci_test_internal_service_key_do_not_use_in_prod
+          SGIP_VAULT_MASTER_KEY: ci_vault_master_key_do_not_use_in_prod
+        run: alembic upgrade head
+
       - name: Run pylint
         run: cd backend && pylint app --fail-under=8.0 2>/dev/null || true
         continue-on-error: true

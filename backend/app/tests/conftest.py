@@ -95,6 +95,7 @@ async def _ensure_schema_compatibility(conn):
         "ALTER TABLE IF EXISTS sales_order_invoice_allocations ADD COLUMN IF NOT EXISTS invoice_qty NUMERIC(15, 4) DEFAULT 0.0000;",
         "ALTER TABLE IF EXISTS sales_order_invoice_allocations ADD COLUMN IF NOT EXISTS pending_qty NUMERIC(15, 4) DEFAULT 0.0000;",
         "ALTER TABLE IF EXISTS sales_order_invoice_allocations ADD COLUMN IF NOT EXISTS pending_amount NUMERIC(15, 2) DEFAULT 0.00;",
+        "ALTER TABLE IF EXISTS sales_order_invoice_allocations ADD COLUMN IF NOT EXISTS uuid VARCHAR(36);",
     ]
     for stmt in schema_fixes:
         try:
