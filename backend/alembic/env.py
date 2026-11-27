@@ -192,7 +192,6 @@ def get_target_db_url() -> str:
     if "db" in x_args:
         db_name = x_args["db"]
         from urllib.parse import urlparse
-        import os
         parsed = urlparse(settings.DATABASE_URL)
         scheme = parsed.scheme or "postgresql+asyncpg"
         user = os.getenv("POSTGRES_USER") or parsed.username
