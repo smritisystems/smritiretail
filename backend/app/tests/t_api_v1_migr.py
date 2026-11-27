@@ -10,9 +10,9 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
-import uuid
+import jwt
 import pytest
-from jose import jwt
+import uuid
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy import delete
 from sqlalchemy.future import select
@@ -228,7 +228,7 @@ async def test_setup_creates_tenant_assigned_user_and_resolves_tenant_context(db
         await db_session.execute(delete(SystemConfig).where(SystemConfig.key == "setup_completed"))
         await db_session.commit()
 
-        headers = {"Authorization": f"Bearer {create_access_token({
+        token = create_access_token({
             "sub": admin.id,
             "username": admin.username,
             "role": admin.role.value,
@@ -236,8 +236,8 @@ async def test_setup_creates_tenant_assigned_user_and_resolves_tenant_context(db
             "branch_id": admin.branch_id,
             "jti": str(uuid.uuid4()),
             "type": "access",
-        })}"
-        }
+        })
+        headers = {"Authorization": f"Bearer {token}"}
 
         res_setup = await client.post(
             "/api/v1/company/setup",
