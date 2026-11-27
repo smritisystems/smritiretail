@@ -14,7 +14,7 @@ Classification: Internal
 
 from typing import List, Optional, Dict, Any
 from decimal import Decimal
-from datetime import datetime
+from datetime import datetime, timezone
 from pydantic import BaseModel, Field
 
 
@@ -44,8 +44,9 @@ class CGEAntiAbuseCheckResponse(BaseModel):
 
 
 class CGEReversalReq(BaseModel):
+    sales_return_id: str = Field(..., min_length=1, max_length=50)
     original_invoice_no: str
-    refund_amount: Decimal
+    refund_amount: Decimal = Field(..., gt=0)
     reason: str = "ORDER_RETURN_REFUND"
     reverse_loyalty: bool = True
     reverse_commission: bool = True

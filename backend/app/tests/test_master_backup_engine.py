@@ -54,13 +54,59 @@ def test_backup_values_normalize_dates_and_numeric_types():
     assert _normalize_backup_value("sku") == "sku"
 
 
-def test_full_backup_requires_both_native_postgres_tools(monkeypatch):
+def test_full_backup_requires_all_native_postgres_tools(monkeypatch):
     monkeypatch.setattr(MasterBackupEngine, "_is_pg_dump_available", lambda: True)
     monkeypatch.setattr(MasterBackupEngine, "_is_pg_dumpall_available", lambda: False)
+    monkeypatch.setattr(MasterBackupEngine, "_is_pg_restore_available", lambda: True)
     assert MasterBackupEngine._native_backup_tools_available() is False
 
     monkeypatch.setattr(MasterBackupEngine, "_is_pg_dumpall_available", lambda: True)
+    monkeypatch.setattr(MasterBackupEngine, "_is_pg_restore_available", lambda: False)
+    assert MasterBackupEngine._native_backup_tools_available() is False
+
+    monkeypatch.setattr(MasterBackupEngine, "_is_pg_restore_available", lambda: True)
     assert MasterBackupEngine._native_backup_tools_available() is True
+
+
+def test_native_backup_connection_uses_libpq_environment_without_losing_existing_values(monkeypatch):
+    monkeypatch.setattr(
+        "app.core.backup_engine.settings.DATABASE_URL",
+        "postgresql://backup_user:secret%40pass@database.internal:5544/retail?sslmode=require",
+    )
+    monkeypatch.setenv("PGAPPNAME", "backup-test")
+
+    connection_env = MasterBackupEngine._native_backup_connection_env()
+
+    assert connection_env["PGHOST"] == "database.internal"
+    assert connection_env["PGPORT"] == "5544"
+    assert connection_env["PGUSER"] == "backup_user"
+    assert connection_env["PGPASSWORD"] == "secret@pass"
+    assert connection_env["PGSSLMODE"] == "require"
+    assert connection_env["PGAPPNAME"] == "backup-test"
+
+
+def test_active_job_detection_reads_persisted_jobs_across_workers(tmp_path, monkeypatch):
+    monkeypatch.setattr("app.core.backup_engine.BACKUP_JOBS_DIR", str(tmp_path))
+    monkeypatch.setattr(MasterBackupEngine, "_active_jobs", {})
+    job = BackupJobProgress(
+        job_id="persisted-running-job",
+        status="RUNNING",
+        stage="archive_creation",
+        percent=50,
+        stage_message="Creating archive",
+        initiating_user="Admin",
+        destination="This Device",
+        storage_location_type="local",
+        started_at=datetime.now(timezone.utc).isoformat(),
+        updated_at=datetime.now(timezone.utc).isoformat(),
+    )
+    with open(tmp_path / f"{job.job_id}.json", "w", encoding="utf-8") as f:
+        json.dump(job.model_dump(), f)
+
+    active_job = MasterBackupEngine.get_active_running_job()
+
+    assert active_job is not None
+    assert active_job.job_id == job.job_id
 
 
 @pytest.mark.asyncio
@@ -74,6 +120,37 @@ async def test_full_backup_fails_closed_without_native_tools(monkeypatch):
 
     with pytest.raises(ValueError, match="No logical-export fallback"):
         await engine.start_job(backup_mode="full")
+
+
+@pytest.mark.asyncio
+async def test_backup_database_resolution_errors_are_not_redirected(monkeypatch):
+    engine = MasterBackupEngine(None, "COMP-001")
+
+    async def fail_resolution(company_id):
+        raise RuntimeError("registry unavailable")
+
+    monkeypatch.setattr("app.core.backup_engine.resolve_company_database_name", fail_resolution)
+
+    with pytest.raises(RuntimeError, match="registry unavailable"):
+        await engine._resolve_target_db_name()
+    with pytest.raises(RuntimeError, match="registry unavailable"):
+        await engine._resolve_session()
+
+
+@pytest.mark.asyncio
+async def test_backup_session_rejects_control_plane_database(monkeypatch):
+    engine = MasterBackupEngine(None, "COMP-001")
+    monkeypatch.setattr(
+        "app.core.backup_engine.resolve_company_database_name",
+        lambda company_id: _resolved_database_name("smritisys"),
+    )
+
+    with pytest.raises(ValueError, match="invalid target"):
+        await engine._resolve_session()
+
+
+async def _resolved_database_name(name):
+    return name
 
 
 def test_preflight_check():

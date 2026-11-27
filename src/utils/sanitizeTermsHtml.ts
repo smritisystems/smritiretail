@@ -15,7 +15,7 @@
 export const STANDARD_COMMERCIAL_TERMS_HTML = `<h3>BUSINESS TERMS &amp; STATUTORY CONDITIONS</h3>
 <p><strong>SMRITI STATUTORY COMMERCIAL CONTRACT</strong></p>
 <ol>
-  <li><strong>Payment Terms:</strong> Strictly 120 Days credit settlement from date of physical GRN inwarding and barcode acceptance.</li>
+  <li><strong>Payment Terms:</strong> The payment term selected in the Commercial Terms section of this purchase order governs; for credit terms, the settlement period runs from date of physical GRN inwarding and barcode acceptance.</li>
   <li><strong>Quality &amp; Inspection:</strong> Goods are subject to warehouse QC inspection. Any manufacturing defect, shade mismatch, or size deviation must be replaced or credited within 15 days of intimation.</li>
   <li><strong>Packaging &amp; Labeling:</strong> All footwear articles must arrive packed in individual master boxes carrying GS1/EAN-13 barcodes, size labels, and manufacturer MRP stickers.</li>
   <li><strong>Statutory &amp; Legal Jurisdiction:</strong> All commercial disputes arising out of this statutory purchase order are subject to the exclusive jurisdiction of courts in Mumbai, Maharashtra.</li>
@@ -25,13 +25,23 @@ export const STANDARD_COMMERCIAL_TERMS_TEXT = `BUSINESS TERMS & STATUTORY CONDIT
 
 SMRITI STATUTORY COMMERCIAL CONTRACT
 
-1. Payment Terms: Strictly 120 Days credit settlement from date of physical GRN inwarding and barcode acceptance.
+1. Payment Terms: The payment term selected in the Commercial Terms section of this purchase order governs; for credit terms, the settlement period runs from date of physical GRN inwarding and barcode acceptance.
 
 2. Quality & Inspection: Goods are subject to warehouse QC inspection. Any manufacturing defect, shade mismatch, or size deviation must be replaced or credited within 15 days of intimation.
 
 3. Packaging & Labeling: All footwear articles must arrive packed in individual master boxes carrying GS1/EAN-13 barcodes, size labels, and manufacturer MRP stickers.
 
 4. Statutory & Legal Jurisdiction: All commercial disputes arising out of this statutory purchase order are subject to the exclusive jurisdiction of courts in Mumbai, Maharashtra.`;
+
+const LEGACY_FIXED_PAYMENT_TERM =
+  /(?:Strictly\s+)?120 Days credit settlement from date of physical GRN inwarding and barcode acceptance\.?/gi;
+
+export function replaceLegacyFixedPaymentTerm(content: string): string {
+  return content.replace(
+    LEGACY_FIXED_PAYMENT_TERM,
+    "The payment term selected in the Commercial Terms section of this purchase order governs; for credit terms, the settlement period runs from date of physical GRN inwarding and barcode acceptance."
+  );
+}
 
 /**
  * Checks if a string contains any HTML markup.

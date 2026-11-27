@@ -13,6 +13,11 @@
  */
 
 import { describe, it, expect, vi } from "vitest";
+import { validateRfqDraft } from "../components/purchase/SupplierRfqWorkspace.tsx";
+import {
+  validateRequisitionApproval,
+  validateRequisitionDraft,
+} from "../components/purchase/PurchaseRequisitionWorkspace.tsx";
 
 describe("Procurement Phase 2 — PR, RFQ & Quotation Comparison Units", () => {
   it("should calculate transparent landed cost with formula precision", () => {
@@ -81,5 +86,57 @@ describe("Procurement Phase 2 — PR, RFQ & Quotation Comparison Units", () => {
 
     expect(validAward).toBe(true);
     expect(invalidAward).toBe(false);
+  });
+
+  it("requires a named, dated quote request with at least one positive item quantity", () => {
+    const item = {
+      product_id: "product-1",
+      code: "SKU-1",
+      name: "Sample product",
+      quantity: "2",
+    };
+
+    expect(validateRfqDraft(" ", "2026-12-01", [item])).toBe("Enter a name for this quote request.");
+    expect(validateRfqDraft("Winter order", "", [item])).toBe("Set a supplier response deadline.");
+    expect(validateRfqDraft("Winter order", "2026-12-01", [])).toBe("Add at least one catalog item to this quote request.");
+    expect(validateRfqDraft("Winter order", "2026-12-01", [{ ...item, quantity: "0" }]))
+      .toBe("Enter a quantity greater than zero for every requested item.");
+    expect(validateRfqDraft("Winter order", "2026-12-01", [item])).toBeNull();
+  });
+
+  it("requires a needed-by date, reason, catalog item, quantity, and positive estimated unit cost", () => {
+    const item = {
+      product_id: "product-1",
+      code: "SKU-1",
+      name: "Sample product",
+      quantity: "2",
+      cost: "125.50",
+    };
+
+    expect(validateRequisitionDraft("2026-12-01", " ", [item])).toBe("Explain why these items are needed.");
+    expect(validateRequisitionDraft("", "Low stock", [item])).toBe("Choose when these items are needed.");
+    expect(validateRequisitionDraft("2026-12-01", "Low stock", [])).toBe("Add at least one catalog item to this purchase request.");
+    expect(validateRequisitionDraft("2026-12-01", "Low stock", [{ ...item, quantity: "0" }]))
+      .toBe("Enter a quantity greater than zero for every item.");
+    expect(validateRequisitionDraft("2026-12-01", "Low stock", [{ ...item, cost: "" }]))
+      .toBe("Enter an estimated unit cost greater than zero for every item.");
+    expect(validateRequisitionDraft("2026-12-01", "Low stock", [item])).toBeNull();
+  });
+
+  it("allows partial item approval but rejects quantities outside the request", () => {
+    const lines = [
+      { id: "line-1", quantity_requested: 4 },
+      { id: "line-2", quantity_requested: 3 },
+    ];
+
+    expect(validateRequisitionApproval(lines, { "line-1": "0", "line-2": "2" })).toBeNull();
+    expect(validateRequisitionApproval(lines, { "line-1": "0", "line-2": "0" }))
+      .toBe("Approve at least one unit, or reject the request with a reason.");
+    expect(validateRequisitionApproval(lines, { "line-1": "-1", "line-2": "2" }))
+      .toBe("Enter an approved quantity of zero or more for every item.");
+    expect(validateRequisitionApproval(lines, { "line-1": "5", "line-2": "2" }))
+      .toBe("An approved quantity cannot exceed the quantity requested.");
+    expect(validateRequisitionApproval(lines, { "line-1": "1" }))
+      .toBe("Enter an approved quantity of zero or more for every item.");
   });
 });

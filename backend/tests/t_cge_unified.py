@@ -16,6 +16,7 @@ import pytest
 import uuid
 from decimal import Decimal
 from datetime import datetime, timezone
+from fastapi import HTTPException
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy import select
 
@@ -26,12 +27,178 @@ from app.db.session import get_company_sessionmaker
 from app.models.loyalty import LoyaltyMember, LoyaltyPointsLedger
 from app.models.commission import CommissionLedger, CommissionParticipant
 from app.models.crm import Customer
+from app.models.sales import SalesInvoice, SalesReturn
 from app.services.cge_unified_svc import CGEUnifiedPolicyEngine
 from app.schemas.cge_unified import (
     CGEPolicyCreateReq,
     CGEAntiAbuseCheckReq,
     CGEReversalReq,
+    CGEReversalResponse,
 )
+
+
+@pytest.mark.asyncio
+async def test_cge_reversal_validates_return_and_prorates_ledgers():
+    """A verified partial return reverses only its proportional earned value."""
+
+    class Rows:
+        def __init__(self, values):
+            self.values = values
+
+        def scalars(self):
+            return self
+
+        def first(self):
+            return self.values[0] if self.values else None
+
+        def all(self):
+            return self.values
+
+    class FakeSession:
+        def __init__(self, results):
+            self.results = list(results)
+            self.added = []
+            self.commits = 0
+
+        async def execute(self, statement):
+            return Rows(self.results.pop(0))
+
+        def add(self, value):
+            self.added.append(value)
+
+        async def commit(self):
+            self.commits += 1
+
+    sales_return = SalesReturn(
+        id="ret-partial",
+        company_id="COMP-001",
+        original_invoice_id="inv-partial",
+        grand_total=Decimal("50.00"),
+        status="Completed",
+        is_deleted=False,
+    )
+    invoice = SalesInvoice(
+        id="inv-partial",
+        company_id="COMP-001",
+        invoice_no="INV-PARTIAL",
+        grand_total=Decimal("100.00"),
+        status="POSTED",
+        is_deleted=False,
+    )
+    member = LoyaltyMember(id="member-partial", current_points_balance=Decimal("100.00"))
+    earned_points = LoyaltyPointsLedger(
+        id="earned-points",
+        company_id="COMP-001",
+        member_id=member.id,
+        points=Decimal("100.00"),
+    )
+    earned_commission = CommissionLedger(
+        id="earned-commission",
+        company_id="COMP-001",
+        participant_id="participant-partial",
+        participant_role="SALESPERSON",
+        commission_amount=Decimal("10.00"),
+    )
+    session = FakeSession(
+        [
+            [sales_return],
+            [invoice],
+            [],
+            [],
+            [],
+            [],
+            [earned_points],
+            [member],
+            [earned_commission],
+        ]
+    )
+    req = CGEReversalReq(
+        sales_return_id=sales_return.id,
+        original_invoice_no=invoice.invoice_no,
+        refund_amount=Decimal("50.00"),
+    )
+    invalid_session = FakeSession([[sales_return], [invoice]])
+
+    with pytest.raises(HTTPException) as invalid_refund:
+        await CGEUnifiedPolicyEngine.process_reversal(
+            session=invalid_session,
+            company_id="COMP-001",
+            req=CGEReversalReq(
+                sales_return_id=sales_return.id,
+                original_invoice_no=invoice.invoice_no,
+                refund_amount=Decimal("49.00"),
+            ),
+        )
+    assert invalid_refund.value.status_code == 422
+
+    result = await CGEUnifiedPolicyEngine.process_reversal(
+        session=session,
+        company_id="COMP-001",
+        req=req,
+    )
+
+    assert result.status == "REVERSED"
+    assert result.reversed_loyalty_points == Decimal("50.00")
+    assert result.reversed_commission_amount == Decimal("5.00")
+    assert member.current_points_balance == Decimal("50.00")
+    assert session.commits == 1
+    assert {entry.reference_return_id for entry in session.added} == {sales_return.id}
+
+    duplicate_session = FakeSession(
+        [
+            [sales_return],
+            [invoice],
+            [
+                LoyaltyPointsLedger(
+                    id="return-reversal-points",
+                    points=Decimal("-50.00"),
+                )
+            ],
+            [
+                CommissionLedger(
+                    id="return-reversal-commission",
+                    commission_amount=Decimal("-5.00"),
+                )
+            ],
+            [],
+            [],
+        ]
+    )
+    duplicate = await CGEUnifiedPolicyEngine.process_reversal(
+        session=duplicate_session,
+        company_id="COMP-001",
+        req=req,
+    )
+
+    assert duplicate.status == "DUPLICATE_IGNORED"
+    assert duplicate.reversed_loyalty_points == Decimal("50.00")
+    assert duplicate.reversed_commission_amount == Decimal("5.00")
+    assert duplicate_session.commits == 0
+
+    legacy_duplicate_session = FakeSession(
+        [
+            [sales_return],
+            [invoice],
+            [],
+            [],
+            [
+                LoyaltyPointsLedger(
+                    id="legacy-invoice-reversal",
+                    points=Decimal("-100.00"),
+                )
+            ],
+            [],
+        ]
+    )
+    legacy_duplicate = await CGEUnifiedPolicyEngine.process_reversal(
+        session=legacy_duplicate_session,
+        company_id="COMP-001",
+        req=req,
+    )
+
+    assert legacy_duplicate.status == "DUPLICATE_IGNORED"
+    assert legacy_duplicate.reversed_loyalty_points == Decimal("100.00")
+    assert legacy_duplicate_session.commits == 0
 
 
 def get_auth_headers(role: str = "SYSADMIN", company_id: str = "COMP-001", branch_id: str = "BR-001") -> dict:
@@ -146,6 +313,33 @@ async def test_cge_refund_reversal_cascade():
         session.add(cust)
         await session.flush()
 
+        invoice_id = f"inv_id_{suffix}"
+        invoice = SalesInvoice(
+            id=invoice_id,
+            company_id="COMP-001",
+            customer_id=cust_id,
+            invoice_no=inv_no,
+            grand_total=Decimal("2500.00"),
+            status="POSTED",
+            is_active=True,
+            is_deleted=False,
+        )
+        session.add(invoice)
+        await session.flush()
+
+        sales_return = SalesReturn(
+            id=f"ret_{suffix}",
+            company_id="COMP-001",
+            customer_id=cust_id,
+            return_no=f"RET-REV-{suffix.upper()}",
+            original_invoice_id=invoice_id,
+            grand_total=Decimal("2500.00"),
+            status="Completed",
+            is_active=True,
+            is_deleted=False,
+        )
+        session.add(sales_return)
+
         # Seed Loyalty Member
         mem = LoyaltyMember(
             id=member_id,
@@ -203,11 +397,24 @@ async def test_cge_refund_reversal_cascade():
         session.add(comm_entry)
         await session.commit()
 
+        with pytest.raises(HTTPException) as invalid_refund:
+            await CGEUnifiedPolicyEngine.process_reversal(
+                session=session,
+                company_id="COMP-001",
+                req=CGEReversalReq(
+                    sales_return_id=sales_return.id,
+                    original_invoice_no=inv_no,
+                    refund_amount=Decimal("2499.00"),
+                ),
+            )
+        assert invalid_refund.value.status_code == 422
+
         # Process Reversal Cascade
         rev_res = await CGEUnifiedPolicyEngine.process_reversal(
             session=session,
             company_id="COMP-001",
             req=CGEReversalReq(
+                sales_return_id=sales_return.id,
                 original_invoice_no=inv_no,
                 refund_amount=Decimal("2500.00"),
                 reason="Customer Returned Defective Goods",
@@ -220,9 +427,122 @@ async def test_cge_refund_reversal_cascade():
         assert rev_res.reversed_loyalty_points == Decimal("50.00")
         assert rev_res.reversed_commission_amount == Decimal("50.00")
 
+        replay_res = await CGEUnifiedPolicyEngine.process_reversal(
+            session=session,
+            company_id="COMP-001",
+            req=CGEReversalReq(
+                sales_return_id=sales_return.id,
+                original_invoice_no=inv_no,
+                refund_amount=Decimal("2500.00"),
+            ),
+        )
+        assert replay_res.status == "DUPLICATE_IGNORED"
+
         # Verify member balance updated
         await session.refresh(mem)
         assert mem.current_points_balance == Decimal("100.00")
+
+
+@pytest.mark.asyncio
+async def test_cge_reversal_requires_manager_role(monkeypatch):
+    """Cashiers cannot invoke the loyalty/commission reversal endpoint."""
+    from types import SimpleNamespace
+    from app.api.deps import (
+        TenantContext,
+        get_company_db,
+        get_current_user,
+        get_tenant_context,
+        _get_db,
+    )
+
+    async def fake_db():
+        yield object()
+
+    monkeypatch.setitem(app.dependency_overrides, get_company_db, fake_db)
+    monkeypatch.setitem(app.dependency_overrides, _get_db, fake_db)
+    monkeypatch.setitem(
+        app.dependency_overrides,
+        get_tenant_context,
+        lambda: TenantContext(company_id="COMP-001", branch_id="BR-001"),
+    )
+    monkeypatch.setitem(
+        app.dependency_overrides,
+        get_current_user,
+        lambda: SimpleNamespace(role=UserRole.CASHIER, role_id=None),
+    )
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/api/v1/cge-unified/reversals",
+            json={
+                "sales_return_id": "return-1",
+                "original_invoice_no": "invoice-1",
+                "refund_amount": 10.00,
+            },
+            headers=get_auth_headers(role="CASHIER"),
+        )
+
+    assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_cge_reversal_uses_validated_tenant_context(monkeypatch):
+    """The reversal service receives the resolved tenant, not a raw header default."""
+    from types import SimpleNamespace
+    from app.api.deps import (
+        TenantContext,
+        get_company_db,
+        get_current_user,
+        get_tenant_context,
+        _get_db,
+    )
+
+    async def fake_db():
+        yield object()
+
+    monkeypatch.setitem(app.dependency_overrides, get_company_db, fake_db)
+    monkeypatch.setitem(app.dependency_overrides, _get_db, fake_db)
+    monkeypatch.setitem(
+        app.dependency_overrides,
+        get_current_user,
+        lambda: SimpleNamespace(role=UserRole.MANAGER, role_id=None),
+    )
+    monkeypatch.setitem(
+        app.dependency_overrides,
+        get_tenant_context,
+        lambda: TenantContext(company_id="COMP-777", branch_id="BR-777"),
+    )
+    routed_company_ids = []
+
+    async def fake_process_reversal(cls, session, company_id, req):
+        routed_company_ids.append(company_id)
+        return CGEReversalResponse(
+            reversal_id="rev-test",
+            original_invoice_no=req.original_invoice_no,
+            reversed_loyalty_points=Decimal("0.00"),
+            reversed_commission_amount=Decimal("0.00"),
+        )
+
+    monkeypatch.setattr(
+        CGEUnifiedPolicyEngine,
+        "process_reversal",
+        classmethod(fake_process_reversal),
+    )
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/api/v1/cge-unified/reversals",
+            json={
+                "sales_return_id": "return-1",
+                "original_invoice_no": "invoice-1",
+                "refund_amount": 10.00,
+            },
+            headers=get_auth_headers(role="MANAGER", company_id="COMP-001"),
+        )
+
+    assert response.status_code == 200
+    assert routed_company_ids == ["COMP-777"]
 
 
 @pytest.mark.asyncio

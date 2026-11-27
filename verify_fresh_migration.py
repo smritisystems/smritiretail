@@ -14,20 +14,31 @@ os.environ['POSTGRES_USER'] = 'postgres'
 os.environ['POSTGRES_PASSWORD'] = 'postgres'
 os.environ['POSTGRES_HOST'] = 'localhost'
 os.environ['POSTGRES_PORT'] = '5432'
-os.environ['DATABASE_URL'] = 'postgresql+asyncpg://postgres:postgres@localhost:5432/smritisys_fresh_verify'
+test_db = 'smriti_test_fresh_verify'
+os.environ['DATABASE_URL'] = f'postgresql+asyncpg://postgres:postgres@localhost:5432/{test_db}'
 
 conn = psycopg2.connect(host='localhost', port=5432, user='postgres', password='postgres', dbname='postgres')
 conn.autocommit = True
 cur = conn.cursor()
-cur.execute("SELECT 1 FROM pg_database WHERE datname = 'smritisys_fresh_verify'")
+cur.execute("SELECT 1 FROM pg_database WHERE datname = %s", (test_db,))
 if cur.fetchone():
-    cur.execute("DROP DATABASE smritisys_fresh_verify")
-cur.execute("CREATE DATABASE smritisys_fresh_verify")
+    cur.execute(f'DROP DATABASE "{test_db}"')
+cur.execute(f'CREATE DATABASE "{test_db}"')
 print('fresh db ready')
 conn.close()
 
 result = subprocess.run(
-    [sys.executable, '-m', 'alembic', 'upgrade', 'head'],
+    [
+        sys.executable,
+        '-m',
+        'alembic',
+        '-x',
+        'target=tenant',
+        '-x',
+        f'db={test_db}',
+        'upgrade',
+        'tenant@head',
+    ],
     cwd=backend,
     env=os.environ.copy(),
     text=True,
@@ -41,7 +52,7 @@ if result.stderr:
 if result.returncode != 0:
     raise SystemExit(result.returncode)
 
-conn2 = psycopg2.connect(host='localhost', port=5432, user='postgres', password='postgres', dbname='smritisys_fresh_verify')
+conn2 = psycopg2.connect(host='localhost', port=5432, user='postgres', password='postgres', dbname=test_db)
 cur2 = conn2.cursor()
 cur2.execute('SELECT version_num FROM alembic_version')
 print('alembic_version=', cur2.fetchone())

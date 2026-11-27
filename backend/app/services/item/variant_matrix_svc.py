@@ -16,7 +16,7 @@ Responsibility: Size x Color Cartesian product variant matrix generation.
 Extracted from: item_master_svc.py::generate_matrix_variants (L1586–L1747)
 
 SRP: Generates permutations of attributes (dimensions) into ItemVariant rows,
-     assigns primary barcodes, synchronizes to legacy products table,
+     leaves barcode assignment pending, synchronizes to legacy products table,
      and provisions default PriceBookEntry rows.
 """
 
@@ -44,8 +44,9 @@ class VariantMatrixService:
     Matrix Variant Generator (Cartesian SKU Combinator).
 
     Generates all permutations across specified dimensions (e.g. Size x Color),
-    creates ItemVariant records with generated SKUs, generates provisional barcodes,
-    and synchronizes records to legacy Product and PriceBook registries.
+    creates ItemVariant records with generated SKUs, leaves barcodes unassigned,
+    and synchronizes records to legacy Product and PriceBook registries. Internal
+    Code 128 values are assigned later through the confirmed-purchase-order workflow.
     """
 
     @classmethod
@@ -56,12 +57,12 @@ class VariantMatrixService:
     ) -> str:
         """
         [DEPRECATED / PROHIBITED - ADR-001 / R-01]
-        Runtime synthetic barcode generation is strictly prohibited.
-        Official barcodes must be assigned or left unassigned.
+        Placeholder generation in Item Master is prohibited. Supplier codes may
+        be entered there; internal Code 128 values are assigned through a
+        confirmed-purchase-order workflow.
         """
         raise RuntimeError(
-            "Synthetic barcode generation is prohibited under SMRITI Item Master Architecture (ADR-001/R-01). "
-            "Official barcodes must be assigned or left unassigned."
+            "Placeholder generation is prohibited in Item Master. Enter a supplier barcode or assign an internal Code 128 through a confirmed purchase order."
         )
 
     @classmethod

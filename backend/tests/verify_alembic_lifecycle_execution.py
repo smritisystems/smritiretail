@@ -65,7 +65,17 @@ def run_alembic_lifecycle(db_name: str = "smriti002") -> bool:
 
     # Step 2: Execute Alembic Downgrade (-1)
     print(f"\n[Step 2: Executing Alembic Downgrade (-1) via Alembic Engine]")
-    cmd_down = [sys.executable, "-m", "alembic", "-x", f"db={db_name}", "downgrade", "-1"]
+    cmd_down = [
+        sys.executable,
+        "-m",
+        "alembic",
+        "-x",
+        "target=tenant",
+        "-x",
+        f"db={db_name}",
+        "downgrade",
+        "v1417_so_po_compat",
+    ]
     res_down = subprocess.run(cmd_down, cwd=str(backend_dir), capture_output=True, text=True)
     print(f"  Command: {' '.join(cmd_down)}")
     print(f"  Return Code: {res_down.returncode}")
@@ -86,7 +96,17 @@ def run_alembic_lifecycle(db_name: str = "smriti002") -> bool:
 
     # Step 4: Execute Alembic Upgrade (head)
     print(f"\n[Step 4: Executing Alembic Upgrade (head) via Alembic Engine]")
-    cmd_up = [sys.executable, "-m", "alembic", "-x", f"db={db_name}", "upgrade", "head"]
+    cmd_up = [
+        sys.executable,
+        "-m",
+        "alembic",
+        "-x",
+        "target=tenant",
+        "-x",
+        f"db={db_name}",
+        "upgrade",
+        "v1418_cust_art_map",
+    ]
     res_up = subprocess.run(cmd_up, cwd=str(backend_dir), capture_output=True, text=True)
     print(f"  Command: {' '.join(cmd_up)}")
     print(f"  Return Code: {res_up.returncode}")

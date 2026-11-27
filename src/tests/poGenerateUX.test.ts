@@ -204,7 +204,7 @@ describe("SMRITI 9 Purchase Order Modern UX & Calculation Suite", () => {
 
   it("6. should use operator-friendly PO labels and lead-time wording", () => {
     expect(PURCHASER_FIELD_LABEL).toBe("Purchaser");
-    expect(PO_PRIMARY_SUBMIT_LABEL).toBe("Submit PO");
+    expect(PO_PRIMARY_SUBMIT_LABEL).toBe("Submit order");
     expect(formatLeadTimeLabel(7)).toBe("7 days");
     expect(formatLeadTimeLabel(1)).toBe("1 day");
   });

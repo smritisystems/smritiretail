@@ -70,6 +70,17 @@ Direct raw `alembic upgrade head` calls in deployment scripts are prohibited.
 `bootstrap_engine.py` handles: control-plane migration, tenant DB discovery,
 per-tenant migration, baseline seed — all idempotent.
 
+Alembic maintains separate branch heads for each database target. Direct CI,
+test, and diagnostic invocations MUST pass the matching revision:
+
+```bash
+alembic -x target=control -x db=smritisys upgrade control@head
+alembic -x target=tenant -x db=<tenant-db> upgrade tenant@head
+```
+
+Unqualified `head` or `heads` is prohibited because it can select or apply a
+migration branch that does not belong to the requested database.
+
 **Verification:** TC-UMGP-010 in `test_upgrade_migration_governance.py`
 
 ---
@@ -82,18 +93,22 @@ Hard-coded Alembic head version strings (e.g. `ver == "v1543"`) are prohibited.
 The current head MUST be determined dynamically from the Alembic script directory at runtime.
 
 **Correct implementation:** `_get_alembic_head(is_control)` and `_is_at_head(version, dbname, is_control)`
-query `alembic heads --verbose` at runtime and parse the `(head)` token.
+resolve the head by matching the target branch label against
+`ScriptDirectory.get_heads()`; the control and tenant targets must never share
+a global-head lookup.
 
 ---
 
 ### UMGP-004 — Migration Boundary Enforcement (TDB-v2.0)
 
-**Enforced via:** `backend/alembic/migration_contract.py`
+**Enforced via:** `backend/alembic/env.py` and `backend/alembic/migration_contract.py`
 
 Control-plane migrations MUST NOT run against tenant databases.
 Tenant migrations MUST NOT run against `smritisys`.
 `validate_migration_execution(target, dbname)` must be called at the start of
 `upgrade()` and `downgrade()` in every new migration.
+The Alembic environment also validates each revision's `@migration_target`
+declaration before executing upgrades or downgrades.
 
 **Database Boundary Contract:**
 
@@ -115,12 +130,10 @@ Tenant migrations MUST NOT run against `smritisys`.
 Every new Alembic migration file (revision >= v1553) MUST contain a `@migration_target()`
 decorator. Legacy migrations (v1552 and earlier) are grandfathered.
 
-**Required pattern:**
+**Required marker:**
 
 ```python
-from alembic.migration_contract import migration_target, validate_migration_execution
-
-@migration_target("tenant")  # or "control" or "both"
+# @migration_target('tenant')  # or 'control' or 'both'
 def upgrade():
     validate_migration_execution("tenant", op.get_bind().engine.url.database)
     ...
@@ -217,6 +230,20 @@ Migrations MUST NOT run against a database that has not passed its healthcheck.
 It MUST run after Alembic migrations and before pytest.
 
 Step name in CI: `UMGP Migration Governance Gate (UMGP-v1.0)`
+
+---
+
+### UMGP-013 — Shipped Revision Immutability
+
+**Enforced via:** `scripts/check_immutable_migrations.py`
+
+Once an Alembic revision is present in the target branch, its file MUST NOT be
+modified, renamed, or deleted. Corrections and schema drift repairs require a
+new forward-only revision. New migration files are allowed and remain subject
+to UMGP-004 through UMGP-006.
+
+CI compares the pull-request base to its head (or the prior push revision to
+the new head) and blocks edits to existing migration files.
 
 ---
 

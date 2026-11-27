@@ -85,10 +85,10 @@ export const ConfirmGrnPostModal: React.FC<ConfirmGrnPostModalProps> = ({
             </div>
             <div>
               <h3 className="text-base font-bold tracking-tight">
-                Confirm GRN Posting
+                Confirm goods receipt
               </h3>
-              <p className="text-xs text-indigo-200 font-mono">
-                {details.grnNumber} • Irreversible Inventory &amp; Ledger Commitment
+              <p className="text-xs text-indigo-200">
+                This cannot be undone • Receipt no. {details.grnNumber}
               </p>
             </div>
           </div>
@@ -106,7 +106,7 @@ export const ConfirmGrnPostModal: React.FC<ConfirmGrnPostModalProps> = ({
         {/* Modal Body */}
         <div className="p-5 overflow-y-auto space-y-4 text-xs">
           <p className="text-slate-600 dark:text-slate-300 text-xs">
-            You are about to finalize this Goods Receipt Note. Posting updates inventory levels across warehouse bins, commits landed cost valuation adjustments, and posts supplier ledger obligations.
+            Check the details below before continuing. This will add accepted items to warehouse stock, record damaged quantities, include delivery costs in stock value, and update the supplier balance.
           </p>
 
           {/* Key Transaction Metadata Grid */}
@@ -169,7 +169,7 @@ export const ConfirmGrnPostModal: React.FC<ConfirmGrnPostModalProps> = ({
               </span>
             </div>
             <div className="flex justify-between items-center text-indigo-600 dark:text-indigo-400">
-              <span>Landed Cost Add-ons ({details.allocationMethod}):</span>
+              <span>Freight and other delivery costs ({details.allocationMethod}):</span>
               <span className="font-bold">
                 +₹{details.totalAddonCost.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
               </span>
@@ -181,7 +181,7 @@ export const ConfirmGrnPostModal: React.FC<ConfirmGrnPostModalProps> = ({
               </div>
             )}
             <div className="pt-2 border-t border-slate-200 dark:border-slate-700 flex justify-between items-center text-sm font-extrabold text-slate-900 dark:text-white">
-              <span>Final Inventory Cost:</span>
+              <span>Total stock value:</span>
               <span className="text-indigo-600 dark:text-indigo-300">
                 ₹{details.finalInventoryCost.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
               </span>
@@ -192,20 +192,20 @@ export const ConfirmGrnPostModal: React.FC<ConfirmGrnPostModalProps> = ({
           <div className="space-y-1.5 bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/60 rounded-xl p-3.5">
             <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-bold text-xs">
               <ShieldCheck className="w-4 h-4 text-emerald-600" />
-              <span>Pre-Flight Validation Gate</span>
+              <span>Checks before posting</span>
             </div>
             <div className="space-y-1 text-[11px] text-slate-600 dark:text-slate-300 font-mono">
               <div className="flex items-center gap-1.5">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                <span>Supplier identity &amp; PO contract verified</span>
+                <span>Supplier and purchase order checked</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                <span>Quantities validated (zero negative accepted quantities)</span>
+                <span>Accepted and damaged quantities are valid</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                <span>Cost components &amp; landed freight verified</span>
+                <span>Delivery costs and freight reviewed</span>
               </div>
               {details.isManualAllocation && (
                 <div className="flex items-center gap-1.5">
@@ -244,7 +244,7 @@ export const ConfirmGrnPostModal: React.FC<ConfirmGrnPostModalProps> = ({
                 ))}
                 {isBlockedByManual && (
                   <li>
-                    Manual allocation has a variance of ₹{details.manualAllocationVariance.toFixed(2)}. Correct the allocation table in Step 4 before posting.
+                    Manual allocation has a variance of ₹{details.manualAllocationVariance.toFixed(2)}. Correct the cost split in Step 4 before posting.
                   </li>
                 )}
               </ul>
@@ -278,12 +278,12 @@ export const ConfirmGrnPostModal: React.FC<ConfirmGrnPostModalProps> = ({
             {isPosting ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Posting GRN to Ledger...</span>
+                <span>Saving receipt and updating stock...</span>
               </>
             ) : (
               <>
                 <PackageCheck className="w-4 h-4" />
-                <span>Confirm &amp; Post GRN</span>
+                <span>Confirm receipt and update stock</span>
               </>
             )}
           </button>

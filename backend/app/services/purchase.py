@@ -28,7 +28,7 @@ import logging
 import uuid
 from typing import Optional, List, Any, Dict
 from decimal import Decimal
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 logger = logging.getLogger(__name__)
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -47,12 +47,13 @@ from ..models.purchase import (
 )
 from ..models.party import Party, SupplierProfile
 from ..models.inventory import Product, StockMovement
-from ..models.item_master import ItemVariant
+from ..models.item_master import BarcodeRegistryAudit, ItemBarcode, ItemVariant
 from ..models.workflow import WorkflowEvent
 from ..api.deps import TenantContext
 from ..schemas.purchase import (
     SupplierCreate, SupplierUpdate, SupplierResponse,
     PurchaseOrderCreate, PurchaseOrderAmendRequest,
+    PurchaseOrderItemBarcodeRequest,
     PurchaseReceiptCreate,
     DebitNoteCreate, PurchaseBillCreate,
 )
@@ -592,7 +593,7 @@ class PurchaseService:
                 variant_id=getattr(item, "variant_id", None) or None,
                 code=clean_item_code or None,
                 sku=clean_item_code or None,
-                barcode=clean_barcode or (clean_item_code if (clean_item_code and clean_item_code.isdigit()) else None),
+                barcode=clean_barcode or None,
                 quantity=item.quantity,
             )
             res = await ProductResolutionService.validate_line(
@@ -630,7 +631,7 @@ class PurchaseService:
 
             if not product and res.item_id:
                 # Synchronize legacy Product bridge record linked directly to canonical item_id
-                bc_val = (res.barcode or "").strip() or (res.sku or "").strip() or clean_item_code or f"PROD-{uuid.uuid4().hex[:8]}"
+                bc_val = (res.barcode or "").strip() or None
                 var_suffix = f"_{res.variant_id[-8:]}" if res.variant_id else f"_{uuid.uuid4().hex[:6]}"
                 product = Product(
                     id=f"prd_{res.item_id[:20]}{var_suffix}",
@@ -1064,6 +1065,198 @@ class PurchaseService:
             )
         )
         return order, items_res.scalars().all()
+
+    async def assign_purchase_order_item_barcode(
+        self,
+        order_id: str,
+        line_id: str,
+        req: PurchaseOrderItemBarcodeRequest,
+        assigned_by: Optional[str] = None,
+    ) -> ItemBarcode:
+        order, items = await self.get_purchase_order(order_id)
+        if (order.status or "").upper() != "CONFIRMED":
+            raise HTTPException(
+                status_code=409,
+                detail="Barcodes can be attached only after the purchase order is confirmed.",
+            )
+
+        line = next((item for item in items if item.id == line_id), None)
+        if not line:
+            raise HTTPException(status_code=404, detail="Purchase order line not found.")
+
+        receipt_stmt = (
+            select(PurchaseReceipt.id)
+            .outerjoin(PurchaseReceiptItem, PurchaseReceiptItem.receipt_id == PurchaseReceipt.id)
+            .where(
+                PurchaseReceipt.company_id == self.tenant.company_id,
+                PurchaseReceipt.is_deleted == False,
+                (PurchaseReceiptItem.id.is_(None) | (PurchaseReceiptItem.is_deleted == False)),
+                (PurchaseReceipt.order_id == order.id)
+                | (PurchaseReceiptItem.purchase_order_id == order.id),
+            )
+            .limit(1)
+        )
+        if (await self.db.execute(receipt_stmt)).scalar_one_or_none():
+            raise HTTPException(
+                status_code=409,
+                detail="Barcodes cannot be changed after receiving has started for this purchase order.",
+            )
+
+        product = await self.db.get(Product, line.product_id)
+        if not product or product.company_id != self.tenant.company_id:
+            raise HTTPException(status_code=404, detail="Purchase order product not found.")
+
+        variant_id = line.variant_id or product.item_variant_id
+        if not variant_id or not product.item_id:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "This product is not linked to a canonical item variant; "
+                    "link the item before assigning a barcode."
+                ),
+            )
+
+        variant_stmt = select(ItemVariant).where(
+            ItemVariant.id == variant_id,
+            ItemVariant.item_id == product.item_id,
+            ItemVariant.company_id == self.tenant.company_id,
+            ItemVariant.is_active == True,
+            ItemVariant.is_deleted == False,
+        )
+        variant = (await self.db.execute(variant_stmt)).scalars().first()
+        if not variant:
+            raise HTTPException(status_code=409, detail="The purchase order line's item variant is no longer active.")
+
+        is_internal = req.source == "INTERNAL"
+        barcode = (
+            f"INT{uuid.uuid4().hex.upper()}"
+            if is_internal
+            else (req.barcode or "").strip()
+        )
+        barcode_purpose = "INTERNAL" if is_internal else "RETAIL"
+        from .barcode_policy import validate_barcode_value
+        try:
+            barcode_type = validate_barcode_value(
+                "CODE128" if is_internal else req.barcode_type,
+                barcode,
+                purpose=barcode_purpose,
+                standard="CUSTOM" if is_internal else "NONE",
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        normalized = "".join(char for char in barcode if char.isalnum()).upper()
+        primary_stmt = select(ItemBarcode).where(
+            ItemBarcode.company_id == self.tenant.company_id,
+            ItemBarcode.variant_id == variant.id,
+            ItemBarcode.is_primary == True,
+            ItemBarcode.is_deleted == False,
+        )
+        primary = (await self.db.execute(primary_stmt)).scalars().first()
+        if primary and not is_internal and primary.barcode_normalized != normalized:
+            raise HTTPException(
+                status_code=409,
+                detail=f"This item variant already has primary barcode '{primary.barcode}'.",
+            )
+
+        if not is_internal and product.barcode and product.barcode != product.code and product.barcode != barcode:
+            raise HTTPException(
+                status_code=409,
+                detail="This product already has a barcode; update the existing barcode through the item master.",
+            )
+
+        barcode_stmt = select(ItemBarcode).where(
+            ItemBarcode.company_id == self.tenant.company_id,
+            ItemBarcode.barcode_normalized == normalized,
+            ItemBarcode.is_deleted == False,
+        )
+        barcode_record = (await self.db.execute(barcode_stmt)).scalars().first()
+        if barcode_record and (
+            barcode_record.status != "UNASSIGNED"
+            or barcode_record.item_id is not None
+            or barcode_record.variant_id is not None
+            or barcode_record.barcode_type != barcode_type
+        ):
+            if barcode_record.variant_id == variant.id and barcode_record.status == "ASSIGNED":
+                product.barcode = barcode_record.barcode
+                await self.db.commit()
+                return barcode_record
+            raise HTTPException(status_code=409, detail="This barcode is already registered or assigned.")
+
+        if primary:
+            barcode_record = primary
+            product.barcode = primary.barcode
+            await self.db.commit()
+            return primary
+
+        if barcode_record:
+            previous_status = barcode_record.status
+            barcode_record.item_id = variant.item_id
+            barcode_record.variant_id = variant.id
+            barcode_record.is_primary = True
+            barcode_record.status = "ASSIGNED"
+            barcode_record.barcode_purpose = barcode_purpose
+            barcode_record.encoding_standard = "CUSTOM" if is_internal else "NONE"
+            barcode_record.source = req.source
+            barcode_record.assigned_at = date.today()
+            barcode_record.assigned_by = assigned_by
+            barcode_record.source_reference = order.order_no
+        else:
+            from ..schemas.item_master import ItemBarcodeCreateRequest
+            from .item_domain_svc import BusinessLogicError, ItemDomainService
+
+            try:
+                barcode_record = await ItemDomainService.create_barcode(
+                    self.db,
+                    ItemBarcodeCreateRequest(
+                        variant_id=variant.id,
+                        barcode=barcode,
+                        barcode_type=barcode_type,
+                        barcode_purpose=barcode_purpose,
+                        is_primary=True,
+                    ),
+                    company_id=self.tenant.company_id,
+                    branch_id=product.branch_id,
+                    commit=False,
+                )
+            except BusinessLogicError as exc:
+                raise HTTPException(status_code=409, detail=exc.message) from exc
+            previous_status = None
+            barcode_record.barcode_purpose = barcode_purpose
+            barcode_record.encoding_standard = "CUSTOM" if is_internal else "NONE"
+            barcode_record.source = req.source
+            barcode_record.source_reference = order.order_no
+            barcode_record.assigned_at = date.today()
+            barcode_record.assigned_by = assigned_by
+
+        product.barcode = barcode_record.barcode
+        try:
+            await self.db.flush()
+            self.db.add(BarcodeRegistryAudit(
+                id=f"bca_{uuid.uuid4().hex[:12]}",
+                company_id=self.tenant.company_id,
+                branch_id=product.branch_id,
+                barcode_id=barcode_record.id,
+                action="ASSIGN",
+                previous_status=previous_status,
+                next_status="ASSIGNED",
+                details_json={
+                    "purchase_order_id": order.id,
+                    "purchase_order_line_id": line.id,
+                    "variant_id": variant.id,
+                    "source": req.source.strip().upper(),
+                },
+                reason=req.reason,
+                created_by=assigned_by,
+            ))
+            await self.db.commit()
+        except IntegrityError as exc:
+            await self.db.rollback()
+            raise HTTPException(
+                status_code=409,
+                detail="The barcode or primary barcode was assigned concurrently; refresh and try again.",
+            ) from exc
+        await self.db.refresh(barcode_record)
+        return barcode_record
 
     # ──────────────────────────────────────────────────────────────
     # Purchase Receipt (GRN)
@@ -2674,7 +2867,7 @@ class PurchaseService:
                     variant_id=getattr(item, "variant_id", None) or None,
                     code=clean_item_code or None,
                     sku=clean_item_code or None,
-                    barcode=clean_barcode or (clean_item_code if (clean_item_code and clean_item_code.isdigit()) else None),
+                    barcode=clean_barcode or None,
                     quantity=item.quantity,
                 )
                 res = await ProductResolutionService.validate_line(
@@ -2710,7 +2903,7 @@ class PurchaseService:
                     product = (await self.db.execute(p_stmt)).scalars().first()
 
                 if not product and res.item_id:
-                    bc_val = (res.barcode or "").strip() or (res.sku or "").strip() or clean_item_code or f"PROD-{uuid.uuid4().hex[:8]}"
+                    bc_val = (res.barcode or "").strip() or None
                     var_suffix = f"_{res.variant_id[-8:]}" if res.variant_id else f"_{uuid.uuid4().hex[:6]}"
                     product = Product(
                         id=f"prd_{res.item_id[:20]}{var_suffix}",

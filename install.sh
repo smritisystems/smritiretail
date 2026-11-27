@@ -46,12 +46,16 @@ update_env_key() {
     local file="$1"
     local key="$2"
     local val="$3"
+    local replace_existing="${4:-false}"
+    local replace_insecure="${5:-false}"
     
     if [ ! -f "$file" ]; then return; fi
     
     # Check if key exists and has non-empty value (excluding comments and quotes)
-    if grep -qE "^[[:space:]]*${key}[[:space:]]*=[[:space:]]*[\"']?[a-zA-Z0-9_-]{8,}" "$file"; then
-        return 0
+    if [ "$replace_existing" != "true" ] && grep -qE "^[[:space:]]*${key}[[:space:]]*=[[:space:]]*[\"']?[a-zA-Z0-9_-]{8,}" "$file"; then
+        if [ "$replace_insecure" != "true" ] || ! grep -qiE "^[[:space:]]*${key}[[:space:]]*=.*(change_me|dev-test|development|dev_test|default|example)" "$file"; then
+            return 0
+        fi
     fi
     
     # If key exists with empty value, replace it in place
@@ -316,15 +320,39 @@ else
 fi
 
 # Ensure critical secrets are populated and valid (never empty, never quotes-only)
-update_env_key ".env" "JWT_SECRET_KEY" "$(generate_secret_key)"
-update_env_key ".env" "INTERNAL_SERVICE_KEY" "$(generate_secret_key)"
-update_env_key ".env" "SGIP_VAULT_MASTER_KEY" "$(generate_secret_key)"
+update_env_key ".env" "JWT_SECRET_KEY" "$(generate_secret_key)" false true
+update_env_key ".env" "INTERNAL_SERVICE_KEY" "$(generate_secret_key)" false true
+update_env_key ".env" "SGIP_VAULT_MASTER_KEY" "$(generate_secret_key)" false true
 
 # Export all .env variables directly into process environment
 set -a
 # shellcheck disable=SC1091
 source .env 2>/dev/null || true
 set +a
+
+if [ "$COMPOSE_FILE" = "docker-compose.yml" ]; then
+    if [ -z "${POSTGRES_PASSWORD:-}" ] || [ "$POSTGRES_PASSWORD" = "postgres" ]; then
+        postgres_volume_name="${POSTGRES_VOLUME_NAME:-smriti_db_volume}"
+        existing_database_volume=false
+        if docker volume inspect "$postgres_volume_name" >/dev/null 2>&1; then
+            existing_database_volume=true
+        fi
+
+        if [ "$DO_FRESH_INSTALL" = true ] || [ "$existing_database_volume" = false ]; then
+            update_env_key ".env" "POSTGRES_PASSWORD" "$(generate_secret_key)" true
+        else
+            echo -e "  ${RED}[FAIL] Existing PostgreSQL volume has a missing or default password.${NC}"
+            echo -e "  ${YELLOW}No database changes were made. Rotate the PostgreSQL role password deliberately, update .env, and rerun.${NC}"
+            exit 1
+        fi
+    fi
+
+    update_env_key ".env" "ENVIRONMENT" "production" true
+    set -a
+    # shellcheck disable=SC1091
+    source .env 2>/dev/null || true
+    set +a
+fi
 
 export PORT="$WEB_PORT"
 export BACKEND_API_PORT="$API_PORT"

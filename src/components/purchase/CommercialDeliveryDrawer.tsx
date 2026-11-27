@@ -43,7 +43,7 @@ export interface CommercialDeliveryData {
 }
 
 export const DEFAULT_BUSINESS_TERMS =
-  "1. Payment Terms: Strictly 120 Days credit settlement from date of physical GRN inwarding and barcode acceptance.\n" +
+  "1. Payment Terms: The payment term selected in the Commercial Terms section of this purchase order governs; for credit terms, the settlement period runs from date of physical GRN inwarding and barcode acceptance.\n" +
   "2. Quality & Inspection: Goods are subject to warehouse QC inspection. Any manufacturing defect, shade mismatch, or size deviation must be replaced or credited within 15 days of intimation.\n" +
   "3. Packaging & Labeling: All footwear articles must arrive packed in individual master boxes carrying GS1/EAN-13 barcodes, size labels, and manufacturer MRP stickers.\n" +
   "4. Statutory & Legal Jurisdiction: All commercial disputes arising out of this statutory purchase order are subject to the exclusive jurisdiction of courts in Mumbai, Maharashtra.";
@@ -568,7 +568,7 @@ export const CommercialDeliveryDrawer: React.FC<CommercialDeliveryDrawerProps> =
                     disabled={readOnly}
                     onClick={() => onChange({ businessTerms: DEFAULT_BUSINESS_TERMS })}
                     className="text-[10px] text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-bold underline cursor-pointer disabled:opacity-50"
-                    title="Load standard wholesale 120-day commercial terms"
+                    title="Load standard wholesale commercial terms"
                   >
                     Load Standard Terms
                   </button>

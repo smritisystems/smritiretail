@@ -15,7 +15,13 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Info, X, Globe, ChevronDown } from "lucide-react";
-import { persistTenantContext, normalizeBranchId, normalizeCompanyId } from "../lib/apiFetchV1";
+import {
+  clearLegacyAuthTokens,
+  persistTenantContext,
+  normalizeBranchId,
+  normalizeCompanyId,
+  setAuthSessionPresent,
+} from "../lib/apiFetchV1";
 import {
   SmritiBrandLogo,
   BrandPanel,
@@ -72,19 +78,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     try {
       const res = await fetch("/api/v1/auth/login", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-Auth-Transport": "cookie" },
         body: JSON.stringify({ username, password }),
       });
       const data = await res.json();
-      if (res.ok && data.access_token) {
-        localStorage.removeItem("smriti_session_token");
-        localStorage.removeItem("smriti_jwt_token");
-        localStorage.removeItem("smriti_refresh_token");
+      if (res.ok && data.user) {
+        clearLegacyAuthTokens();
         localStorage.removeItem("smriti_company_id");
         localStorage.removeItem("smriti_company_code");
         localStorage.removeItem("smriti_branch_id");
-        localStorage.setItem("smriti_jwt_token", data.access_token);
-        if (data.refresh_token) localStorage.setItem("smriti_refresh_token", data.refresh_token);
+        setAuthSessionPresent(true);
         if (rememberMe) {
           localStorage.setItem("smriti_saved_operator", username);
         } else {

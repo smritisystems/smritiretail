@@ -14,6 +14,13 @@
 
 # SMRITI RETAIL OS — PHASE 2 RUNTIME E2E TEST RESULTS
 
+**Evidence review date:** 2026-11-27
+**Verification note:** CI runs `scripts/test_retail_lifecycle_e2e.py` against
+an isolated test tenant. That suite exercises the API/database lifecycle and only
+attempts its Playwright UI step when a frontend is reachable; CI does not start
+the frontend for that job. A successful CI run is therefore not evidence that
+the listed browser journeys have passed.
+
 ## 1. Governance Four-State Summary Table
 
 | Journey ID | Journey Name | Static Trace | API Route | Browser E2E | DB Ledger | UI Result | Final Four-State Status |

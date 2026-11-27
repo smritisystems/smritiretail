@@ -52,7 +52,14 @@ import { FloatingWindowHost } from "./components/FloatingWindowHost.tsx";
 import { ShortcutProvider } from "./contexts/ShortcutContext.tsx";
 import { ShortcutPalette } from "./components/ShortcutPalette.tsx";
 import { SmritiErrorBoundary } from "./components/ErrorBoundary.tsx";
-import { clearAuthSession, normalizeBranchId, normalizeCompanyId, persistTenantContext } from "./lib/apiFetchV1.ts";
+import {
+  clearAuthSession,
+  hasAuthSession,
+  normalizeBranchId,
+  normalizeCompanyId,
+  persistTenantContext,
+  setAuthSessionPresent,
+} from "./lib/apiFetchV1.ts";
 import { AppShell } from "./components/shell/AppShell.tsx";
 import { TabRenderer, mapModuleId, TabLoadingFallback } from "./components/shell/TabRenderer.tsx";
 import { useInactivityTimeout } from "./hooks/useInactivityTimeout.ts";
@@ -125,7 +132,7 @@ const AppContent: React.FC = () => {
   
   const [currentUser, setCurrentUser] = useState<{ id?: string; role: string; name: string; passwordResetRequired?: boolean; companyId?: string; branchId?: string } | null>(null);
   const [companyContextResolved, setCompanyContextResolved] = useState<boolean>(() => {
-    return Boolean(localStorage.getItem("smriti_company_id") && localStorage.getItem("smriti_jwt_token"));
+    return Boolean(localStorage.getItem("smriti_company_id") && hasAuthSession());
   });
   const [checkingAuth, setCheckingAuth] = useState(true);
   const standaloneVendorReturn = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("standalone_vendor_return") === "1";
@@ -137,17 +144,11 @@ const AppContent: React.FC = () => {
   );
 
   const checkAuth = async () => {
-    const token = localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token");
-    if (!token) {
-      setCurrentUser(null);
-      setCompanyContextResolved(false);
-      setCheckingAuth(false);
-      return;
-    }
     try {
       // Migrated: GET /api/auth/me (Express session) → GET /api/v1/auth/me (FastAPI JWT)
       const data = await apiFetchV1("/auth/me");
       if (data) {
+        setAuthSessionPresent(true);
         const normalizedCompanyId = normalizeCompanyId(data.company_id ?? localStorage.getItem("smriti_company_id"));
         const normalizedBranchId = normalizeBranchId(data.branch_id ?? localStorage.getItem("smriti_branch_id"));
 
@@ -203,7 +204,7 @@ const AppContent: React.FC = () => {
         setCompanyContextResolved(false);
       }
     } catch {
-      // apiFetchV1 throws on non-2xx (e.g. 401 expired) — clear token and treat as unauthenticated
+      // apiFetchV1 throws on non-2xx (e.g. expired session) — clear local state and treat as unauthenticated.
       clearAuthSession("auth_check_failed");
       setCurrentUser(null);
       setCompanyContextResolved(false);
@@ -217,6 +218,7 @@ const AppContent: React.FC = () => {
   }, []);
 
   const handleLoginSuccess = (user: { id?: string; role: string; name: string; passwordResetRequired?: boolean; companyId?: string; branchId?: string }) => {
+    setAuthSessionPresent(true);
     setCurrentUser(user);
     setCompanyContextResolved(Boolean(user.companyId && user.branchId));
   };
@@ -224,23 +226,14 @@ const AppContent: React.FC = () => {
   const [sessionTimeoutNotice, setSessionTimeoutNotice] = useState<string | null>(null);
 
   const handleLogout = useCallback((reason = "manual_logout") => {
+    void apiFetchV1("/auth/logout", { method: "POST" }).catch(() => undefined);
     clearAuthSession(reason);
     setCurrentUser(null);
     setCompanyContextResolved(false);
   }, []);
 
   const handleAutoLogout = useCallback((notice = "Your session expired due to 15 minutes of inactivity. Please log in again.") => {
-    const refreshToken = typeof window !== "undefined" ? localStorage.getItem("smriti_refresh_token") : null;
-    if (refreshToken) {
-      try {
-        fetch("/api/v1/auth/logout", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ refresh_token: refreshToken }),
-        }).catch(() => {});
-      } catch {}
-    }
-
+    void apiFetchV1("/auth/logout", { method: "POST" }).catch(() => undefined);
     clearAuthSession("inactivity_timeout");
     setCurrentUser(null);
     setCompanyContextResolved(false);

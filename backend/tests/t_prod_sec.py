@@ -73,6 +73,22 @@ def test_production_mode_fails_on_default_internal_service_key():
             load_settings()
 
 
+@pytest.mark.parametrize("secret_name", ["JWT_SECRET_KEY", "INTERNAL_SERVICE_KEY"])
+def test_production_mode_fails_on_change_me_secret_placeholder(secret_name):
+    env_vars = {
+        "ENVIRONMENT": "production",
+        "JWT_SECRET_KEY": "prod-secure-jwt-key-minimum-32-chars-long-smriti",
+        "INTERNAL_SERVICE_KEY": "prod-secure-internal-key-32-chars-long-smriti",
+        "POSTGRES_PASSWORD": "strong-production-password-12345",
+        "DATABASE_URL": "postgresql+asyncpg://postgres:strong-production-password-12345@db.production.local:5432/smritisys",
+    }
+    env_vars[secret_name] = "CHANGE_ME_generate_with_python_secrets_token_hex_32"
+
+    with patch.dict(os.environ, env_vars, clear=False):
+        with pytest.raises(ValueError, match="SECURITY FAULT: Production mode requires a dedicated, cryptographically strong"):
+            load_settings()
+
+
 def test_production_mode_succeeds_with_strong_credentials():
     """
     Production startup succeeds when all required secrets are cryptographically strong.

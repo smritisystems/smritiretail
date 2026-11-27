@@ -18,6 +18,7 @@ import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { useActiveField } from "../../context/ActiveFieldContext.tsx";
 import { useDrillDown } from "./drilldown_store.tsx";
+import { hasAuthSession } from "../../lib/apiFetchV1.ts";
 
 const HUD_HIDDEN_STORAGE_KEY = "smriti_hud_is_hidden";
 
@@ -33,8 +34,7 @@ export const ContextualInspectorHUD: React.FC = () => {
     }
   });
 
-  const token = typeof window !== "undefined" ? (localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token")) : null;
-  const isAuthenticated = Boolean(token);
+  const isAuthenticated = hasAuthSession();
 
   // Auto-expand HUD when focus moves to a contextual field in an authenticated session
   useEffect(() => {

@@ -611,7 +611,10 @@ class ItemDomainService:
             raw_bc = req.primary_barcode.strip().upper()
             if re.match(r"^(890GEN|ITM-|S\d{12})", raw_bc, re.IGNORECASE) or (len(raw_bc) == 36 and "-" in raw_bc):
                 raise BusinessLogicError(
-                    message="Synthetic or auto-generated placeholder barcodes are strictly prohibited.",
+                    message=(
+                        "Placeholder barcodes are not accepted in Item Master. "
+                        "Enter a supplier barcode or assign an internal Code 128 through a confirmed purchase order."
+                    ),
                     code="SMRITI-SYNTHETIC-BARCODE-PROHIBITED",
                 )
 
@@ -1391,7 +1394,10 @@ class ItemDomainService:
         # Prohibit synthetic / placeholder barcodes
         if re.match(r"^(890GEN|ITM-|S\d{12})", b_clean, re.IGNORECASE) or (len(b_clean) == 36 and "-" in b_clean):
             raise BusinessLogicError(
-                message="Synthetic or auto-generated placeholder barcodes are strictly prohibited.",
+                message=(
+                    "Placeholder barcodes are not accepted in Item Master. "
+                    "Enter a supplier barcode or assign an internal Code 128 through a confirmed purchase order."
+                ),
                 code="SMRITI-SYNTHETIC-BARCODE-PROHIBITED",
             )
 

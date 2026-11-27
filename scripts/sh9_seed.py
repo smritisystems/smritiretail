@@ -18,7 +18,7 @@ Upserts: smriti_legacy_menu_map table
 
 Idempotent: re-running updates existing rows (no duplicates).
 Use this script after:
-  1. Running alembic upgrade head (v1371 must be applied first)
+  1. Running the tenant-targeted migration through v1371
   2. Any update to SH9_MAP_MATRIX.csv (e.g. after re-running sh9_map.py)
 
 Usage:
@@ -160,7 +160,10 @@ def run(db_url: str, dry_run: bool) -> None:
             "WHERE table_schema='public' AND table_name=:tn"
         ), {"tn": TABLE}).fetchone()
         if not tbl_check:
-            print(f"ERROR: Table '{TABLE}' not found. Run: alembic upgrade head")
+            print(
+                f"ERROR: Table '{TABLE}' not found. Run the tenant-targeted migration "
+                "for this database through v1371."
+            )
             sys.exit(1)
 
         for r in rows:

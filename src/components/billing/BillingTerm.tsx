@@ -5154,7 +5154,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                     ref={customerInputRef}
                     type="text"
                     name="customerSearch"
-                    aria-label="Search customer (F2)"
+                    aria-label="Search customer by name, mobile, or code (F2)"
                     data-f2-entity="customer"
                     data-context-type="customer"
                     data-lookup="customer"
@@ -5203,7 +5203,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                         setShowCustomerDropdown(false);
                       }
                     }}
-                    placeholder="Search customer (F2)..."
+                    placeholder="Name, mobile, or customer code (F2)"
                     className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg h-8 pl-8 pr-7 text-xs font-medium text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500 transition shadow-2xs"
                   />
                   <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -5858,8 +5858,8 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
               {items.length === 0 ? (
                 <div className="flex min-h-24 items-center justify-center rounded-lg border border-dashed border-slate-300 dark:border-slate-700 px-4 py-6 text-center text-sm text-slate-600 dark:text-slate-300">
                   {billingTransactionPolicy?.configuration?.default_scan_mode === "AUTO_ADD"
-                    ? "Scan a barcode or exact Stock No to add an item."
-                    : "Scan or enter a Stock No, then confirm the item to add it."}
+                    ? "Scan an exact barcode or product code to add it automatically."
+                    : "Search by item name, barcode, or product code, then choose a match to add it."}
                 </div>
               ) : items.map((item, idx) => (
                 <article
@@ -6020,8 +6020,8 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                         className="px-2.5 py-1 text-slate-400 italic text-[11px]"
                       >
                         {billingTransactionPolicy?.configuration?.default_scan_mode === "AUTO_ADD"
-                          ? "Scan a barcode or exact Stock No to add an item."
-                          : "Scan or enter a Stock No, then confirm the item to add it."}
+                          ? "Scan an exact barcode or product code to add it automatically."
+                          : "Search by item name, barcode, or product code, then choose a match to add it."}
                       </td>
                     </tr>
                   )}
@@ -6107,7 +6107,7 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                     type="text"
                     id="directStockNo"
                     name="directStockNo"
-                    aria-label="Stock No (F2 to browse)"
+                    aria-label="Search products by name, barcode, or product code (F2 to browse)"
                     data-f2-entity="variant"
                     value={directEntry.stockNo}
                     onChange={e => handleItemSearchChange(e.target.value, "stockNo")}
@@ -6118,8 +6118,8 @@ export const BillingTerm: React.FC<SmritiBillingTerminalProps> = ({
                     onKeyDown={e => handleItemInputKeyDown(e, "stockNo")}
                     placeholder={
                       billingTransactionPolicy?.configuration?.default_scan_mode === "AUTO_ADD"
-                        ? "Scan barcode / Stock No (auto-add)"
-                        : "Scan / enter Stock No"
+                        ? "Scan exact barcode / product code (auto-add)"
+                        : "Item name, barcode, or product code"
                     }
                     title={
                       billingTransactionPolicy?.configuration?.default_scan_mode === "AUTO_ADD"

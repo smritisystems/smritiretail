@@ -30,7 +30,6 @@ describe("SMRITI Company Selector Hardening & Context Flow", () => {
   });
 
   it("should preserve original localStorage context when switch-context fails", async () => {
-    mockLocalStorage.setItem("smriti_jwt_token", "valid-initial-token");
     mockLocalStorage.setItem("smriti_company_id", "COMP-001");
     mockLocalStorage.setItem("smriti_company_code", "001");
 
@@ -49,17 +48,14 @@ describe("SMRITI Company Selector Hardening & Context Flow", () => {
 
     // Assert that error was captured and NO localStorage mutations occurred
     expect(switchError).toContain("Access denied");
-    expect(mockLocalStorage.getItem("smriti_jwt_token")).toBe("valid-initial-token");
     expect(mockLocalStorage.getItem("smriti_company_id")).toBe("COMP-001");
     expect(mockLocalStorage.getItem("smriti_company_code")).toBe("001");
   });
 
-  it("should commit new company context and JWT token only on successful switch-context", async () => {
-    mockLocalStorage.setItem("smriti_jwt_token", "old-token");
+  it("should commit new company context without persisting an access token", async () => {
     mockLocalStorage.setItem("smriti_company_id", "COMP-001");
 
     const mockApiFetchV1 = vi.fn().mockResolvedValue({
-      access_token: "new-scoped-jwt-token-comp-002",
       company_id: "COMP-002",
       branch_id: "BR-NORTH-01",
     });
@@ -69,13 +65,12 @@ describe("SMRITI Company Selector Hardening & Context Flow", () => {
       body: JSON.stringify({ target_company_id: "COMP-002", target_branch_id: "BR-NORTH-01" }),
     });
 
-    if (res && res.access_token) {
-      mockLocalStorage.setItem("smriti_jwt_token", res.access_token);
+    if (res) {
       mockLocalStorage.setItem("smriti_company_id", "COMP-002");
       mockLocalStorage.setItem("smriti_company_code", "002");
     }
 
-    expect(mockLocalStorage.getItem("smriti_jwt_token")).toBe("new-scoped-jwt-token-comp-002");
+    expect(mockLocalStorage.getItem("smriti_jwt_token")).toBeNull();
     expect(mockLocalStorage.getItem("smriti_company_id")).toBe("COMP-002");
     expect(mockLocalStorage.getItem("smriti_company_code")).toBe("002");
     expect(mockLocalStorage.getItem("smriti_database_name")).toBeNull();

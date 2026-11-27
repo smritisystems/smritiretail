@@ -118,7 +118,19 @@ def run_alembic_migration(target: str, db_name: str, revision: str = "head") -> 
     target: 'control' or 'tenant'
     db_name: 'smritisys' or company database name (e.g. 'smriti001')
     """
-    logger.info("Executing Alembic migration: target=%s, db=%s, revision=%s...", target, db_name, revision)
+    if target not in {"control", "tenant"}:
+        raise ValueError(f"Unsupported migration target: {target!r}")
+    if revision == "head":
+        revision = f"{target}@head"
+    elif revision == "heads":
+        raise ValueError("Migrate one target-specific head at a time; 'heads' is not supported.")
+
+    logger.info(
+        "Executing Alembic migration: target=%s, db=%s, revision=%s...",
+        target,
+        db_name,
+        revision,
+    )
     env = os.environ.copy()
     env["PYTHONPATH"] = ""
     env["ALEMBIC_TARGET"] = target

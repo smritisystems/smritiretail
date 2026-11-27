@@ -680,7 +680,12 @@ export const StandaloneWindowView: React.FC<StandaloneWindowViewProps> = ({
     window.location.href = nextUrl;
   };
 
-  const handleStandaloneLogout = () => {
+  const handleStandaloneLogout = async () => {
+    try {
+      await apiFetchV1("/auth/logout", { method: "POST" });
+    } catch (error) {
+      console.error("[StandaloneWindowView] Server logout failed:", error);
+    }
     clearAuthSession("standalone_logout");
     window.location.href = window.location.origin;
   };

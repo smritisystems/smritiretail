@@ -273,7 +273,7 @@ export const RichTextTermsEditor: React.FC<RichTextTermsEditorProps> = ({
             disabled={disabled}
             onClick={handleInsertStandardTermsClick}
             className="h-7 px-2.5 flex items-center gap-1.5 rounded-md bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-900 text-indigo-700 dark:text-indigo-300 font-bold text-[11px] border border-indigo-200 dark:border-indigo-800 disabled:opacity-40 transition shadow-2xs"
-            title="Insert standard SMRITI 120-day commercial terms template"
+            title="Insert standard SMRITI commercial terms template"
           >
             <FileText size={13} />
             <span>Insert Standard Terms</span>

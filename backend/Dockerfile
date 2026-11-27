@@ -9,11 +9,12 @@
 # License      : Proprietary Commercial Software
 # Classification: Internal
 
-FROM python:3.11-slim AS runtime
+FROM python:3.11-slim-bookworm AS runtime
 
 # Install system dependencies for git and Chromium headless rendering
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
+    postgresql-client \
     libnss3 \
     libnspr4 \
     libatk1.0-0 \

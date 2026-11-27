@@ -23,9 +23,11 @@ import hashlib
 import uuid
 import asyncio
 import subprocess
+import tempfile
 from datetime import date, datetime, timezone
 from typing import Dict, List, Optional, Any, Tuple
 from sqlalchemy import text
+from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.config import settings
@@ -33,7 +35,6 @@ from ..core.logging import logger
 from ..db.session import (
     get_company_sessionmaker,
     resolve_company_database_name,
-    async_session as default_async_session,
 )
 from ..schemas.backup import (
     BackupItemInfo,
@@ -184,8 +185,9 @@ class MasterBackupEngine:
 
     @classmethod
     def get_active_running_job(cls) -> Optional[BackupJobProgress]:
-        """Returns currently active running backup job if any."""
-        for job in cls._active_jobs.values():
+        """Returns the newest active backup job, including jobs started by other workers."""
+        for job in cls.list_jobs(limit=1000):
+            cls._active_jobs[job.job_id] = job
             if job.status in ["QUEUED", "RUNNING", "VERIFYING", "in_progress"]:
                 return job
         return None
@@ -330,58 +332,61 @@ class MasterBackupEngine:
 
     @staticmethod
     def _is_pg_dump_available() -> bool:
-        """Checks if native pg_dump is available in container or environment."""
-        try:
-            proc = subprocess.run(
-                ["docker", "exec", "smriti-db", "pg_dump", "--version"],
-                capture_output=True,
-                text=True,
-                timeout=5,
-            )
-            return proc.returncode == 0
-        except Exception:
-            return False
+        """Checks whether pg_dump is installed in the API environment."""
+        return shutil.which("pg_dump") is not None
 
     @staticmethod
     def _is_pg_dumpall_available() -> bool:
-        """Checks if pg_dumpall is available for backing up cluster globals."""
-        try:
-            proc = subprocess.run(
-                ["docker", "exec", "smriti-db", "pg_dumpall", "--version"],
-                capture_output=True,
-                text=True,
-                timeout=5,
-            )
-            return proc.returncode == 0
-        except Exception:
-            return False
+        """Checks whether pg_dumpall is installed in the API environment."""
+        return shutil.which("pg_dumpall") is not None
+
+    @staticmethod
+    def _is_pg_restore_available() -> bool:
+        """Checks whether pg_restore is installed in the API environment."""
+        return shutil.which("pg_restore") is not None
 
     @classmethod
     def _native_backup_tools_available(cls) -> bool:
-        return cls._is_pg_dump_available() and cls._is_pg_dumpall_available()
+        return (
+            cls._is_pg_dump_available()
+            and cls._is_pg_dumpall_available()
+            and cls._is_pg_restore_available()
+        )
+
+    @staticmethod
+    def _native_backup_connection_env() -> Dict[str, str]:
+        """Builds libpq environment variables without exposing credentials in argv."""
+        database_url = make_url(settings.DATABASE_URL)
+        if not database_url.host or not database_url.username:
+            raise ValueError("DATABASE_URL must include a host and username for native backups.")
+
+        env = os.environ.copy()
+        env["PGHOST"] = database_url.host
+        env["PGPORT"] = str(database_url.port or 5432)
+        env["PGUSER"] = database_url.username
+        if database_url.password is not None:
+            env["PGPASSWORD"] = database_url.password
+        sslmode = database_url.query.get("sslmode")
+        if isinstance(sslmode, str):
+            env["PGSSLMODE"] = sslmode
+        return env
 
     async def _resolve_target_db_name(self) -> str:
-        try:
-            name = await resolve_company_database_name(self.company_id)
-            if name:
-                return name
-        except Exception as e:
-            logger.warning(f"[BackupEngine] Failed to resolve company database name for {self.company_id}: {e}")
-        return "smriti001"
+        name = await resolve_company_database_name(self.company_id)
+        if not name or name == "smritisys":
+            raise ValueError(
+                f"Company database resolution returned an invalid target for {self.company_id}."
+            )
+        return name
 
     async def _resolve_session(self) -> Tuple[AsyncSession, bool]:
         """
         Resolves an independent session for the company transactional database.
         Returns (session, should_close).
         """
-        try:
-            target_db_name = await self._resolve_target_db_name()
-            if target_db_name and target_db_name != "smritisys":
-                sm = get_company_sessionmaker(target_db_name)
-                return sm(), True
-        except Exception as e:
-            logger.warning(f"[BackupEngine] Failed to resolve company database session for {self.company_id}: {e}")
-        return default_async_session(), True
+        target_db_name = await self._resolve_target_db_name()
+        session_factory = get_company_sessionmaker(target_db_name)
+        return session_factory(), True
 
     async def start_job(
         self,
@@ -394,7 +399,7 @@ class MasterBackupEngine:
             raise ValueError("Invalid backup mode. Choose 'full' or 'logical'.")
         if backup_mode == "full" and not self._native_backup_tools_available():
             raise ValueError(
-                "Full backup requires both pg_dump and pg_dumpall in the smriti-db container. "
+                "Full backup requires pg_dump, pg_dumpall, and pg_restore in the API environment. "
                 "No logical-export fallback was started."
             )
 
@@ -454,7 +459,7 @@ class MasterBackupEngine:
             use_native_pg_dump = backup_mode == "full"
             if use_native_pg_dump and not self._native_backup_tools_available():
                 raise ValueError(
-                    "Full backup requires both pg_dump and pg_dumpall in the smriti-db container. "
+                    "Full backup requires pg_dump, pg_dumpall, and pg_restore in the API environment. "
                     "No logical-export fallback was started."
                 )
 
@@ -482,72 +487,75 @@ class MasterBackupEngine:
                 job.stage_message = f"Creating PostgreSQL native custom dump for '{target_db_name}'"
                 job.updated_at = datetime.now(timezone.utc).isoformat()
                 self.save_job(job)
-                self.append_log(job_id, "database_backup", f"Executing native pg_dump -Fc for target database '{target_db_name}'.", level="INFO")
+                self.append_log(job_id, "database_backup", f"Executing native pg_dump -Fc for target database '{target_db_name}' over the database network.", level="INFO")
 
-                container_dump = f"/tmp/{target_db_name}_{timestamp_str}_{backup_uuid}.dump"
-                container_globals = f"/tmp/{target_db_name}_{timestamp_str}_{backup_uuid}_globals.sql"
                 final_filename = f"smriti_backup_{self.company_id}_{timestamp_str}_{backup_uuid}.dump"
                 final_path = os.path.join(BACKUP_PACKAGES_DIR, final_filename)
                 globals_filename = f"{final_filename}.globals.sql"
                 globals_path = os.path.join(BACKUP_PACKAGES_DIR, globals_filename)
-
-                dump_cmd = [
-                    "docker", "exec", "smriti-db", "pg_dump",
-                    "-U", "postgres", "-Fc", "-f", container_dump, "-d", target_db_name,
-                ]
-                proc_dump = subprocess.run(dump_cmd, capture_output=True, text=True, timeout=600)
-                if proc_dump.returncode != 0:
-                    raise ValueError(f"pg_dump failed: {proc_dump.stderr}")
-
-                self.append_log(job_id, "database_backup", f"Native dump completed inside container ({container_dump}).", level="SUCCESS")
-
-                # Verify TOC via pg_restore --list
-                list_cmd = [
-                    "docker", "exec", "smriti-db", "pg_restore", "-l", container_dump,
-                ]
-                proc_list = subprocess.run(list_cmd, capture_output=True, text=True, timeout=60)
-                if proc_list.returncode != 0:
-                    raise ValueError(f"pg_restore -l TOC verification failed: {proc_list.stderr}")
-
-                toc_entries = sum(
-                    1 for line in proc_list.stdout.splitlines()
-                    if line and not line.startswith(";")
-                )
-                if toc_entries == 0:
-                    raise ValueError("pg_restore -l returned no database objects.")
-                self.append_log(job_id, "database_backup", f"Verified dump TOC: {toc_entries} database objects cataloged.", level="SUCCESS")
-
-                globals_cmd = [
-                    "docker", "exec", "smriti-db", "pg_dumpall",
-                    "-U", "postgres", "--globals-only", "--file", container_globals,
-                ]
-                proc_globals = subprocess.run(globals_cmd, capture_output=True, text=True, timeout=120)
-                if proc_globals.returncode != 0:
-                    raise ValueError(f"pg_dumpall globals backup failed: {proc_globals.stderr}")
+                connection_env = self._native_backup_connection_env()
+                temporary_paths: List[str] = []
                 try:
-                    copy_dump = subprocess.run(
-                        ["docker", "cp", f"smriti-db:{container_dump}", final_path],
+                    for destination in (final_path, globals_path):
+                        fd, temporary_path = tempfile.mkstemp(
+                            prefix=f".{os.path.basename(destination)}.",
+                            suffix=".partial",
+                            dir=BACKUP_PACKAGES_DIR,
+                        )
+                        os.close(fd)
+                        temporary_paths.append(temporary_path)
+
+                    temporary_dump, temporary_globals = temporary_paths
+                    dump_cmd = [
+                        "pg_dump", "-Fc", "-f", temporary_dump, "-d", target_db_name,
+                    ]
+                    proc_dump = subprocess.run(
+                        dump_cmd,
+                        capture_output=True,
+                        text=True,
+                        timeout=600,
+                        env=connection_env,
+                    )
+                    if proc_dump.returncode != 0:
+                        raise ValueError(f"pg_dump failed: {redact_secrets(proc_dump.stderr)}")
+
+                    self.append_log(job_id, "database_backup", "Native database dump completed in persistent API storage.", level="SUCCESS")
+
+                    proc_list = subprocess.run(
+                        ["pg_restore", "-l", temporary_dump],
+                        capture_output=True,
+                        text=True,
+                        timeout=60,
+                    )
+                    if proc_list.returncode != 0:
+                        raise ValueError(f"pg_restore -l TOC verification failed: {redact_secrets(proc_list.stderr)}")
+
+                    toc_entries = sum(
+                        1 for line in proc_list.stdout.splitlines()
+                        if line and not line.startswith(";")
+                    )
+                    if toc_entries == 0:
+                        raise ValueError("pg_restore -l returned no database objects.")
+                    self.append_log(job_id, "database_backup", f"Verified dump TOC: {toc_entries} database objects cataloged.", level="SUCCESS")
+
+                    proc_globals = subprocess.run(
+                        ["pg_dumpall", "--globals-only", "--file", temporary_globals],
                         capture_output=True,
                         text=True,
                         timeout=120,
+                        env=connection_env,
                     )
-                    if copy_dump.returncode != 0:
-                        raise ValueError(f"docker cp database dump failed: {copy_dump.stderr}")
-                    copy_globals = subprocess.run(
-                        ["docker", "cp", f"smriti-db:{container_globals}", globals_path],
-                        capture_output=True,
-                        text=True,
-                        timeout=120,
-                    )
-                    if copy_globals.returncode != 0:
-                        raise ValueError(f"docker cp globals backup failed: {copy_globals.stderr}")
+                    if proc_globals.returncode != 0:
+                        raise ValueError(f"pg_dumpall globals backup failed: {redact_secrets(proc_globals.stderr)}")
+                    if os.path.getsize(temporary_globals) == 0:
+                        raise ValueError("pg_dumpall produced an empty globals backup.")
+
+                    os.replace(temporary_dump, final_path)
+                    os.replace(temporary_globals, globals_path)
                 finally:
-                    subprocess.run(
-                        ["docker", "exec", "smriti-db", "rm", "-f", container_dump, container_globals],
-                        capture_output=True,
-                        text=True,
-                        timeout=30,
-                    )
+                    for temporary_path in temporary_paths:
+                        if os.path.exists(temporary_path):
+                            os.remove(temporary_path)
 
                 if os.path.getsize(globals_path) == 0:
                     raise ValueError("pg_dumpall produced an empty globals backup.")
@@ -584,7 +592,7 @@ class MasterBackupEngine:
                     self.append_log(job_id, "persistent_files", "No local persistent document/media files found in uploads directory.", level="INFO")
                 await asyncio.sleep(0.2)
 
-                # Stage 5: Archive Creation (Copy from container to local host storage)
+                # Stage 5: Archive Creation (Finalize in persistent host-mounted storage)
                 job.stage = "archive_creation"
                 job.percent = 80
                 job.stage_message = "Transferring verified archive to host storage package"

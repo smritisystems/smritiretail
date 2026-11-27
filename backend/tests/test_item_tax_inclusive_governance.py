@@ -103,7 +103,8 @@ async def test_schema_column_parity_v1456_contract():
         for tbl in ["item_barcodes", "customer_groups", "sales_invoice_items", "customers"]:
             assert tbl in new_tables, (
                 f"'{tbl}' is missing is_tax_inclusive after v1456 migration. "
-                f"Run: alembic upgrade v1456_tax_inclusive_barcode_group_customer_snapshot"
+                "Run: alembic -x target=tenant -x db=<tenant-db> upgrade "
+                "v1456_tax_inclusive_barcode_group_customer_snapshot"
             )
             assert type_map[tbl] == "boolean", (
                 f"{tbl}.is_tax_inclusive must be boolean, got: {type_map[tbl]}"

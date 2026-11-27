@@ -12,6 +12,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { clearAuthSession } from "../lib/apiFetchV1.ts";
 
 describe("SMRITI Global Logout & Session Invalidation Verification", () => {
   const mockLocalStorage: Record<string, string> = {};
@@ -34,8 +35,7 @@ describe("SMRITI Global Logout & Session Invalidation Verification", () => {
     } as any;
   });
 
-  it("should completely purge all session and tenant tokens on logout", () => {
-    // Seed active session tokens
+  it("should purge legacy tokens and tenant context on logout", () => {
     localStorage.setItem("smriti_session_token", "active-session-token-123");
     localStorage.setItem("smriti_jwt_token", "bearer-access-token-456");
     localStorage.setItem("smriti_refresh_token", "refresh-token-789");
@@ -43,20 +43,7 @@ describe("SMRITI Global Logout & Session Invalidation Verification", () => {
     localStorage.setItem("smriti_company_code", "SMRITI");
     localStorage.setItem("smriti_branch_id", "BR-MAIN-001");
 
-    expect(localStorage.getItem("smriti_session_token")).toBe("active-session-token-123");
-    expect(localStorage.getItem("smriti_jwt_token")).toBe("bearer-access-token-456");
-
-    // Execute standard SMRITI logout purge routine
-    const executeLogoutPurge = () => {
-      localStorage.removeItem("smriti_session_token");
-      localStorage.removeItem("smriti_jwt_token");
-      localStorage.removeItem("smriti_refresh_token");
-      localStorage.removeItem("smriti_company_id");
-      localStorage.removeItem("smriti_company_code");
-      localStorage.removeItem("smriti_branch_id");
-    };
-
-    executeLogoutPurge();
+    clearAuthSession("manual_logout");
 
     // Verify all keys are purged
     expect(localStorage.getItem("smriti_session_token")).toBeNull();

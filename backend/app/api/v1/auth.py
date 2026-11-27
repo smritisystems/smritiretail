@@ -23,17 +23,21 @@ Founders
 * License    : Proprietary Commercial Software
 """
 
+import secrets
+import time
 import uuid
 from datetime import datetime, timezone
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from ...api.deps import get_db, get_current_user
 from ...services.auth import AuthService
-from ...core.security import verify_password
+from ...core.config import settings
+from ...core.security import decode_token, verify_password
 from ...schemas.auth import (
     LoginRequest, TokenResponse, AccessTokenResponse,
     RefreshRequest, BootstrapRequest, UserResponse, TenantContextSwitchRequest,
@@ -47,6 +51,89 @@ from ...models.company_registry import CompanyDatabaseRegistry
 from ...models.user_assignment import UserCompanyAssignment, UserBranchAssignment
 
 router = APIRouter()
+
+COOKIE_TRANSPORT_HEADER = "x-auth-transport"
+
+
+def _uses_cookie_transport(request: Request) -> bool:
+    origin = request.headers.get("origin")
+    same_origin = origin == f"{request.url.scheme}://{request.url.netloc}"
+    return (
+        request.headers.get(COOKIE_TRANSPORT_HEADER, "").lower() == "cookie"
+        or same_origin
+        or bool(origin and origin in settings.ALLOWED_ORIGINS)
+    )
+
+
+def _cookie_secure() -> bool:
+    return settings.ENVIRONMENT.strip().lower() not in {"development", "test"}
+
+
+def _token_max_age(token: str) -> int:
+    expires_at = decode_token(token).get("exp")
+    return max(0, int(expires_at - time.time())) if expires_at else 0
+
+
+def _set_auth_cookies(response: Response, tokens: dict, csrf_token: Optional[str] = None) -> None:
+    secure = _cookie_secure()
+    access_token = tokens.get("access_token")
+    refresh_token = tokens.get("refresh_token")
+    if access_token:
+        response.set_cookie(
+            "access_token",
+            access_token,
+            max_age=_token_max_age(access_token),
+            path="/",
+            secure=secure,
+            httponly=True,
+            samesite="lax",
+        )
+    if refresh_token:
+        refresh_max_age = _token_max_age(refresh_token)
+        response.set_cookie(
+            "refresh_token",
+            refresh_token,
+            max_age=refresh_max_age,
+            path="/",
+            secure=secure,
+            httponly=True,
+            samesite="lax",
+        )
+        response.set_cookie(
+            "csrf_token",
+            csrf_token or secrets.token_urlsafe(32),
+            max_age=refresh_max_age,
+            path="/",
+            secure=secure,
+            httponly=False,
+            samesite="lax",
+        )
+
+
+def _clear_auth_cookies(response: Response) -> None:
+    secure = _cookie_secure()
+    for name, httponly in (
+        ("access_token", True),
+        ("refresh_token", True),
+        ("csrf_token", False),
+        ("smriti_jwt_token", False),
+        ("token", False),
+    ):
+        response.delete_cookie(
+            name,
+            path="/",
+            secure=secure,
+            httponly=httponly,
+            samesite="lax",
+        )
+
+
+def _hide_auth_tokens(tokens: dict) -> dict:
+    result = dict(tokens)
+    result["access_token"] = None
+    if "refresh_token" in result:
+        result["refresh_token"] = None
+    return result
 
 
 @router.post("/bootstrap", response_model=UserResponse, status_code=201)
@@ -68,15 +155,21 @@ async def bootstrap_admin(
 @router.post("/login", response_model=TokenResponse)
 async def login(
     req: LoginRequest,
+    request: Request,
+    response: Response,
     db: AsyncSession = Depends(get_db),
 ):
     """
     Authenticate with username + password.
 
-    Returns an access token (60-min) and a refresh token (7-day).
+    Browser clients opt into HttpOnly-cookie transport; API clients receive bearer tokens.
     """
     service = AuthService(db)
-    return await service.login(req)
+    tokens = await service.login(req)
+    if _uses_cookie_transport(request):
+        _set_auth_cookies(response, tokens)
+        return _hide_auth_tokens(tokens)
+    return tokens
 
 
 @router.get("/tenants")
@@ -258,7 +351,9 @@ async def set_company_default_branch(
 
 @router.post("/refresh", response_model=AccessTokenResponse)
 async def refresh_token(
-    req: RefreshRequest,
+    request: Request,
+    response: Response,
+    req: Optional[RefreshRequest] = None,
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -267,13 +362,43 @@ async def refresh_token(
     Returns 401 if the refresh token is expired, tampered, or has been logged out.
     """
     service = AuthService(db)
-    return await service.refresh(req.refresh_token)
+    cookie_transport = _uses_cookie_transport(request)
+    refresh_token = (req.refresh_token if req else None) or (
+        request.cookies.get("refresh_token") if cookie_transport else None
+    )
+    if not refresh_token:
+        if cookie_transport:
+            error_response = JSONResponse(
+                status_code=401,
+                content={"detail": "A valid refresh token is required."},
+            )
+            _clear_auth_cookies(error_response)
+            return error_response
+        raise HTTPException(status_code=401, detail="A valid refresh token is required.")
+    try:
+        tokens = await service.refresh(refresh_token)
+    except HTTPException as exc:
+        if cookie_transport:
+            error_response = JSONResponse(
+                status_code=exc.status_code,
+                content={"detail": exc.detail},
+                headers=exc.headers,
+            )
+            _clear_auth_cookies(error_response)
+            return error_response
+        raise
+    if cookie_transport:
+        _set_auth_cookies(response, tokens, request.cookies.get("csrf_token"))
+        return _hide_auth_tokens(tokens)
+    return tokens
 
 
 @router.post("/logout", status_code=200)
 async def logout(
-    req: RefreshRequest,
+    request: Request,
+    response: Response,
     current_user: User = Depends(get_current_user),
+    req: Optional[RefreshRequest] = None,
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -283,13 +408,21 @@ async def logout(
     Future refresh attempts with the blacklisted token will return 401.
     """
     service = AuthService(db)
-    await service.logout(req.refresh_token, current_user.id)
+    refresh_token = (req.refresh_token if req else None) or (
+        request.cookies.get("refresh_token") if _uses_cookie_transport(request) else None
+    )
+    if refresh_token:
+        await service.logout(refresh_token, current_user.id)
+    if _uses_cookie_transport(request):
+        _clear_auth_cookies(response)
     return {"message": "You have been logged out successfully."}
 
 
 @router.post("/switch-context", response_model=TokenResponse)
 async def switch_context(
     req: TenantContextSwitchRequest,
+    request: Request,
+    response: Response,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -300,7 +433,11 @@ async def switch_context(
     and returns updated JWT tokens scoped to the new tenant context.
     """
     service = AuthService(db)
-    return await service.switch_context(current_user, req)
+    tokens = await service.switch_context(current_user, req)
+    if _uses_cookie_transport(request):
+        _set_auth_cookies(response, tokens, request.cookies.get("csrf_token"))
+        return _hide_auth_tokens(tokens)
+    return tokens
 
 
 @router.get("/me", response_model=UserResponse)

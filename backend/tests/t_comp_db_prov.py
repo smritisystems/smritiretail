@@ -64,11 +64,14 @@ def test_no_unapproved_company_databases_exist():
 
 
 def test_provisioning_schema_alembic_head_requirement():
-    """Verify schema initialization plan specifies alembic upgrade head >= v1337 and version 3.29.0."""
+    """Verify schema initialization plan specifies a tenant-targeted Alembic head."""
     provisioner = CompanyDatabaseProvisioner(dry_run=True)
     schema_plan = provisioner.initialize_schema_plan("smriti001")
     assert schema_plan["alembic_required"] is True
-    assert schema_plan["alembic_migration_command"] == "alembic upgrade head"
+    assert schema_plan["alembic_migration_command"] == (
+        f"alembic -x target=tenant -x db={schema_plan['target_database']} "
+        "upgrade tenant@head"
+    )
     assert schema_plan["alembic_min_revision"] == "v1337_backfill_variant_id"
     assert schema_plan["schema_version"] == "3.29.0"
 

@@ -19,6 +19,7 @@ import {
   sanitizeTermsHtml,
   cleanWordHtml,
   hasHtmlTags,
+  replaceLegacyFixedPaymentTerm,
   STANDARD_COMMERCIAL_TERMS_HTML,
   STANDARD_COMMERCIAL_TERMS_TEXT,
 } from "../utils/sanitizeTermsHtml";
@@ -42,7 +43,7 @@ describe("Supplier Commercial Terms Rich Text Editor & PO Integration Suite", ()
 
       // Clause 1: Payment Terms
       expect(STANDARD_COMMERCIAL_TERMS_HTML).toContain(
-        "Strictly 120 Days credit settlement from date of physical GRN inwarding and barcode acceptance."
+        "The payment term selected in the Commercial Terms section of this purchase order governs; for credit terms, the settlement period runs from date of physical GRN inwarding and barcode acceptance."
       );
       // Clause 2: Quality & Inspection
       expect(STANDARD_COMMERCIAL_TERMS_HTML).toContain(
@@ -56,6 +57,15 @@ describe("Supplier Commercial Terms Rich Text Editor & PO Integration Suite", ()
       expect(STANDARD_COMMERCIAL_TERMS_HTML).toContain(
         "All commercial disputes arising out of this statutory purchase order are subject to the exclusive jurisdiction of courts in Mumbai, Maharashtra."
       );
+    });
+
+    it("replaces the legacy fixed 120-day statutory clause in saved terms", () => {
+      const savedTerms =
+        "Payment Terms: Strictly 120 Days credit settlement from date of physical GRN inwarding and barcode acceptance.";
+      const updatedTerms = replaceLegacyFixedPaymentTerm(savedTerms);
+
+      expect(updatedTerms).toContain("The payment term selected in the Commercial Terms section of this purchase order governs");
+      expect(updatedTerms).not.toContain("Strictly 120 Days");
     });
 
     it("has a matching plain-text fallback representation", () => {
@@ -218,7 +228,7 @@ describe("Supplier Commercial Terms Rich Text Editor & PO Integration Suite", ()
       // Must render heading and clauses
       expect(markup).toContain("BUSINESS TERMS &amp; STATUTORY CONDITIONS");
       expect(markup).toContain("SMRITI STATUTORY COMMERCIAL CONTRACT");
-      expect(markup).toContain("Strictly 120 Days credit settlement");
+      expect(markup).toContain("The payment term selected in the Commercial Terms section of this purchase order governs");
       expect(markup).toContain("courts in Mumbai, Maharashtra");
 
       // Must use SafeRichTermsRenderer with class rich-terms-rendered
@@ -254,7 +264,7 @@ describe("Supplier Commercial Terms Rich Text Editor & PO Integration Suite", ()
       const markup = renderToStaticMarkup(<FootwearPurchaseOrderA4 data={footwearData} />);
       expect(markup).toContain("BUSINESS TERMS &amp; STATUTORY CONDITIONS");
       expect(markup).toContain("rich-terms-rendered");
-      expect(markup).toContain("Strictly 120 Days credit settlement");
+      expect(markup).toContain("The payment term selected in the Commercial Terms section of this purchase order governs");
       expect(markup).not.toContain("&lt;h3&gt;");
     });
 
@@ -274,7 +284,7 @@ describe("Supplier Commercial Terms Rich Text Editor & PO Integration Suite", ()
       const markup = renderToStaticMarkup(<SizePivotMatrixA4 header={header} rows={[]} />);
       expect(markup).toContain("BUSINESS TERMS &amp; STATUTORY CONDITIONS");
       expect(markup).toContain("rich-terms-rendered");
-      expect(markup).toContain("Strictly 120 Days credit settlement");
+      expect(markup).toContain("The payment term selected in the Commercial Terms section of this purchase order governs");
       expect(markup).not.toContain("&lt;ol&gt;");
     });
   });

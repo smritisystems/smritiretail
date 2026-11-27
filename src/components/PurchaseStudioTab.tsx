@@ -178,7 +178,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
               }`}
             >
               <span className="material-symbols-outlined text-[14px]">add_box</span>
-              Generate PO
+              New purchase order
             </button>
             <button
               type="button"
@@ -191,7 +191,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
               }`}
             >
               <span className="material-symbols-outlined text-[14px]">receipt_long</span>
-              Workspace
+              Orders
             </button>
             <button
               type="button"
@@ -204,7 +204,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
               }`}
             >
               <span className="material-symbols-outlined text-[14px]">description</span>
-              Indents (PR)
+              Purchase requests
             </button>
             <button
               type="button"
@@ -217,7 +217,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
               }`}
             >
               <span className="material-symbols-outlined text-[14px]">compare_arrows</span>
-              RFQ & Quotes
+              Supplier quotes
             </button>
             <button
               type="button"
@@ -241,12 +241,13 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
           {topView === "generate" && (
             <>
               <span className="text-slate-300 dark:text-slate-700 mx-1 select-none">|</span>
-              <span className="text-slate-500 mr-1 hidden sm:inline">Mode:</span>
+              <span className="text-slate-500 mr-1 hidden sm:inline">Item entry:</span>
               <div className="inline-flex rounded-md shadow-2xs bg-slate-100 dark:bg-slate-800 p-0.5 border border-slate-200 dark:border-slate-700">
                 <button
                   type="button"
                   id="po-mode-sizewise-btn"
                   onClick={() => handleModeChange("sizewise")}
+                  title="Enter one product and set quantities for each size"
                   className={`px-3 py-1 rounded text-xs font-medium transition flex items-center gap-1.5 ${
                     poMode === "sizewise"
                       ? "bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-2xs border border-slate-200/60 dark:border-transparent"
@@ -254,12 +255,13 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
                   }`}
                 >
                   <span className="material-symbols-outlined text-[14px]">view_column</span>
-                  Sizewise
+                  By size
                 </button>
                 <button
                   type="button"
                   id="po-mode-standard-btn"
                   onClick={() => handleModeChange("standard")}
+                  title="Enter one row for each product or barcode"
                   className={`px-3 py-1 rounded text-xs font-medium transition flex items-center gap-1.5 ${
                     poMode === "standard"
                       ? "bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-2xs border border-slate-200/60 dark:border-transparent"
@@ -267,7 +269,7 @@ export const PurchaseStudioTab: React.FC<PurchaseStudioTabProps> = ({
                   }`}
                 >
                   <span className="material-symbols-outlined text-[14px]">table_rows</span>
-                  Standard
+                  By item
                 </button>
               </div>
             </>

@@ -24,6 +24,7 @@ License      : Proprietary Commercial Software
 """
 
 import datetime
+import hmac
 import os
 import sys
 import time
@@ -219,7 +220,7 @@ async def lifespan(_app: FastAPI):
                 logger.critical(
                     "[SMRITI Startup] SCHEMA GAP DETECTED — the following tables are missing "
                     "from the database. All endpoints that touch these tables will return 500. "
-                    "Run 'alembic upgrade head' in the backend directory to fix this:\n"
+                    "Run 'python -m app.db.bootstrap_engine' to apply the target-aware migrations:\n"
                     + "\n".join(f"  \u2717  {t}" for t in _missing_tables)
                 )
             else:
@@ -294,6 +295,46 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc"
 )
+
+# Cookie-authenticated writes require a same-origin request and a matching
+# double-submit CSRF token. Bearer-token API clients remain unaffected.
+@app.middleware("http")
+async def protect_cookie_authenticated_requests(request: Request, call_next):
+    if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
+        origin = request.headers.get("origin")
+        trusted_origin = bool(
+            origin
+            and (
+                origin in settings.ALLOWED_ORIGINS
+                or origin == f"{request.url.scheme}://{request.url.netloc}"
+            )
+        )
+        has_auth_cookie = bool(
+            request.cookies.get("access_token") or request.cookies.get("refresh_token")
+        )
+        cookie_transport = (
+            request.headers.get("x-auth-transport", "").lower() == "cookie"
+            or trusted_origin
+        )
+
+        if cookie_transport and not trusted_origin:
+            return JSONResponse(status_code=403, content={"detail": "Untrusted request origin."})
+
+        if has_auth_cookie:
+            csrf_cookie = request.cookies.get("csrf_token", "")
+            csrf_header = request.headers.get("x-csrf-token", "")
+            if (
+                not origin
+                or not trusted_origin
+                or not csrf_cookie
+                or not csrf_header
+                or not hmac.compare_digest(csrf_cookie.encode("utf-8"), csrf_header.encode("utf-8"))
+            ):
+                if cookie_transport and request.url.path.endswith("/auth/login") and trusted_origin:
+                    return await call_next(request)
+                return JSONResponse(status_code=403, content={"detail": "CSRF validation failed."})
+
+    return await call_next(request)
 
 # Register HREP error handlers
 register_error_handlers(app)

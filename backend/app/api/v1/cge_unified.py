@@ -16,8 +16,14 @@ from typing import Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_company_db, get_current_user
-from app.models.auth import User
+from app.api.deps import (
+    TenantContext,
+    get_company_db,
+    get_current_user,
+    get_tenant_context,
+    require_role,
+)
+from app.models.auth import User, UserRole
 from app.services.cge_unified_svc import CGEUnifiedPolicyEngine
 from app.schemas.cge_unified import (
     CGEPolicyCreateReq,
@@ -71,13 +77,13 @@ async def validate_action_against_anti_abuse(
 async def process_growth_reversal(
     req: CGEReversalReq,
     session: AsyncSession = Depends(get_company_db),
-    current_user: User = Depends(get_current_user),
-    company_id: str = Header(default="COMP-001", alias="X-Company-ID"),
+    current_user: User = Depends(require_role(UserRole.MANAGER)),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
 ) -> CGEReversalResponse:
     """Processes cascading clawbacks for loyalty points and commissions on refunded invoices."""
     res = await CGEUnifiedPolicyEngine.process_reversal(
         session=session,
-        company_id=company_id,
+        company_id=tenant_ctx.company_id,
         req=req,
     )
     return res

@@ -14,6 +14,10 @@
 
 # SMRITI RETAIL OS — AUTHORITATIVE MODULE INVENTORY
 
+> Status values below describe implementation inventory only; `Done` is not a
+> release or end-to-end certification. Check the current CI run and
+> [runtime E2E evidence](./RUNTIME_E2E.md) before treating a workflow as verified.
+
 | Module ID | Purpose | Primary User | Primary Tasks | Primary Component | APIs / Routes | Backend Service & Tables | Status |
 |---|---|---|---|---|---|---|---|
 | **`pos`** | Fast retail billing & checkout desk | Billing Operator / Cashier | Item scan, cart update, discount, multi-tender payment, invoice print | [`PosTerminalTab.tsx`](file:///F:/SMRITRretailNX/src/components/PosTerminalTab.tsx) | `POST /api/v1/pos/bill`, `GET /api/v1/master-lookup` | `backend/app/api/v1/pos.py`, `sales_invoices`, `stock_movements` | **`Done`** |

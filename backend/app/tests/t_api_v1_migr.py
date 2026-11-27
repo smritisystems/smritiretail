@@ -11,20 +11,21 @@ License      : Proprietary Commercial Software
 """
 
 import uuid
+
+import jwt
 import pytest
-from jose import jwt
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy import delete
 from sqlalchemy.future import select
 
-from app.main import app
+from app.api.deps import get_company_db, get_db
 from app.core.config import settings
+from app.core.security import create_access_token, hash_password
+from app.main import app
 from app.models.auth import User, UserRole
 from app.models.numbering import DocumentSeries
 from app.models.system import SystemConfig
-from app.models.tenant import Company, Branch
-from app.core.security import create_access_token, hash_password
-from app.api.deps import get_db, get_company_db
+from app.models.tenant import Branch, Company
 from app.tests.conftest import clear_db
 
 

@@ -33,6 +33,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "motion/react";
+import { hasAuthSession } from "../../lib/apiFetchV1.ts";
 import { useDrillDown } from "./drilldown_store.tsx";
 import { useActiveField } from "../../context/ActiveFieldContext.tsx";
 import { SmritiScrollArea } from "../SmritiScrollArea.tsx";
@@ -137,8 +138,7 @@ export const GlobalSearch: React.FC = () => {
   // Global keyboard shortcut (Ctrl+K to open)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      const token = typeof window !== "undefined" ? (localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token")) : null;
-      if (!token) return;
+      if (!hasAuthSession()) return;
 
       if ((e.ctrlKey || e.metaKey) && e.key === "k") {
         e.preventDefault();
@@ -214,8 +214,7 @@ export const GlobalSearch: React.FC = () => {
     }
   };
 
-  const token = typeof window !== "undefined" ? (localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token")) : null;
-  if (!searchOpen || !token) return null;
+  if (!searchOpen || !hasAuthSession()) return null;
 
   return (
     <AnimatePresence>

@@ -301,7 +301,7 @@ describe("Purchase Order Sizewise Grouping (Article No. + Color) Verification", 
       />
     );
     expect(htmlA4).toContain("BUSINESS TERMS &amp; STATUTORY CONDITIONS");
-    expect(htmlA4).toContain("Strictly 120 Days credit settlement");
+    expect(htmlA4).toContain("The payment term selected in the Commercial Terms section");
     expect(htmlA4).toContain("Mumbai, Maharashtra");
 
     // 6.2 FootwearPurchaseOrderA4
@@ -316,7 +316,7 @@ describe("Purchase Order Sizewise Grouping (Article No. + Color) Verification", 
       />
     );
     expect(htmlFootwear).toContain("BUSINESS TERMS &amp; STATUTORY CONDITIONS");
-    expect(htmlFootwear).toContain("Strictly 120 Days credit settlement");
+    expect(htmlFootwear).toContain("The payment term selected in the Commercial Terms section");
     expect(htmlFootwear).toContain("Mumbai, Maharashtra");
     expect(htmlFootwear).toContain("120 DAYS STATUTORY COMMERCIAL CONTRACT");
 
@@ -336,9 +336,44 @@ describe("Purchase Order Sizewise Grouping (Article No. + Color) Verification", 
       />
     );
     expect(htmlPivot).toContain("BUSINESS TERMS &amp; STATUTORY CONDITIONS");
-    expect(htmlPivot).toContain("Strictly 120 Days credit settlement");
+    expect(htmlPivot).toContain("The payment term selected in the Commercial Terms section");
     expect(htmlPivot).toContain("Mumbai, Maharashtra");
     expect(htmlPivot).toContain("120 Days");
+  });
+
+  it("preserves an explicit 30-day PO term in each print template", () => {
+    const htmlA4 = renderToStaticMarkup(
+      <PurchaseOrderPrintA4
+        data={{
+          ...basePOData,
+          paymentTerms: "30 Days",
+          businessTerms: DEFAULT_BUSINESS_TERMS,
+        }}
+      />
+    );
+    const htmlFootwear = renderToStaticMarkup(
+      <FootwearPurchaseOrderA4
+        data={{
+          companyName: "TATTLY THREADS",
+          paymentTerms: "30 Days",
+          businessTerms: DEFAULT_BUSINESS_TERMS,
+        }}
+      />
+    );
+    const htmlPivot = renderToStaticMarkup(
+      <SizePivotMatrixA4
+        header={{
+          companyName: "TATTLY THREADS",
+          paymentTerms: "30 Days",
+          businessTerms: DEFAULT_BUSINESS_TERMS,
+        }}
+        rows={[]}
+      />
+    );
+
+    expect(htmlA4).toContain("30 Days");
+    expect(htmlFootwear).toContain("30 Days");
+    expect(htmlPivot).toContain("30 Days");
   });
 
   it("7. resolveFootwearAttributes extracts Heels, Upper Material, Outsole, and Collection from diverse key aliases and casing structures", () => {

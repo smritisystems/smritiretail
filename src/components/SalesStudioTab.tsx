@@ -1170,10 +1170,10 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between border-b border-theme-divider bg-theme-surface-2 px-6 py-4">
         <div>
           <h2 className="text-xl font-bold font-display text-theme-primary tracking-tight">
-            Sales & Commerce Studio
+            Sales and customer records
           </h2>
           <p className="text-xs text-theme-muted mt-1 max-w-2xl">
-            Manage and track customer quotations, process incoming sales orders, issue GST commercial invoices, handle credit returns, and manage customer directory.
+            Find or manage quotes, sales orders, invoices, returns, and customer records. Choose a tab to switch sections, then select a row to see its details.
           </p>
         </div>
       </div>
@@ -4181,8 +4181,8 @@ export const SalesStudioTab: React.FC<SalesStudioTabProps> = ({ products, onNoti
               <div className="w-12 h-12 rounded-full bg-theme-surface-2 flex items-center justify-center text-theme-muted mx-auto">
                 <FileText size={20} />
               </div>
-              <h4 className="font-display font-bold text-xs text-theme-body uppercase tracking-wider">Detail Inspection Desk</h4>
-              <p className="text-[11px] leading-relaxed">Select any quotation, sales order, or sales invoice from the registry list to load its real-time tax breakdown, workflow status transitions, and committed items.</p>
+              <h4 className="font-display font-bold text-xs text-theme-body uppercase tracking-wider">Choose a record to see details</h4>
+              <p className="text-[11px] leading-relaxed">Select a quote, sales order, or invoice from the list to view its items, tax amount, and current status.</p>
             </div>
           )}
 

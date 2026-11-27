@@ -49,7 +49,7 @@ import {
 } from "lucide-react";
 import { User, UserPreferences, AuditLogEntry } from "../types.js";
 import { useNotifications } from "../notifications/notification_store.tsx";
-import { apiFetchV1 } from "../lib/apiFetchV1.ts";
+import { apiFetchV1, clearAuthSession } from "../lib/apiFetchV1.ts";
 import { PasswordReset } from "./PasswordReset.tsx";
 import { isValidMobile, isValidEmail } from "../utils/validators.ts";
 import { useTheme } from "../contexts/ThemeContext.tsx";
@@ -311,12 +311,10 @@ export const UserProfileTab: React.FC = () => {
     }
   };
 
-  const handleRevokeSession = async (token: string) => {
+  const handleRevokeSession = async () => {
     if (!currentUser) return;
     try {
-      // Express sessions are retired. Revoke = POST /api/v1/auth/logout (blacklists refresh token).
-      // For now, clear local JWT and reload to force re-login.
-      await apiFetchV1("/auth/logout", { method: "POST", body: JSON.stringify({ refresh_token: token }) });
+      await apiFetchV1("/auth/logout", { method: "POST" });
 
       addNotification({
         title: "Session Terminated",
@@ -325,8 +323,7 @@ export const UserProfileTab: React.FC = () => {
         priority: "low"
       });
 
-      localStorage.removeItem("smriti_jwt_token");
-      localStorage.removeItem("smriti_session_token");
+      clearAuthSession("manual_logout");
       window.location.reload();
     } catch (err: any) {
       addNotification({
@@ -406,7 +403,7 @@ export const UserProfileTab: React.FC = () => {
           </span>
           <button
             type="button"
-            onClick={() => handleRevokeSession(localStorage.getItem("smriti_jwt_token") || "")}
+            onClick={() => handleRevokeSession()}
             className="px-3 py-1 bg-rose-500/10 hover:bg-rose-600 hover:text-white border border-rose-500/30 text-rose-400 text-xs rounded-full font-bold uppercase tracking-wide flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
             title="Log Out and Invalidate Active Session"
           >
@@ -660,11 +657,7 @@ export const UserProfileTab: React.FC = () => {
                     </p>
                   </div>
                   <button
-                    onClick={() => {
-                      localStorage.removeItem("smriti_jwt_token");
-                      localStorage.removeItem("smriti_session_token");
-                      window.location.reload();
-                    }}
+                    onClick={() => void handleRevokeSession()}
                     className="px-4 py-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 text-xs font-bold flex items-center gap-2 transition-colors"
                   >
                     <Power size={13} /> Sign Out All Devices

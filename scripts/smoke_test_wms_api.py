@@ -12,13 +12,14 @@ License      : Proprietary Commercial Software
 Classification: Internal
 """
 
+import json
 import os
 import sys
-import json
-import urllib.request
 import urllib.parse
-from datetime import datetime, timezone, timedelta
-from jose import jwt
+import urllib.request
+from datetime import datetime, timedelta, timezone
+
+import jwt
 
 # Add backend directory to sys.path
 sys.path.insert(0, os.path.abspath("backend"))

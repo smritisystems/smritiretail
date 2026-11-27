@@ -17,11 +17,13 @@ import hashlib
 import hmac
 import json
 import pytest
+from fastapi import Request
 from httpx import AsyncClient, ASGITransport
 
 from app.main import app
 from app.core.config import settings, Settings
 from app.services.db_resolver import CompanyDatabaseResolver
+from app.models.auth import UserRole
 
 
 @pytest.mark.asyncio
@@ -65,6 +67,83 @@ async def test_ecom_webhook_ingress_requires_authentication():
             headers={"X-Company-ID": "COMP-001", "X-Company-Code": "001"}
         )
         assert res.status_code == 401, f"Expected 401 for unauthenticated webhook, got {res.status_code}"
+
+
+@pytest.mark.asyncio
+async def test_bearer_webhook_resolves_company_as_authenticated_user(monkeypatch):
+    """Bearer webhook routing must use the persisted user's role, not SYSADMIN."""
+    from types import SimpleNamespace
+    from app.api.v1.ecom import (
+        get_ecom_webhook_session,
+        get_optional_ecom_webhook_user,
+    )
+
+    resolved = {}
+    authenticated_tokens = []
+
+    def fake_resolver(**kwargs):
+        resolved.update(kwargs)
+        return {"database_name": "smriti001"}
+
+    class FakeSession:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, traceback):
+            return False
+
+    monkeypatch.setattr(
+        CompanyDatabaseResolver,
+        "resolve_company_database",
+        staticmethod(fake_resolver),
+    )
+    monkeypatch.setattr(
+        "app.api.v1.ecom.get_company_sessionmaker",
+        lambda database_name: lambda: FakeSession(),
+    )
+    user = SimpleNamespace(id="cashier-01", role=UserRole.CASHIER)
+
+    async def fake_get_current_user(request, token, db):
+        authenticated_tokens.append(token)
+        return user
+
+    monkeypatch.setattr("app.api.v1.ecom.get_current_user", fake_get_current_user)
+
+    async def receive():
+        return {"type": "http.request", "body": b"", "more_body": False}
+
+    request = Request(
+        {
+            "type": "http",
+            "http_version": "1.1",
+            "method": "POST",
+            "scheme": "http",
+            "path": "/webhooks/ingress",
+            "raw_path": b"/webhooks/ingress",
+            "query_string": b"",
+            "headers": [(b"authorization", b"Bearer validated-token")],
+            "server": ("test", 80),
+            "client": ("test", 1),
+        },
+        receive,
+    )
+    authenticated_user = await get_optional_ecom_webhook_user(
+        request,
+        x_internal_service_key=None,
+        db=object(),
+    )
+    session_generator = get_ecom_webhook_session(
+        request,
+        x_company_id="COMP-001",
+        authorization="Bearer validated-token",
+        current_user=authenticated_user,
+    )
+    await session_generator.__anext__()
+    await session_generator.aclose()
+
+    assert resolved["user_id"] == "cashier-01"
+    assert resolved["user_role"] == UserRole.CASHIER
+    assert authenticated_tokens == ["validated-token"]
 
 
 @pytest.mark.asyncio

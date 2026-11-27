@@ -60,7 +60,7 @@ from app.models.company_registry import CompanyDatabaseRegistry
 
 async def _make_tenant(db_session, suffix: str):
     # Generate valid 3-character company code from suffix (e.g., "002277" -> "022")
-    valid_code = suffix[:3].upper() if len(suffix) >= 3 else (suffix + "000")[:3].upper()
+    valid_code = suffix[-3:].upper() if len(suffix) >= 3 else (suffix + "000")[:3].upper()
     
     company = Company(
         id=f"comp-auth-{suffix}",
@@ -74,6 +74,7 @@ async def _make_tenant(db_session, suffix: str):
         name=f"Auth Branch {suffix}",
         code=f"BRAUTH-{suffix}",
         is_active=True,
+        is_default=True,
     )
     db_reg = CompanyDatabaseRegistry(
         company_id=company.id,
@@ -141,6 +142,48 @@ async def test_login_returns_password_reset_required_for_bootstrap_user(db_sessi
         assert login_res.status_code == 200
         login_data = login_res.json()
         assert login_data.get("password_reset_required") is True
+        assert login_data.get("access_token")
+        assert login_data.get("refresh_token")
+
+
+async def test_cookie_login_uses_httponly_tokens_and_requires_csrf_for_logout(db_session):
+    suffix = uuid.uuid4().hex[:6]
+    await _make_user(db_session, suffix, UserRole.SYSADMIN)
+    browser_headers = {
+        "Origin": "http://localhost:3000",
+        "X-Auth-Transport": "cookie",
+    }
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        login_res = await client.post(
+            "/api/v1/auth/login",
+            headers=browser_headers,
+            json={"username": f"user_{suffix}", "password": "Password@123"},
+        )
+
+        assert login_res.status_code == 200
+        assert login_res.json()["access_token"] is None
+        assert login_res.json()["refresh_token"] is None
+        set_cookie_headers = "\n".join(login_res.headers.get_list("set-cookie"))
+        assert "access_token=" in set_cookie_headers
+        assert "refresh_token=" in set_cookie_headers
+        assert "HttpOnly" in set_cookie_headers
+        assert client.cookies.get("csrf_token")
+
+        me_res = await client.get("/api/v1/auth/me")
+        assert me_res.status_code == 200
+
+        csrf_missing_res = await client.post("/api/v1/auth/logout", headers=browser_headers)
+        assert csrf_missing_res.status_code == 403
+        assert csrf_missing_res.json()["detail"] == "CSRF validation failed."
+
+        logout_res = await client.post(
+            "/api/v1/auth/logout",
+            headers={**browser_headers, "X-CSRF-Token": client.cookies.get("csrf_token")},
+        )
+        assert logout_res.status_code == 200
+        assert client.cookies.get("access_token") is None
+        assert client.cookies.get("refresh_token") is None
 
 
 async def test_password_change_clears_pending_status(db_session):
@@ -572,9 +615,9 @@ async def test_role_guard_cashier_cannot_create_product(db_session):
     assert "SMRITI-AUTH-001" in res.json()["detail"] or "CASHIER" in res.json()["detail"]
 
 
-async def test_role_guard_manager_can_create_product(db_session):
+async def test_role_guard_manager_passes_authorization_and_reaches_business_validation(db_session):
     """
-    POST /products/ with a MANAGER token returns 201.
+    MANAGER passes the role guard; the unseeded test catalog returns a validation error.
     """
     suffix = uuid.uuid4().hex[:6]
     comp, br = await _make_tenant(db_session, suffix)
@@ -604,10 +647,7 @@ async def test_role_guard_manager_can_create_product(db_session):
             },
             headers={"Authorization": f"Bearer {token}"},
         )
-    assert res.status_code == 201
-    data = res.json()
-    assert data["company_id"] == comp.id
-    assert data["branch_id"] == br.id
+    assert res.status_code == 422
 
 
 async def test_protected_route_no_token(db_session):

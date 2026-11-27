@@ -34,7 +34,13 @@ describe("GRN workflow wizard", () => {
       "COSTS_FREIGHT",
       "REVIEW_POST",
     ]);
-    expect(GRN_WORKFLOW_STEPS[0].label).toBe("PO & Details");
+    expect(GRN_WORKFLOW_STEPS.map((step) => step.label)).toEqual([
+      "Supplier & Order",
+      "Count & Check Items",
+      "Invoice & Price Check",
+      "Freight & Other Costs",
+      "Review Receipt",
+    ]);
   });
 
   it("permits forward navigation in order and blocks skipped future steps before prerequisites are met", () => {

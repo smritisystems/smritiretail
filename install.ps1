@@ -41,7 +41,9 @@ function Update-EnvKey {
     param(
         [string]$FilePath,
         [string]$Key,
-        [string]$Value
+        [string]$Value,
+        [switch]$ReplaceExisting,
+        [switch]$ReplaceInsecure
     )
     if (-not (Test-Path $FilePath)) { return }
     $lines = Get-Content $FilePath
@@ -53,7 +55,11 @@ function Update-EnvKey {
         } elseif ($line -match "^\s*$Key\s*=\s*(.*)") {
             $found = $true
             $val = $matches[1].Trim().Trim('"').Trim("'")
-            if ([string]::IsNullOrWhiteSpace($val)) {
+            $replaceValue = [string]::IsNullOrWhiteSpace($val) -or $ReplaceExisting
+            if ($ReplaceInsecure -and $val -match "(?i)(change_me|dev-test|development|dev_test|default|example)") {
+                $replaceValue = $true
+            }
+            if ($replaceValue) {
                 $output += "$Key=$Value"
                 Write-Host "  [OK] Injected secure $Key into $FilePath." -ForegroundColor Green
             } else {
@@ -68,6 +74,18 @@ function Update-EnvKey {
         Write-Host "  [OK] Added secure $Key to $FilePath." -ForegroundColor Green
     }
     Set-Content -Path $FilePath -Value $output
+}
+
+function Get-EnvValue {
+    param([string]$FilePath, [string]$Key)
+    if (-not (Test-Path $FilePath)) { return "" }
+    $line = Get-Content $FilePath -ErrorAction SilentlyContinue |
+        Where-Object { $_ -match "^\s*${Key}\s*=\s*(.+)" } |
+        Select-Object -First 1
+    if ($line -and $line -match "^\s*${Key}\s*=\s*(.+)") {
+        return $matches[1].Trim().Trim('"').Trim("'")
+    }
+    return ""
 }
 
 function Test-PortOccupied {
@@ -327,9 +345,9 @@ if (-not (Test-Path ".env")) {
 }
 
 # Ensure critical secrets are populated and valid (never empty or quotes-only)
-Update-EnvKey -FilePath ".env" -Key "JWT_SECRET_KEY" -Value (New-SecureKey)
-Update-EnvKey -FilePath ".env" -Key "INTERNAL_SERVICE_KEY" -Value (New-SecureKey)
-Update-EnvKey -FilePath ".env" -Key "SGIP_VAULT_MASTER_KEY" -Value (New-SecureKey)
+Update-EnvKey -FilePath ".env" -Key "JWT_SECRET_KEY" -Value (New-SecureKey) -ReplaceInsecure
+Update-EnvKey -FilePath ".env" -Key "INTERNAL_SERVICE_KEY" -Value (New-SecureKey) -ReplaceInsecure
+Update-EnvKey -FilePath ".env" -Key "SGIP_VAULT_MASTER_KEY" -Value (New-SecureKey) -ReplaceInsecure
 
 # Export all .env variables directly into process environment for Docker Compose
 Get-Content ".env" | ForEach-Object {
@@ -340,6 +358,34 @@ Get-Content ".env" | ForEach-Object {
             [System.Environment]::SetEnvironmentVariable($k, $v, "Process")
         }
     }
+}
+
+if ($composeFile -eq "docker-compose.yml") {
+    $postgresPassword = Get-EnvValue -FilePath ".env" -Key "POSTGRES_PASSWORD"
+    if ([string]::IsNullOrWhiteSpace($postgresPassword) -or $postgresPassword -eq "postgres") {
+        $postgresVolumeName = if ($VolumeName) {
+            $VolumeName
+        } elseif ($env:POSTGRES_VOLUME_NAME) {
+            $env:POSTGRES_VOLUME_NAME
+        } else {
+            "smriti_db_volume"
+        }
+        docker volume inspect $postgresVolumeName *> $null
+        $existingDatabaseVolume = $LASTEXITCODE -eq 0
+
+        if ($doFreshInstall -or -not $existingDatabaseVolume) {
+            $postgresPassword = New-SecureKey
+            Update-EnvKey -FilePath ".env" -Key "POSTGRES_PASSWORD" -Value $postgresPassword -ReplaceExisting
+            $env:POSTGRES_PASSWORD = $postgresPassword
+        } else {
+            Write-Host "  [FAIL] Existing PostgreSQL volume has a missing or default password." -ForegroundColor Red
+            Write-Host "         No database changes were made. Rotate the PostgreSQL role password deliberately, update .env, and rerun." -ForegroundColor Yellow
+            exit 1
+        }
+    }
+
+    Update-EnvKey -FilePath ".env" -Key "ENVIRONMENT" -Value "production" -ReplaceExisting
+    $env:ENVIRONMENT = "production"
 }
 
 # Export port overrides to environment
@@ -355,19 +401,6 @@ if ($VolumeName) {
 # 5.5  Company / Business Profile Setup
 # -----------------------------------------------------------------------------
 Write-Section "5.5/7" "Business Profile Setup"
-
-# Null-safe helper: read a key's value from .env, returns "" if missing or empty
-function Get-EnvValue {
-    param([string]$FilePath, [string]$Key)
-    if (-not (Test-Path $FilePath)) { return "" }
-    $line = Get-Content $FilePath -ErrorAction SilentlyContinue |
-            Where-Object { $_ -match "^\s*${Key}\s*=\s*(.+)" } |
-            Select-Object -First 1
-    if ($line -and $line -match "^\s*${Key}\s*=\s*(.+)") {
-        return $matches[1].Trim().Trim('"').Trim("'")
-    }
-    return ""
-}
 
 $existingCompanyName = Get-EnvValue -FilePath ".env" -Key "SMRITI_COMPANY_NAME"
 

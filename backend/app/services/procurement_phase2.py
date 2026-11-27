@@ -181,12 +181,28 @@ class ProcurementPhase2Service:
         if req.status not in ("SUBMITTED", "DRAFT"):
             raise HTTPException(status_code=400, detail=f"Cannot approve requisition in '{req.status}' state")
 
+        approved_quantities = action.approved_quantities or {}
+        item_ids = {item.id for item in req.items}
+        unknown_item_ids = set(approved_quantities) - item_ids
+        if unknown_item_ids:
+            raise HTTPException(status_code=400, detail="Approval includes an item that is not part of this request")
+
+        resolved_quantities = {}
+        for item in req.items:
+            quantity = approved_quantities.get(item.id, item.quantity_requested)
+            if quantity < 0 or quantity > item.quantity_requested:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Approved quantity for '{item.name}' must be between zero and the requested quantity",
+                )
+            resolved_quantities[item.id] = quantity
+
+        if not any(quantity > 0 for quantity in resolved_quantities.values()):
+            raise HTTPException(status_code=400, detail="Approve at least one requested unit or reject the request")
+
         approved_total = Decimal("0.00")
         for item in req.items:
-            if action.approved_quantities and item.id in action.approved_quantities:
-                app_qty = action.approved_quantities[item.id]
-            else:
-                app_qty = item.quantity_requested
+            app_qty = resolved_quantities[item.id]
             item.quantity_approved = app_qty
             item.line_total = _round2(app_qty * item.estimated_cost)
             approved_total += item.line_total
@@ -268,7 +284,9 @@ class ProcurementPhase2Service:
         po_items = []
 
         for item in req.items:
-            qty = item.quantity_approved if item.quantity_approved > 0 else item.quantity_requested
+            qty = item.quantity_approved
+            if qty <= 0:
+                continue
             cost = item.estimated_cost if item.estimated_cost > 0 else Decimal("100.00")
             gst_rate = Decimal("18.00")
             tax = _round2(qty * cost * (gst_rate / Decimal("100.00")))
@@ -296,6 +314,9 @@ class ProcurementPhase2Service:
             po_items.append(po_line)
             # Update ordered quantity
             item.quantity_ordered = qty
+
+        if not po_items:
+            raise HTTPException(status_code=400, detail="Cannot create a purchase order with no approved quantities")
 
         po = PurchaseOrder(
             id=po_id,

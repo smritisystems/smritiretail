@@ -58,6 +58,7 @@ class TenantContext:
     company_id: str
     branch_id: str
     role: Optional[Union[UserRole, str]] = None
+    user_id: Optional[str] = None
 
     @property
     def tenant_id(self) -> str:
@@ -94,8 +95,6 @@ async def get_current_user(
             request.headers.get("x-auth-token")
             or request.headers.get("x-access-token")
             or request.cookies.get("access_token")
-            or request.cookies.get("smriti_jwt_token")
-            or request.cookies.get("token")
         )
 
     if not token:
@@ -233,8 +232,19 @@ async def get_tenant_context(
         elif current_user.company_id and str(current_user.company_id).strip().lower() not in ("none", "null", "undefined", ""):
             raw_target = current_user.company_id
         else:
-            raw_target = "COMP-001"
-    target_company = normalize_company_id(raw_target) or "COMP-001"
+            raise HTTPException(
+                status_code=403,
+                detail="Access denied: authenticated user has no company assignment.",
+            )
+    target_company = normalize_company_id(raw_target)
+    if not target_company:
+        if current_user.role == UserRole.SYSADMIN:
+            target_company = "COMP-001"
+        else:
+            raise HTTPException(
+                status_code=403,
+                detail="Access denied: authenticated user has no valid company assignment.",
+            )
 
     if current_user.role != UserRole.SYSADMIN:
         norm_user_company = normalize_company_id(current_user.company_id)
@@ -307,6 +317,7 @@ async def get_tenant_context(
         company_id=target_company,
         branch_id=target_branch,
         role=current_user.role,
+        user_id=current_user.id,
     )
 
 
@@ -321,7 +332,12 @@ async def get_company_db(
     Extracts tenant target strictly from validated TenantContext (cryptographic JWT + assignment check).
     Never trusts raw unvalidated client headers or query parameters.
     """
-    cid = tenant_ctx.company_id or "COMP-001"
+    cid = tenant_ctx.company_id
+    if not cid or not str(cid).strip():
+        raise HTTPException(
+            status_code=403,
+            detail="Access denied: validated tenant context is missing a company identifier.",
+        )
     target_db_name = await resolve_company_database_name(cid)
     if target_db_name == "smritisys":
         raise HTTPException(

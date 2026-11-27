@@ -78,7 +78,10 @@ class CompanyDatabaseProvisioner:
             "target_database": database_name,
             "schema_version": "3.29.0",
             "alembic_required": True,
-            "alembic_migration_command": "alembic upgrade head",
+            "alembic_migration_command": (
+                f"alembic -x target=tenant -x db={database_name} "
+                "upgrade tenant@head"
+            ),
             "alembic_min_revision": "v1337_backfill_variant_id",
             "tables_planned": 46,
             "dry_run": self.dry_run,

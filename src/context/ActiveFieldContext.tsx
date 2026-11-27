@@ -14,7 +14,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode, useRef } from "react";
 import { Product, Customer } from "../types.ts";
-import { apiFetchV1 } from "../lib/apiFetchV1.ts";
+import { apiFetchV1, hasAuthSession } from "../lib/apiFetchV1.ts";
 import { getCustomers } from "../services/customerStore.ts";
 
 export type ActiveFieldCategory = 
@@ -298,9 +298,7 @@ export const ActiveFieldProvider: React.FC<{ children: ReactNode }> = ({ childre
       const isInput = target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable;
       if (isInput) {
         lastFocusedInputRef.current = target as HTMLInputElement;
-        const token = typeof window !== "undefined" ? (localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token")) : null;
-        
-        if (!token) {
+        if (!hasAuthSession()) {
           // Public / Login Screen: Generic secure state with 0 data exposure
           setCategory("general");
           setFieldLabel("Authentication Portal");
@@ -334,8 +332,7 @@ export const ActiveFieldProvider: React.FC<{ children: ReactNode }> = ({ childre
     };
 
     const handleInput = (e: Event) => {
-      const token = typeof window !== "undefined" ? (localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token")) : null;
-      if (!token) return; // Do not track live values on unauthenticated login inputs
+      if (!hasAuthSession()) return; // Do not track live values on unauthenticated login inputs
 
       const target = e.target as HTMLElement;
       if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA")) {

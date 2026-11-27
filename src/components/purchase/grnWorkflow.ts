@@ -30,11 +30,11 @@ export interface GrnWorkflowStepDefinition {
 }
 
 export const GRN_WORKFLOW_STEPS: GrnWorkflowStepDefinition[] = [
-  { id: "PO_DETAILS", label: "PO & Details", order: 1 },
-  { id: "RECEIVE_VERIFY", label: "Receive & Verify", order: 2 },
-  { id: "COMMERCIALS", label: "Commercials", order: 3 },
-  { id: "COSTS_FREIGHT", label: "Costs & Freight", order: 4 },
-  { id: "REVIEW_POST", label: "Review & Post", order: 5 },
+  { id: "PO_DETAILS", label: "Supplier & Order", order: 1 },
+  { id: "RECEIVE_VERIFY", label: "Count & Check Items", order: 2 },
+  { id: "COMMERCIALS", label: "Invoice & Price Check", order: 3 },
+  { id: "COSTS_FREIGHT", label: "Freight & Other Costs", order: 4 },
+  { id: "REVIEW_POST", label: "Review Receipt", order: 5 },
 ];
 
 export function getWorkflowStepIndex(step: GrnWorkflowStepId): number {

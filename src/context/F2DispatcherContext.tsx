@@ -43,6 +43,7 @@ import React, {
   ReactNode,
 } from "react";
 import { inferFieldCategory } from "./ActiveFieldContext.tsx";
+import { hasAuthSession } from "../lib/apiFetchV1.ts";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 1. LOOKUP DOMAIN TYPES
@@ -330,10 +331,7 @@ export const F2DispatcherProvider: React.FC<{ children: ReactNode }> = ({ childr
       if (e.key !== "F2") return;
 
       // Guard 1: Not authenticated → no-op
-      const token =
-        localStorage.getItem("smriti_jwt_token") ||
-        localStorage.getItem("smriti_session_token");
-      if (!token) return;
+      if (!hasAuthSession()) return;
 
       // Guard 2: Re-entry guard — F2 inside the modal is a no-op
       if (isOpen) {

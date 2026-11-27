@@ -13,18 +13,16 @@
 
 /**
  * Universal client fetch helper for FastAPI Core API (/api/v1/*)
- * Automatically attaches Authorization Bearer JWT and X-Company-Code & X-Branch-Code multi-tenant routing headers.
+ * Uses HttpOnly cookie authentication and X-Company-Code & X-Branch-Code multi-tenant routing headers.
  * Includes one-shot silent token refresh on 401 to prevent session disruption during retail shifts.
  */
 
 // Guard flag: prevents concurrent silent refresh storms if multiple requests 401 simultaneously
 let _refreshingToken = false;
-let _refreshWaiters: Array<(newToken: string | null) => void> = [];
+let _refreshWaiters: Array<(refreshed: boolean) => void> = [];
 
 const AUTH_STORAGE_KEYS = [
-  "smriti_jwt_token",
-  "smriti_session_token",
-  "smriti_refresh_token",
+  "smriti_auth_present",
   "smriti_company_id",
   "smriti_company_code",
   "smriti_branch_id",
@@ -32,6 +30,12 @@ const AUTH_STORAGE_KEYS = [
   "smriti_company_name",
   "smriti_branch_name",
   "smriti_last_activity",
+];
+
+const LEGACY_AUTH_STORAGE_KEYS = [
+  "smriti_jwt_token",
+  "smriti_session_token",
+  "smriti_refresh_token",
 ];
 
 export function normalizeCompanyId(raw: string | null | undefined): string {
@@ -148,31 +152,50 @@ export function getTenantCompanyContext(): {
   };
 }
 
-export function syncAuthCookies(token?: string | null): void {
-  if (typeof document === "undefined") return;
-  const activeToken = token ?? (
-    typeof localStorage !== "undefined"
-      ? (localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token"))
-      : null
-  );
-  if (activeToken) {
-    document.cookie = `access_token=${encodeURIComponent(activeToken)}; path=/; SameSite=Lax`;
-    document.cookie = `smriti_jwt_token=${encodeURIComponent(activeToken)}; path=/; SameSite=Lax`;
+export function getCsrfToken(): string | null {
+  if (typeof document === "undefined") return null;
+  const csrfCookie = document.cookie
+    .split(";")
+    .map((cookie) => cookie.trim())
+    .find((cookie) => cookie.startsWith("csrf_token="));
+  if (!csrfCookie) return null;
+  return decodeURIComponent(csrfCookie.slice("csrf_token=".length));
+}
+
+export function setAuthSessionPresent(present: boolean): void {
+  if (typeof window === "undefined") return;
+  if (present) localStorage.setItem("smriti_auth_present", "1");
+  else localStorage.removeItem("smriti_auth_present");
+}
+
+export function hasAuthSession(): boolean {
+  return safeGetItem("smriti_auth_present") === "1";
+}
+
+export function clearLegacyAuthTokens(): void {
+  if (typeof window !== "undefined") {
+    try {
+      LEGACY_AUTH_STORAGE_KEYS.forEach((key) => localStorage.removeItem(key));
+    } catch {
+      // Storage may be disabled by the browser.
+    }
+  }
+  if (typeof document !== "undefined") {
+    for (const name of ["access_token", "smriti_jwt_token", "token"]) {
+      document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax`;
+    }
   }
 }
 
 export function clearAuthSession(reason?: string): void {
   if (typeof window !== "undefined") {
+    clearLegacyAuthTokens();
     for (const key of AUTH_STORAGE_KEYS) {
       localStorage.removeItem(key);
     }
-    if (typeof document !== "undefined") {
-      document.cookie = "access_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
-      document.cookie = "smriti_jwt_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
-    }
     window.dispatchEvent(new CustomEvent("smriti_auth_session_cleared", { detail: { reason } }));
   } else {
-    for (const key of AUTH_STORAGE_KEYS) {
+    for (const key of [...AUTH_STORAGE_KEYS, ...LEGACY_AUTH_STORAGE_KEYS]) {
       try {
         localStorage.removeItem(key);
       } catch {
@@ -182,40 +205,29 @@ export function clearAuthSession(reason?: string): void {
   }
 }
 
-async function _attemptSilentRefresh(): Promise<string | null> {
+async function _attemptSilentRefresh(): Promise<boolean> {
+  if (typeof window === "undefined") return false;
   // If a refresh is already in-flight, queue up and wait for it
   if (_refreshingToken) {
     return new Promise((resolve) => { _refreshWaiters.push(resolve); });
   }
 
   _refreshingToken = true;
-  const refreshToken = safeGetItem("smriti_refresh_token");
-  if (!refreshToken) {
-    _refreshingToken = false;
-    _refreshWaiters.forEach(r => r(null));
-    _refreshWaiters = [];
-    return null;
-  }
-
   try {
     const refreshRes = await fetch("/api/v1/auth/refresh", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refresh_token: refreshToken }),
+      credentials: "same-origin",
+      headers: {
+        "X-Auth-Transport": "cookie",
+        ...(getCsrfToken() ? { "X-CSRF-Token": getCsrfToken()! } : {}),
+      },
     });
     if (refreshRes.ok) {
-      const refreshData = await refreshRes.json();
-      if (refreshData.access_token) {
-        localStorage.setItem("smriti_jwt_token", refreshData.access_token);
-        syncAuthCookies(refreshData.access_token);
-        if (refreshData.refresh_token) {
-          localStorage.setItem("smriti_refresh_token", refreshData.refresh_token);
-        }
-        _refreshWaiters.forEach(r => r(refreshData.access_token));
-        _refreshWaiters = [];
-        _refreshingToken = false;
-        return refreshData.access_token;
-      }
+      setAuthSessionPresent(true);
+      _refreshWaiters.forEach((resolve) => resolve(true));
+      _refreshWaiters = [];
+      _refreshingToken = false;
+      return true;
     }
   } catch {
     // Network failure during refresh
@@ -223,15 +235,20 @@ async function _attemptSilentRefresh(): Promise<string | null> {
 
   // Refresh failed — clear all auth state
   clearAuthSession("refresh_failed");
-  _refreshWaiters.forEach(r => r(null));
+  _refreshWaiters.forEach((resolve) => resolve(false));
   _refreshWaiters = [];
   _refreshingToken = false;
-  return null;
+  return false;
 }
 
-function _buildHeaders(token: string | null, companyCode: string, companyId: string, options: RequestInit): Headers {
+function _buildHeaders(companyCode: string, companyId: string, options: RequestInit): Headers {
   const headers = new Headers(options.headers || {});
-  if (token) headers.set("Authorization", `Bearer ${token}`);
+  if (typeof window !== "undefined") headers.set("X-Auth-Transport", "cookie");
+  const method = (options.method || "GET").toUpperCase();
+  if (["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
+    const csrfToken = getCsrfToken();
+    if (csrfToken) headers.set("X-CSRF-Token", csrfToken);
+  }
   if (companyCode && !headers.has("X-Company-Code")) headers.set("X-Company-Code", companyCode);
   if (companyId && !headers.has("X-Company-ID")) headers.set("X-Company-ID", companyId);
   const branchId = safeGetItem("smriti_branch_id") || "MAIN";
@@ -272,7 +289,6 @@ function applyQueryParams(url: string, params?: Record<string, unknown> | URLSea
 }
 
 export async function apiFetchV1<T = any>(endpoint: string, options: ApiRequestOptions = {}): Promise<T> {
-  const token = safeGetItem("smriti_jwt_token") || safeGetItem("smriti_session_token");
   const companyCode = safeGetItem("smriti_company_code") || "001";
   const companyId = safeGetItem("smriti_company_id") || "COMP-001";
 
@@ -324,7 +340,8 @@ export async function apiFetchV1<T = any>(endpoint: string, options: ApiRequestO
   try {
     response = await fetch(url, {
       ...requestInit,
-      headers: _buildHeaders(token, companyCode, companyId, requestInit)
+      credentials: "same-origin",
+      headers: _buildHeaders(companyCode, companyId, requestInit)
     });
   } catch (networkError: any) {
     console.error(`[apiFetchV1 Network Error] Target URL "${url}" unreachable:`, networkError);
@@ -340,13 +357,14 @@ export async function apiFetchV1<T = any>(endpoint: string, options: ApiRequestO
   // One-shot: attempt to silently refresh the access token, then retry the request.
   // If refresh fails too, clear auth storage so the app cleanly routes to login.
   if (response.status === 401) {
-    const newToken = await _attemptSilentRefresh();
-    if (newToken) {
-      // Retry original request with the fresh token
+    const refreshed = await _attemptSilentRefresh();
+    if (refreshed) {
+      // The refreshed HttpOnly cookie is sent automatically on retry.
       try {
         const retryResponse = await fetch(url, {
           ...requestInit,
-          headers: _buildHeaders(newToken, companyCode, companyId, requestInit)
+          credentials: "same-origin",
+          headers: _buildHeaders(companyCode, companyId, requestInit)
         });
         if (retryResponse.ok) {
           if (retryResponse.status === 204 || retryResponse.headers.get("content-length") === "0") return null as unknown as T;
@@ -461,8 +479,7 @@ export async function apiFetchV1<T = any>(endpoint: string, options: ApiRequestO
 }
 
 export function isLocalMockToken(): boolean {
-  const token = safeGetItem("smriti_jwt_token") || safeGetItem("smriti_session_token");
-  return !token || token.startsWith("MOCK_");
+  return !hasAuthSession();
 }
 
 export function getAuthenticatedDocumentUrl(endpoint: string): string {
@@ -491,14 +508,7 @@ export function openAuthenticatedDocument(endpoint: string, target = "_blank", f
   return window.open(authUrl, target, features);
 }
 
-// Auto-sync cookies on module initialization if running in browser
-if (typeof window !== "undefined" && typeof document !== "undefined") {
-  try {
-    syncAuthCookies();
-  } catch {
-    // ignore
-  }
-}
+clearLegacyAuthTokens();
 
 /**
  * Record UI-driven audit actions (views, prints, exports) to system compliance logs via FastAPI

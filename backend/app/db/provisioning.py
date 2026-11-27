@@ -108,7 +108,7 @@ async def provision_postgresql_database(
                         company_connection,
                         db_name=db_name,
                     )
-                run_alembic("head")
+                run_alembic("tenant@head")
                 result["bootstrap"] = bootstrap_result
 
             return result

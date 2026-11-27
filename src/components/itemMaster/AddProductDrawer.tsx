@@ -546,7 +546,7 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
               size,
               enabled: true,
               sku: varSku,
-              barcode: "", // User must enter or scan official barcode; never generate synthetic!
+              barcode: "", // Keep variants unassigned until a supplier code is entered or an internal code is assigned through a confirmed PO.
               secondaryBarcodes: [],
               mrp: baseMrp || "",
               cost: baseCostPrice || "",
@@ -778,7 +778,7 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
       const parsedCost = baseCostPrice ? parseFloat(baseCostPrice) : 0.0;
       const parsedGst = gstRate ? parseFloat(gstRate) : 0.0;
 
-      // In Simple Mode: Barcode is user input only. Never synthetic!
+      // Item Master accepts a supplied barcode or leaves it blank; internal codes are assigned through the confirmed-PO workflow.
       const primaryBarcode = activeMode === "SIMPLE"
         ? (simpleBarcode.trim() || null)
         : (activeVariant?.barcode.trim() || null);
@@ -968,7 +968,7 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
               base_mrp: parsedMrp,
               base_selling_price: parsedSelling,
               base_cost_price: parsedCost,
-              auto_generate_barcodes: false, // Invariant: No synthetic barcodes!
+              auto_generate_barcodes: false, // Matrix variants stay unassigned; the confirmed-PO workflow can generate internal codes.
             }),
           });
         } catch {
@@ -1272,18 +1272,18 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
                 {/* Primary Barcode */}
                 <div>
                   <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
-                    Primary Barcode
+                    Primary Barcode (Optional)
                   </label>
                   <input
                     id="im-field-barcode"
                     type="text"
                     value={simpleBarcode}
                     onChange={(e) => handleBarcodeChange(e.target.value)}
-                    placeholder="Scan or enter official barcode"
+                    placeholder="Scan or enter supplier/GS1 barcode"
                     className="w-full text-xs font-mono px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a2234] text-slate-900 dark:text-white outline-hidden focus:ring-2 focus:ring-blue-500 uppercase"
                   />
                   <p className="text-[10px] text-slate-500 mt-1">
-                    Manufacturer barcode. Zero synthetic barcodes generated.
+                    Supplier/GS1 code, if available. Otherwise leave blank and generate an internal Code 128 after PO confirmation, before receipt.
                   </p>
                 </div>
 

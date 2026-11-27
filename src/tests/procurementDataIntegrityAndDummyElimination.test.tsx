@@ -236,7 +236,7 @@ describe("Procurement & Vendor Master Data Integrity & Dummy Elimination Audit",
       expect(html).not.toContain("SKU-FOOT-001");
 
       // Verify clean initial list empty state
-      expect(html).toContain("No purchase requisitions found matching current filters.");
+      expect(html).toContain("No purchase requests yet.");
     });
 
     it("SupplierRfqWorkspace initializes without hardcoded sample footwear SKUs", () => {

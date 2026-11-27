@@ -526,7 +526,7 @@ class TestStaticAnalysisCIGuard:
 
     def test_ci_guard_detects_missing_alembic_target_flags(self, tmp_path):
         """
-        RULE: CI guard must detect alembic commands without -x target= flags in CI YAML.
+        RULE: CI guard must reject Alembic commands without a matching target-specific head.
         """
         workflows_dir = tmp_path / ".github" / "workflows"
         workflows_dir.mkdir(parents=True)
@@ -543,12 +543,29 @@ class TestStaticAnalysisCIGuard:
 
         violations = mod.check_ci_alembic_has_target_flags(tmp_path, verbose=False)
         assert len(violations) > 0, (
-            "CI guard must detect alembic upgrade head without -x target= flags"
+            "CI guard must reject an unscoped Alembic upgrade"
         )
+
+    def test_ci_guard_rejects_mismatched_target_head(self, tmp_path):
+        workflows_dir = tmp_path / ".github" / "workflows"
+        workflows_dir.mkdir(parents=True)
+        (workflows_dir / "ci.yml").write_text(
+            "      - name: Run migrations\n"
+            "        run: alembic -x target=tenant -x db=smriti001 upgrade control@head\n",
+            encoding="utf-8",
+        )
+
+        ci_guard = REPO_ROOT / "scripts" / "ci_tenant_boundary_guard.py"
+        spec = __import__("importlib.util").util.spec_from_file_location("ci_guard", ci_guard)
+        mod = __import__("importlib.util").util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+
+        violations = mod.check_ci_alembic_has_target_flags(tmp_path, verbose=False)
+        assert len(violations) == 1
 
     def test_ci_guard_passes_on_fixed_ci_yaml(self):
         """
-        RULE: After CI fix, the -x target= flags are present and CI guard must PASS.
+        RULE: CI migrations select the head matching each target database.
         """
         ci_guard = REPO_ROOT / "scripts" / "ci_tenant_boundary_guard.py"
         spec = __import__("importlib.util").util.spec_from_file_location("ci_guard", ci_guard)
@@ -825,3 +842,90 @@ class TestCI10Checks:
         total_violations = sum(len(v) for v in results.values())
         failed_checks = {k: [str(x) for x in v] for k, v in results.items() if len(v) > 0}
         assert total_violations == 0, f"CI boundary guard failed with violations: {failed_checks}"
+
+
+@pytest.mark.asyncio
+async def test_non_sysadmin_without_company_identity_fails_closed():
+    from fastapi import HTTPException, Request
+    from types import SimpleNamespace
+    from app.api.deps import get_tenant_context
+    from app.models.auth import UserRole
+
+    request = Request(
+        {
+            "type": "http",
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/",
+            "raw_path": b"/",
+            "query_string": b"",
+            "headers": [],
+            "server": ("test", 80),
+            "client": ("test", 1),
+        }
+    )
+    user = SimpleNamespace(company_id=None, role=UserRole.CASHIER)
+
+    with pytest.raises(HTTPException) as exc:
+        await get_tenant_context(request, current_user=user, db=None)
+
+    assert exc.value.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_company_database_dependency_rejects_empty_tenant_context():
+    from fastapi import HTTPException
+    from app.api.deps import TenantContext, get_company_db
+
+    dependency = get_company_db(TenantContext(company_id="", branch_id=""))
+    with pytest.raises(HTTPException) as exc:
+        await dependency.__anext__()
+
+    assert exc.value.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_valid_legacy_company_identity_remains_supported():
+    from fastapi import Request
+    from types import SimpleNamespace
+    from app.api.deps import get_tenant_context
+    from app.models.auth import UserRole
+
+    class Result:
+        def __init__(self, value):
+            self.value = value
+
+        def scalars(self):
+            return self
+
+        def first(self):
+            return self.value
+
+    class FakeDatabase:
+        def __init__(self):
+            self.results = [None, SimpleNamespace(id="BR-MAIN-001"), None]
+
+        async def execute(self, statement):
+            return Result(self.results.pop(0))
+
+    request = Request(
+        {
+            "type": "http",
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/",
+            "raw_path": b"/",
+            "query_string": b"",
+            "headers": [],
+            "server": ("test", 80),
+            "client": ("test", 1),
+        }
+    )
+    user = SimpleNamespace(company_id="COMP-001", id="legacy-user", role=UserRole.CASHIER)
+
+    tenant_context = await get_tenant_context(request, current_user=user, db=FakeDatabase())
+
+    assert tenant_context.company_id == "COMP-001"
+    assert tenant_context.branch_id == "BR-MAIN-001"

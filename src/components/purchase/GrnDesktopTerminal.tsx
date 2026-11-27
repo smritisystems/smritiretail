@@ -1139,10 +1139,10 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
               type="button"
               onClick={onSwitchToWizard}
               className="flex items-center gap-1 px-2.5 h-6.5 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 rounded text-indigo-700 dark:text-indigo-300 font-semibold text-xs shadow-2xs transition"
-              title="Switch to Guided 5-Step Wizard"
+              title="Follow guided steps to choose an order, check items, add costs, and review the receipt"
             >
               <ClipboardList size={12} className="text-indigo-600" />
-              <span>5-Step Wizard</span>
+              <span>Guided receiving</span>
             </button>
           )}
 
@@ -1238,7 +1238,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
           <div className="col-span-12 md:col-span-2 space-y-1.5">
             <div>
               <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-0.5 uppercase tracking-wider">
-                Transaction Type
+                Receipt type
               </label>
               <select
                 value={transactionType}
@@ -1254,7 +1254,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
 
             <div>
               <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-0.5 uppercase tracking-wider">
-                Reason Code
+                Reason
               </label>
               <select
                 value={reasonCode}
@@ -1275,7 +1275,7 @@ export const GrnDesktopTerminal: React.FC<GrnDesktopTerminalProps> = ({
             {/* Row 1: Supplier ID + Search + Name + Add Tax to Cost */}
             <div className="flex items-center gap-1.5">
               <label className="w-16 text-[10px] font-bold text-slate-600 dark:text-slate-300 shrink-0">
-                Supplier Id
+                Supplier
               </label>
               <div className="relative flex-1 max-w-[130px]">
                 <input

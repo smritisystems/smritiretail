@@ -15,7 +15,7 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { LayoutEngineProvider } from '../layout_engine/layout_store.tsx';
+import { LayoutEngineProvider, useLayoutEngine } from '../layout_engine/layout_store.tsx';
 import { UxSwitcherModal } from '../components/shell/UxSwitcherModal.tsx';
 import { RegularUxDashboard } from '../components/dashboard/RegularUxDashboard.tsx';
 import { ClassicUxWorkspace } from '../components/dashboard/ClassicUxWorkspace.tsx';
@@ -289,20 +289,44 @@ describe('SMRITI Retail OS — Premium UX Switcher & Presentation Verification',
     expect(regularHtml).toContain('Ctrl+K');
   });
 
-  it('8. FioriLaunchpad renders spacious touch-friendly cards in Regular UX mode', () => {
+  it('8. FioriLaunchpad presents plain-language tasks, personal workspaces, and expandable shortcuts', () => {
     const html = renderToStaticMarkup(
-      <WorkspaceProvider>
-        <FioriLaunchpad
-          currentUser={{ role: 'System Admin', name: 'Jawahar' }}
-          onSelectModule={() => {}}
-          uxMode="regular"
-        />
-      </WorkspaceProvider>
+      <LayoutEngineProvider>
+        <WorkspaceProvider>
+          <FioriLaunchpad
+            currentUser={{ role: 'System Admin', name: 'Jawahar' }}
+            onSelectModule={() => {}}
+            uxMode="regular"
+          />
+        </WorkspaceProvider>
+      </LayoutEngineProvider>
     );
 
-    // Spacious search and tiles
-    expect(html).toContain('Search workspaces (e.g. POS, Barcode, GST, Ledger, Purchase)...');
-    expect(html).toContain('Billing Workspace');
-    expect(html).toContain('Store Status');
+    expect(html).toContain('What would you like to do?');
+    expect(html).toContain('Search workspaces by task or name');
+    expect(html).toContain('Your workspaces');
+    expect(html).toContain('Billing &amp; sales');
+    expect(html).toContain('Show all 15 quick actions');
+    expect(html).toContain('Pin workspace');
+    expect(html).not.toContain('Industrial Terminal');
+  });
+
+  it('9. Recently opened workspaces are restored from local preferences', () => {
+    localStorage.setItem(
+      'smriti_recently_used_workspaces',
+      JSON.stringify(['sales', 'billing-workspace', 'sales', 42]),
+    );
+
+    const RecentWorkspacesProbe = () => {
+      const { recentlyUsed } = useLayoutEngine();
+      return <output>{recentlyUsed.join(',')}</output>;
+    };
+    const html = renderToStaticMarkup(
+      <LayoutEngineProvider>
+        <RecentWorkspacesProbe />
+      </LayoutEngineProvider>,
+    );
+
+    expect(html).toContain('sales,billing-workspace');
   });
 });

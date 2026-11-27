@@ -26,6 +26,7 @@
  */
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
+import { hasAuthSession } from "../../lib/apiFetchV1.ts";
 import {
   Search,
   X,
@@ -225,10 +226,7 @@ export const UniversalBrowseEngine: React.FC<UniversalBrowseEngineProps> = ({ us
   // ── Fetch data for the current tab ────────────────────────────────────────
   useEffect(() => {
     if (!isOpen) return;
-    const token =
-      localStorage.getItem("smriti_jwt_token") ||
-      localStorage.getItem("smriti_session_token");
-    if (!token) return;
+    if (!hasAuthSession()) return;
     if (entityData[activeTab]?.length) return; // already loaded for this lookup session
 
     const entry = resolveLookupEntry(activeTab);
@@ -565,12 +563,7 @@ export const UniversalBrowseEngine: React.FC<UniversalBrowseEngineProps> = ({ us
   };
 
   // ── Guard: not authenticated or not open ───────────────────────────────────
-  const token =
-    typeof window !== "undefined"
-      ? localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token")
-      : null;
-
-  if (!isOpen || !token) return null;
+  if (!isOpen || !hasAuthSession()) return null;
 
   // ── Filter tabs to only those that have a registry entry ───────────────────
   const availableTabs = ENTITY_TAB_DEFS.filter((tab) => {

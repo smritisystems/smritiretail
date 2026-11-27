@@ -300,7 +300,13 @@ class MatrixVariantGenRequest(BaseModel):
     base_mrp: Optional[float] = None
     base_selling_price: Optional[float] = None
     base_cost_price: Optional[float] = None
-    auto_generate_barcodes: bool = False
+    auto_generate_barcodes: bool = Field(
+        default=False,
+        description=(
+            "Barcode generation is disabled during matrix creation. Assign a supplier barcode "
+            "or generate an internal Code 128 through the confirmed purchase-order workflow."
+        ),
+    )
 
 
 class ItemResolutionResponse(BaseModel):

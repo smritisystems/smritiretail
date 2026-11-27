@@ -14,7 +14,7 @@
 import React, { useEffect, useState } from "react";
 import { Building2, GitBranch, Globe2, UserRound } from "lucide-react";
 import { APP_VERSION_LABEL } from "../../config/version.ts";
-import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
+import { apiFetchV1, hasAuthSession } from "../../lib/apiFetchV1.ts";
 
 interface WorkspaceStatusBarProps {
   activeModuleTitle: string;
@@ -59,7 +59,7 @@ export const WorkspaceStatusBar: React.FC<WorkspaceStatusBarProps> = ({
         setConnectionStatus("unavailable");
         return;
       }
-      if (!localStorage.getItem("smriti_jwt_token") && !localStorage.getItem("smriti_session_token")) {
+      if (!hasAuthSession()) {
         setConnectionStatus("unavailable");
         return;
       }

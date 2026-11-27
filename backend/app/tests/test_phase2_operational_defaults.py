@@ -12,17 +12,18 @@ License      : Proprietary Commercial Software
 Classification: Phase 2 Operational Defaults Verification Suite
 """
 
+from datetime import datetime, timedelta, timezone
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from datetime import datetime, timezone, timedelta
-from unittest.mock import AsyncMock, patch, MagicMock
 
 from app.core.config import settings
 from app.core.security import create_access_token, create_refresh_token, decode_token
 from app.models.staff_profile import (
-    StaffProfile,
     DEFAULT_STAFF_COUNTRY,
     DEFAULT_STAFF_EMPLOYMENT_TYPE,
     DEFAULT_STAFF_STATUS,
+    StaffProfile,
 )
 from app.services.auth import AuthService
 
@@ -77,6 +78,15 @@ def test_custom_refresh_token_expiration():
     assert diff < 5, f"Expected exp close to {custom_days} days, got diff {diff}s"
 
 
+def test_invalid_token_returns_401():
+    from fastapi import HTTPException
+
+    with pytest.raises(HTTPException) as exc_info:
+        decode_token("not-a-valid-jwt")
+
+    assert exc_info.value.status_code == 401
+
+
 @pytest.mark.asyncio
 async def test_auth_service_dynamic_expiration_resolution():
     """Verify AuthService._resolve_token_expirations queries SystemParameterService."""
@@ -125,6 +135,7 @@ async def test_auth_service_invalid_parameter_fails_safely():
     service = AuthService(db=mock_db)
 
     from fastapi import HTTPException
+
     from app.services.system_parameter import SystemParameterService
 
     mock_invalid = MagicMock()
@@ -144,6 +155,7 @@ async def test_auth_service_resolver_failure_logged_and_fails_safely():
     service = AuthService(db=mock_db)
 
     from fastapi import HTTPException
+
     from app.services.system_parameter import SystemParameterService
 
     with patch.object(SystemParameterService, "resolve_parameter", side_effect=RuntimeError("Database connection lost")):

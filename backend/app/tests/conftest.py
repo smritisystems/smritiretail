@@ -40,7 +40,10 @@ from sqlalchemy.orm import sessionmaker
 
 from app.core.config import settings
 from app.db.ctrl_seeder import ControlPlaneSeeder
+from app.test_environment import LOCAL_HOSTS, require_isolated_test_environment
 import app.models  # noqa: F401
+
+require_isolated_test_environment()
 
 
 def _test_database_name() -> str:
@@ -56,8 +59,11 @@ def _test_database_name() -> str:
 
 def _database_connection_parts() -> dict[str, object]:
     parsed = urlparse(settings.DATABASE_URL)
+    host = os.getenv("POSTGRES_HOST") or parsed.hostname or "localhost"
+    if host.lower() not in LOCAL_HOSTS:
+        raise RuntimeError("Refusing to create test databases on a non-loopback PostgreSQL host.")
     return {
-        "host": os.getenv("POSTGRES_HOST") or parsed.hostname or "localhost",
+        "host": host,
         "port": int(os.getenv("POSTGRES_PORT") or parsed.port or 5432),
         "user": os.getenv("POSTGRES_USER") or parsed.username or "postgres",
         "password": os.getenv("POSTGRES_PASSWORD") or parsed.password or "postgres",
@@ -439,6 +445,9 @@ if sys.platform == "win32":
 def restore_baseline_after_tests():
     """Restores development baseline users and companies after pytest completes."""
     yield
+    # Test runs target disposable databases, so teardown must not seed baseline data.
+    if os.getenv("TESTING") == "1":
+        return
     try:
         try:
             from app.db.seed_baseline_users import seed

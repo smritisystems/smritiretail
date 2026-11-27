@@ -29,6 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...api.deps import (
     TenantContext,
+    get_db,
     get_company_db,
     get_current_user,
     get_tenant_context,
@@ -110,6 +111,23 @@ async def get_ecom_company_session(
         yield session
 
 
+async def get_optional_ecom_webhook_user(
+    request: Request,
+    x_internal_service_key: Optional[str] = Header(None, alias="X-Internal-Service-Key"),
+    db: AsyncSession = Depends(get_db),
+) -> Optional[User]:
+    """Resolve bearer credentials to an active database user when supplied."""
+    if x_internal_service_key and x_internal_service_key == settings.INTERNAL_SERVICE_KEY:
+        return None
+
+    authorization = request.headers.get("authorization")
+    if not authorization or not authorization.startswith("Bearer "):
+        return None
+
+    token = authorization.split("Bearer ", 1)[1].strip()
+    return await get_current_user(request=request, token=token, db=db)
+
+
 async def get_ecom_webhook_session(
     request: Request,
     x_company_id: str = Header(..., alias="X-Company-ID", description="Target Company Identifier"),
@@ -118,6 +136,7 @@ async def get_ecom_webhook_session(
     authorization: Optional[str] = Header(None, alias="Authorization"),
     x_shopify_hmac: Optional[str] = Header(None, alias="X-Shopify-Hmac-Sha256"),
     x_wc_signature: Optional[str] = Header(None, alias="X-WC-Webhook-Signature"),
+    current_user: Optional[User] = Depends(get_optional_ecom_webhook_user),
 ) -> AsyncSession:
     """
     Authoritative Company Database Session Provider for Webhook Ingress.
@@ -125,6 +144,8 @@ async def get_ecom_webhook_session(
     Fails closed on missing or invalid credentials.
     """
     authenticated = False
+    caller_id = "ecom-webhook-service"
+    caller_role: Any = "SYSADMIN"
     raw_body = await request.body()
 
     # 1. Internal service key authentication
@@ -132,15 +153,14 @@ async def get_ecom_webhook_session(
         authenticated = True
     # 2. Bearer token authentication
     elif authorization and authorization.startswith("Bearer "):
-        token = authorization.split("Bearer ", 1)[1].strip()
-        try:
-            decode_token(token)
-            authenticated = True
-        except Exception:
+        if current_user is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid or expired authorization token for webhook intake."
+                detail="Invalid or expired authorization token for webhook intake.",
             )
+        caller_id = current_user.id
+        caller_role = current_user.role
+        authenticated = True
     # 3. Shopify HMAC signature verification
     elif x_shopify_hmac:
         secret = os.getenv("SHOPIFY_WEBHOOK_SECRET") or settings.INTERNAL_SERVICE_KEY
@@ -173,10 +193,10 @@ async def get_ecom_webhook_session(
         )
 
     res = CompanyDatabaseResolver.resolve_company_database(
-        user_id="ecom-webhook-service",
+        user_id=caller_id,
         company_id=x_company_id,
         company_code=x_company_code,
-        user_role="SYSADMIN"
+        user_role=caller_role,
     )
     target_db = res["database_name"]
     session_factory = get_company_sessionmaker(target_db)

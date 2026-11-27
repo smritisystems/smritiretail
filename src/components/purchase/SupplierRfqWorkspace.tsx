@@ -13,7 +13,7 @@
  * Classification: Internal
  */
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { apiFetchV1 } from "../../lib/apiFetch.ts";
 import { withCapability } from "../../types/architecture.ts";
 import {
@@ -56,6 +56,46 @@ interface Rfq {
   items: RfqItem[];
   quotations_count: number;
 }
+
+export interface RfqDraftLine {
+  product_id: string;
+  item_id?: string;
+  variant_id?: string;
+  code: string;
+  name: string;
+  quantity: string;
+}
+
+interface RfqCatalogProduct {
+  product_id: string;
+  item_id?: string;
+  variant_id?: string;
+  code: string;
+  name: string;
+}
+
+export function validateRfqDraft(
+  title: string,
+  dueDate: string,
+  lines: ReadonlyArray<RfqDraftLine>
+): string | null {
+  if (!title.trim()) return "Enter a name for this quote request.";
+  if (!dueDate) return "Set a supplier response deadline.";
+  if (lines.length === 0) return "Add at least one catalog item to this quote request.";
+  if (lines.some((line) => !Number.isFinite(Number(line.quantity)) || Number(line.quantity) <= 0)) {
+    return "Enter a quantity greater than zero for every requested item.";
+  }
+  return null;
+}
+
+const RFQ_STATUS_LABELS: Record<Rfq["status"], string> = {
+  DRAFT: "Draft",
+  ISSUED: "Issued",
+  EVALUATED: "Quotes received",
+  AWARDED: "Supplier selected",
+  CLOSED: "Closed",
+  CANCELLED: "Cancelled",
+};
 
 interface QuotationItem {
   id: string;
@@ -136,7 +176,14 @@ export const SupplierRfqWorkspaceBase: React.FC = () => {
     d.setDate(d.getDate() + 10);
     return d.toISOString().split("T")[0];
   });
-  const [rfqLines, setRfqLines] = useState<Array<{ product_id: string; code: string; name: string; quantity: number }>>([]);
+  const [rfqLines, setRfqLines] = useState<RfqDraftLine[]>([]);
+  const [rfqCatalogProducts, setRfqCatalogProducts] = useState<RfqCatalogProduct[]>([]);
+  const [rfqCatalogLoading, setRfqCatalogLoading] = useState(false);
+  const [rfqCatalogError, setRfqCatalogError] = useState<string | null>(null);
+  const [rfqCatalogRetry, setRfqCatalogRetry] = useState(0);
+  const [rfqProductSearch, setRfqProductSearch] = useState("");
+  const [rfqFormError, setRfqFormError] = useState<string | null>(null);
+  const [creatingRfq, setCreatingRfq] = useState(false);
 
   // Quotation Entry State
   const [quoteSupplierId, setQuoteSupplierId] = useState("");
@@ -201,17 +248,94 @@ export const SupplierRfqWorkspaceBase: React.FC = () => {
     }
   }, [selectedRfq]);
 
+  useEffect(() => {
+    if (!showCreateRfqModal) return;
+
+    let active = true;
+    const loadCatalog = async () => {
+      setRfqCatalogLoading(true);
+      setRfqCatalogError(null);
+      try {
+        const data = await apiFetchV1("/inventory/?page=1&page_size=5000&sort=created_at&order=desc");
+        const products = Array.isArray(data) ? data : data?.items;
+        if (!Array.isArray(products)) {
+          throw new Error("The catalog response did not contain a product list.");
+        }
+
+        const catalogProducts = products.flatMap((product: any) => {
+          if (!product || product.is_active === false || product.is_deleted === true) return [];
+          const productId = product.id == null ? "" : String(product.id);
+          const code = String(product.code || product.sku || product.barcode || "").trim();
+          const name = String(product.name || "").trim();
+          if (!productId || !code || !name) return [];
+          return [{
+            product_id: productId,
+            item_id: product.item_id == null ? undefined : String(product.item_id),
+            variant_id: product.item_variant_id == null
+              ? (product.variant_id == null ? undefined : String(product.variant_id))
+              : String(product.item_variant_id),
+            code,
+            name,
+          }];
+        });
+        if (active) setRfqCatalogProducts(catalogProducts);
+      } catch (error: unknown) {
+        console.error("Failed to load catalog items for quote request:", error);
+        if (active) {
+          setRfqCatalogError(error instanceof Error ? error.message : "Unable to load catalog items.");
+        }
+      } finally {
+        if (active) setRfqCatalogLoading(false);
+      }
+    };
+
+    void loadCatalog();
+    return () => {
+      active = false;
+    };
+  }, [showCreateRfqModal, rfqCatalogRetry]);
+
+  const filteredRfqCatalog = useMemo(() => {
+    const query = rfqProductSearch.trim().toLowerCase();
+    return rfqCatalogProducts
+      .filter((product) => !query || `${product.code} ${product.name}`.toLowerCase().includes(query))
+      .slice(0, 8);
+  }, [rfqCatalogProducts, rfqProductSearch]);
+
+  const openCreateRfqModal = () => {
+    setRfqTitle("");
+    const dueDate = new Date();
+    dueDate.setDate(dueDate.getDate() + 10);
+    setRfqDueDate(dueDate.toISOString().split("T")[0]);
+    setRfqLines([]);
+    setRfqProductSearch("");
+    setRfqFormError(null);
+    setShowCreateRfqModal(true);
+  };
+
+  const addRfqLine = (product: RfqCatalogProduct) => {
+    setRfqLines((lines) => lines.some((line) => line.product_id === product.product_id)
+      ? lines
+      : [...lines, { ...product, quantity: "1" }]);
+    setRfqFormError(null);
+  };
+
   const handleCreateRfq = async () => {
-    if (!rfqTitle.trim()) {
-      setNotification({ type: "error", msg: "RFQ Title is required." });
+    const validationError = validateRfqDraft(rfqTitle, rfqDueDate, rfqLines);
+    if (validationError) {
+      setRfqFormError(validationError);
       return;
     }
+    setRfqFormError(null);
+    setCreatingRfq(true);
     try {
       const payload = {
-        title: rfqTitle,
+        title: rfqTitle.trim(),
         due_date: rfqDueDate,
         items: rfqLines.map((l) => ({
           product_id: l.product_id,
+          item_id: l.item_id,
+          variant_id: l.variant_id,
           code: l.code,
           name: l.name,
           target_quantity: Number(l.quantity),
@@ -221,12 +345,15 @@ export const SupplierRfqWorkspaceBase: React.FC = () => {
         method: "POST",
         body: JSON.stringify(payload),
       });
-      setNotification({ type: "success", msg: `RFQ ${created.rfq_no} created successfully!` });
+      setNotification({ type: "success", msg: `Quote request ${created.rfq_no} created.` });
       setShowCreateRfqModal(false);
+      setRfqLines([]);
       loadRfqs();
       setSelectedRfq(created);
     } catch (e: any) {
-      setNotification({ type: "error", msg: e?.message || "Failed to create RFQ" });
+      setRfqFormError(e?.message || "Failed to create quote request.");
+    } finally {
+      setCreatingRfq(false);
     }
   };
 
@@ -274,7 +401,7 @@ export const SupplierRfqWorkspaceBase: React.FC = () => {
         body: JSON.stringify(payload),
       });
 
-      setNotification({ type: "success", msg: `Quotation ${quoteNo} recorded and landed costs calculated!` });
+      setNotification({ type: "success", msg: `Quote ${quoteNo} recorded. Total costs calculated.` });
       setShowAddQuoteModal(false);
       loadMatrix(selectedRfq.id);
       loadRfqs();
@@ -285,7 +412,7 @@ export const SupplierRfqWorkspaceBase: React.FC = () => {
 
   const handleAwardQuotation = async () => {
     if (!selectedQuoteForAward || !awardJustification.trim()) {
-      setNotification({ type: "error", msg: "Selection justification is required to document the award decision." });
+      setNotification({ type: "error", msg: "Enter a reason for choosing this supplier." });
       return;
     }
     try {
@@ -295,7 +422,7 @@ export const SupplierRfqWorkspaceBase: React.FC = () => {
       });
       setNotification({
         type: "success",
-        msg: `Quotation ${selectedQuoteForAward.quotation_no} awarded to ${selectedQuoteForAward.supplier_name}!`,
+        msg: `${selectedQuoteForAward.supplier_name} selected for quote ${selectedQuoteForAward.quotation_no}.`,
       });
       setShowAwardModal(false);
       setAwardJustification("");
@@ -314,7 +441,7 @@ export const SupplierRfqWorkspaceBase: React.FC = () => {
       });
       setNotification({
         type: "success",
-        msg: `Draft Purchase Order ${po.order_no} created from Awarded Quotation!`,
+        msg: `Draft purchase order ${po.order_no} created from the selected quote.`,
       });
       if (selectedRfq) loadMatrix(selectedRfq.id);
       loadRfqs();
@@ -346,10 +473,10 @@ export const SupplierRfqWorkspaceBase: React.FC = () => {
         <div>
           <h1 className="text-xl font-bold flex items-center gap-2">
             <Scale className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-            Supplier RFQ & Landed-Cost Quotation Comparison
+            Supplier quotes
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Multi-vendor quotation evaluation, landed cost transparency, documented award justification, and PO generation
+            Create a quote request, compare supplier prices and delivery terms, then record your choice before creating a purchase order.
           </p>
         </div>
 
@@ -363,11 +490,11 @@ export const SupplierRfqWorkspaceBase: React.FC = () => {
             <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
           </button>
           <button
-            onClick={() => setShowCreateRfqModal(true)}
+            onClick={openCreateRfqModal}
             className="flex items-center gap-2 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold transition shadow-sm"
           >
             <Plus className="w-4 h-4" />
-            Create RFQ
+            Create quote request
           </button>
         </div>
       </div>
@@ -378,13 +505,16 @@ export const SupplierRfqWorkspaceBase: React.FC = () => {
         <div className="lg:col-span-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden">
           <div className="p-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 flex justify-between items-center">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              RFQs ({rfqs.length})
+              Quote requests ({rfqs.length})
             </span>
           </div>
 
           <div className="flex-1 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
             {rfqs.length === 0 ? (
-              <div className="p-8 text-center text-slate-400 text-sm">No RFQs created yet.</div>
+              <div className="p-6 text-center">
+                <p className="text-sm text-slate-500 dark:text-slate-400">No quote requests yet.</p>
+                <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">Create one to start tracking supplier offers.</p>
+              </div>
             ) : (
               rfqs.map((r) => {
                 const isSelected = selectedRfq?.id === r.id;
@@ -409,14 +539,14 @@ export const SupplierRfqWorkspaceBase: React.FC = () => {
                             : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
                         }`}
                       >
-                        {r.status}
+                        {RFQ_STATUS_LABELS[r.status]}
                       </span>
                     </div>
                     <div className="text-xs font-medium text-slate-700 dark:text-slate-300 line-clamp-1">{r.title}</div>
                     <div className="flex items-center justify-between text-[11px] text-slate-400 mt-1">
-                      <span>Due: {r.due_date}</span>
+                      <span>Replies due: {r.due_date}</span>
                       <span className="font-semibold text-indigo-600 dark:text-indigo-400">
-                        {r.quotations_count} Quotes Received
+                        {r.quotations_count} {r.quotations_count === 1 ? "quote" : "quotes"} received
                       </span>
                     </div>
                   </div>
@@ -438,7 +568,7 @@ export const SupplierRfqWorkspaceBase: React.FC = () => {
                     <span className="text-xs text-slate-500 font-normal">({selectedRfq.title})</span>
                   </div>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Target Items: <span className="font-medium text-slate-700 dark:text-slate-300">{selectedRfq.items.length} items</span> • Quotes Received:{" "}
+                    Requested items: <span className="font-medium text-slate-700 dark:text-slate-300">{selectedRfq.items.length}</span> • Quotes received:{" "}
                     <span className="font-medium text-indigo-600 dark:text-indigo-400 font-bold">{matrix?.quotations.length || 0}</span>
                   </p>
                 </div>
@@ -480,16 +610,17 @@ export const SupplierRfqWorkspaceBase: React.FC = () => {
                               </span>
                             ) : isLowest ? (
                               <span className="flex items-center gap-1 text-[10px] font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-100 dark:bg-indigo-900/60 px-1.5 py-0.5 rounded">
-                                <TrendingDown className="w-3 h-3" /> Lowest Cost
+                                <TrendingDown className="w-3 h-3" /> Lowest total cost
                               </span>
                             ) : null}
                           </div>
                           <div className="text-[11px] text-slate-500 mt-0.5">Quote: {q.quotation_no}</div>
-                          <div className="text-base font-bold text-slate-900 dark:text-slate-100 mt-2">
+                          <div className="text-[10px] text-slate-400 mt-2">Total cost including tax and shipping</div>
+                          <div className="text-base font-bold text-slate-900 dark:text-slate-100 mt-0.5">
                             ₹{Number(q.total_landed_cost).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                           </div>
                           <div className="text-[11px] text-slate-400">
-                            Terms: {q.payment_terms || "Standard"} • Deliv: {q.delivery_timeline || "Standard"}
+                            Payment: {q.payment_terms || "Standard"} • Delivery: {q.delivery_timeline || "Standard"}
                           </div>
                         </div>
 
@@ -497,14 +628,14 @@ export const SupplierRfqWorkspaceBase: React.FC = () => {
                           {isSelected ? (
                             q.po_no ? (
                               <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
-                                <ShoppingBag className="w-3 h-3" /> PO: {q.po_no}
+                                <ShoppingBag className="w-3 h-3" /> Order: {q.po_no}
                               </span>
                             ) : (
                               <button
                                 onClick={() => handleConvertToPO(q)}
                                 className="px-2 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-xs font-semibold flex items-center gap-1 transition"
                               >
-                                <ShoppingBag className="w-3 h-3" /> Generate PO
+                                <ShoppingBag className="w-3 h-3" /> Create draft order
                               </button>
                             )
                           ) : (
@@ -515,7 +646,7 @@ export const SupplierRfqWorkspaceBase: React.FC = () => {
                               }}
                               className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-xs font-semibold flex items-center gap-1 transition"
                             >
-                              <Award className="w-3 h-3" /> Award Bid
+                              <Award className="w-3 h-3" /> Choose supplier
                             </button>
                           )}
                         </div>
@@ -528,18 +659,21 @@ export const SupplierRfqWorkspaceBase: React.FC = () => {
               {/* Side-by-Side Comparison Table */}
               <div className="flex-1 overflow-y-auto p-4">
                 <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-2">
-                  Transparent Landed-Cost Breakdown by Line
+                  Price comparison by item
                 </span>
+                <p className="mb-2 text-[11px] text-slate-500 dark:text-slate-400">
+                  Per-item totals include discounts, tax, and allocated shipping.
+                </p>
                 <div className="border border-slate-200 dark:border-slate-800 rounded-lg overflow-x-auto">
                   <table className="w-full text-left text-xs min-w-[650px]">
                     <thead className="bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-b border-slate-200 dark:border-slate-800">
                       <tr>
                         <th className="p-2.5 font-semibold">Item / Specification</th>
-                        <th className="p-2.5 font-semibold text-right">Target Qty</th>
+                        <th className="p-2.5 font-semibold text-right">Requested quantity</th>
                         {matrix?.quotations.map((q) => (
                           <th key={q.id} className="p-2.5 font-semibold text-right border-l border-slate-200 dark:border-slate-800">
                             <div>{q.supplier_name}</div>
-                            <div className="text-[10px] text-slate-400 font-normal">Landed Unit Cost</div>
+                            <div className="text-[10px] text-slate-400 font-normal">Total per unit</div>
                           </th>
                         ))}
                       </tr>
@@ -565,7 +699,7 @@ export const SupplierRfqWorkspaceBase: React.FC = () => {
                                       ₹{Number(quoteData.net_landed_unit).toFixed(2)}
                                     </div>
                                     <div className="text-[10px] text-slate-400">
-                                      Base: ₹{quoteData.unit_price} (disc {quoteData.discount_percent}%)
+                                      Unit price: ₹{quoteData.unit_price} · Discount: {quoteData.discount_percent}%
                                     </div>
                                   </div>
                                 ) : (
@@ -582,9 +716,26 @@ export const SupplierRfqWorkspaceBase: React.FC = () => {
               </div>
             </div>
           ) : (
-            <div className="flex-1 flex flex-col items-center justify-center p-8 text-slate-400 text-sm">
+            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
               <Layers className="w-12 h-12 mb-3 stroke-[1.5] text-slate-300 dark:text-slate-700" />
-              Select an RFQ on the left or create a new RFQ to view multi-supplier quotations.
+              <h2 className="text-base font-semibold text-slate-700 dark:text-slate-200">
+                {rfqs.length === 0 ? "Start with a quote request" : "Choose a quote request"}
+              </h2>
+              <p className="mt-2 max-w-md text-sm text-slate-500 dark:text-slate-400">
+                {rfqs.length === 0
+                  ? "Create a request for quotation (RFQ), then record supplier offers to compare prices and delivery terms."
+                  : "Select a request from the list to compare supplier prices, delivery terms, and total costs."}
+              </p>
+              {rfqs.length === 0 && (
+                <button
+                  type="button"
+                  onClick={openCreateRfqModal}
+                  className="mt-4 flex items-center gap-2 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold transition shadow-sm"
+                >
+                  <Plus className="w-4 h-4" />
+                  Create quote request
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -593,39 +744,165 @@ export const SupplierRfqWorkspaceBase: React.FC = () => {
       {/* CREATE RFQ MODAL */}
       {showCreateRfqModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 max-w-xl w-full p-5 space-y-4 shadow-xl">
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 max-w-2xl w-full p-5 space-y-4 shadow-xl max-h-[90vh] overflow-y-auto">
             <h3 className="font-bold text-base flex items-center gap-2">
               <Plus className="w-5 h-5 text-indigo-600" />
-              Create Request for Quotation (RFQ)
+              Create a Request for Quotation (RFQ)
             </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Name the request, choose the products and quantities suppliers should quote, and set a response deadline.
+            </p>
             <div className="text-xs space-y-3">
               <div>
-                <label className="font-semibold block mb-1">RFQ Title / Description *</label>
+                <label htmlFor="rfq-title" className="font-semibold block mb-1">Request name *</label>
                 <input
+                  id="rfq-title"
                   type="text"
                   value={rfqTitle}
-                  onChange={(e) => setRfqTitle(e.target.value)}
-                  placeholder="e.g. Q4 Footwear & Apparel Vendor Quotations"
+                  onChange={(e) => {
+                    setRfqTitle(e.target.value);
+                    setRfqFormError(null);
+                  }}
+                  placeholder="e.g. Winter footwear order"
                   className="w-full p-2 border rounded-lg bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700"
                 />
               </div>
               <div>
-                <label className="font-semibold block mb-1">Bid Submission Due Date</label>
+                <label htmlFor="rfq-due-date" className="font-semibold block mb-1">Supplier response deadline *</label>
                 <input
+                  id="rfq-due-date"
                   type="date"
                   value={rfqDueDate}
-                  onChange={(e) => setRfqDueDate(e.target.value)}
+                  onChange={(e) => {
+                    setRfqDueDate(e.target.value);
+                    setRfqFormError(null);
+                  }}
                   className="w-full p-2 border rounded-lg bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700"
                 />
               </div>
             </div>
 
+            <section className="space-y-3 border border-slate-200 dark:border-slate-700 rounded-lg p-3">
+              <div className="flex items-center justify-between gap-2">
+                <h4 className="text-xs font-bold text-slate-800 dark:text-slate-100">Requested items *</h4>
+                <span className="text-[11px] text-slate-500">{rfqLines.length} added</span>
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                Add each catalog item once and enter how many units suppliers should price.
+              </p>
+              <label htmlFor="rfq-product-search" className="sr-only">Search catalog items</label>
+              <div className="flex items-center gap-2 border border-slate-200 dark:border-slate-700 rounded-lg px-2 bg-slate-50 dark:bg-slate-800">
+                <Search className="w-4 h-4 text-slate-400 shrink-0" />
+                <input
+                  id="rfq-product-search"
+                  type="search"
+                  value={rfqProductSearch}
+                  onChange={(e) => setRfqProductSearch(e.target.value)}
+                  placeholder="Search by item code or product name"
+                  className="w-full py-2 bg-transparent outline-none text-xs"
+                />
+              </div>
+
+              <div className="max-h-36 overflow-y-auto rounded-lg border border-slate-200 dark:border-slate-700 divide-y divide-slate-100 dark:divide-slate-800">
+                {rfqCatalogLoading ? (
+                  <p className="p-3 text-xs text-slate-500">Loading catalog items…</p>
+                ) : rfqCatalogError ? (
+                  <div className="p-3 flex items-center justify-between gap-3">
+                    <p className="text-xs text-rose-600 dark:text-rose-400">Could not load catalog: {rfqCatalogError}</p>
+                    <button
+                      type="button"
+                      onClick={() => setRfqCatalogRetry((retry) => retry + 1)}
+                      className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 shrink-0"
+                    >
+                      Try again
+                    </button>
+                  </div>
+                ) : rfqCatalogProducts.length === 0 ? (
+                  <p className="p-3 text-xs text-slate-500">No active catalog items are available to add.</p>
+                ) : filteredRfqCatalog.length === 0 ? (
+                  <p className="p-3 text-xs text-slate-500">No catalog items match that search.</p>
+                ) : (
+                  filteredRfqCatalog.map((product) => {
+                    const alreadyAdded = rfqLines.some((line) => line.product_id === product.product_id);
+                    return (
+                      <div key={product.product_id} className="flex items-center justify-between gap-3 px-3 py-2">
+                        <div className="min-w-0">
+                          <div className="text-xs font-semibold text-slate-800 dark:text-slate-100 truncate">{product.name}</div>
+                          <div className="text-[10px] text-slate-500">{product.code}</div>
+                        </div>
+                        <button
+                          type="button"
+                          disabled={alreadyAdded}
+                          onClick={() => addRfqLine(product)}
+                          className="px-2 py-1 text-[11px] font-semibold rounded border border-indigo-200 text-indigo-700 hover:bg-indigo-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-indigo-800 dark:text-indigo-300 dark:hover:bg-indigo-950/40"
+                        >
+                          {alreadyAdded ? "Added" : "Add item"}
+                        </button>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {rfqLines.length > 0 ? (
+                <div className="space-y-2">
+                  {rfqLines.map((line) => (
+                    <div key={line.product_id} className="grid grid-cols-[minmax(0,1fr)_6rem_auto] items-center gap-2 rounded-lg bg-slate-50 dark:bg-slate-800/70 p-2">
+                      <div className="min-w-0">
+                        <div className="text-xs font-semibold truncate">{line.name}</div>
+                        <div className="text-[10px] text-slate-500">{line.code}</div>
+                      </div>
+                      <label className="text-[10px] text-slate-500">
+                        Quantity
+                        <input
+                          aria-label={`Quantity for ${line.name} (${line.code})`}
+                          type="number"
+                          min="0.0001"
+                          step="any"
+                          value={line.quantity}
+                          onChange={(e) => {
+                            setRfqLines((lines) => lines.map((item) =>
+                              item.product_id === line.product_id ? { ...item, quantity: e.target.value } : item
+                            ));
+                            setRfqFormError(null);
+                          }}
+                          className="mt-1 w-full rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1 text-xs text-slate-900 dark:text-slate-100"
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        aria-label={`Remove ${line.name}`}
+                        onClick={() => {
+                          setRfqLines((lines) => lines.filter((item) => item.product_id !== line.product_id));
+                          setRfqFormError(null);
+                        }}
+                        className="text-[11px] font-semibold text-rose-600 hover:text-rose-700 px-1"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-slate-500 dark:text-slate-400">No items added yet. Search the catalog and add at least one.</p>
+              )}
+            </section>
+
+            {rfqFormError && (
+              <p role="alert" className="text-xs text-rose-600 dark:text-rose-400">{rfqFormError}</p>
+            )}
+
             <div className="flex justify-end gap-2 pt-3 border-t border-slate-200 dark:border-slate-800">
-              <button onClick={() => setShowCreateRfqModal(false)} className="px-3 py-1.5 border rounded-lg text-xs font-semibold">
+              <button type="button" onClick={() => setShowCreateRfqModal(false)} className="px-3 py-1.5 border rounded-lg text-xs font-semibold">
                 Cancel
               </button>
-              <button onClick={handleCreateRfq} className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-semibold hover:bg-indigo-700">
-                Create RFQ
+              <button
+                type="button"
+                onClick={handleCreateRfq}
+                disabled={creatingRfq || rfqCatalogLoading || rfqLines.length === 0}
+                className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-semibold hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {creatingRfq ? "Creating…" : "Create quote request"}
               </button>
             </div>
           </div>
@@ -638,7 +915,7 @@ export const SupplierRfqWorkspaceBase: React.FC = () => {
           <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 max-w-2xl w-full p-5 space-y-4 shadow-xl max-h-[90vh] flex flex-col">
             <h3 className="font-bold text-base flex items-center gap-2">
               <FileSpreadsheet className="w-5 h-5 text-indigo-600" />
-              Record Supplier Quotation for {selectedRfq.rfq_no}
+              Enter supplier quote for {selectedRfq.rfq_no}
             </h3>
 
             <div className="grid grid-cols-2 gap-3 text-xs">
@@ -657,7 +934,7 @@ export const SupplierRfqWorkspaceBase: React.FC = () => {
                 </select>
               </div>
               <div>
-                <label className="font-semibold block mb-1">Quotation Reference No *</label>
+                <label className="font-semibold block mb-1">Supplier quote number *</label>
                 <input
                   type="text"
                   value={quoteNo}
@@ -666,7 +943,7 @@ export const SupplierRfqWorkspaceBase: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="font-semibold block mb-1">Total Freight Charges (₹)</label>
+                <label className="font-semibold block mb-1">Shipping / freight total (₹)</label>
                 <input
                   type="number"
                   value={quoteFreight}
@@ -687,12 +964,12 @@ export const SupplierRfqWorkspaceBase: React.FC = () => {
 
             {/* Line items quote inputs */}
             <div className="flex-1 overflow-y-auto text-xs space-y-2 border p-3 rounded-lg border-slate-200 dark:border-slate-700">
-              <span className="font-bold block mb-1">Quoted Line Item Rates</span>
+              <span className="font-bold block mb-1">Quoted prices by item</span>
               {quoteLines.map((line, idx) => (
                 <div key={idx} className="grid grid-cols-4 gap-2 items-center bg-slate-50/50 dark:bg-slate-800/40 p-2 rounded">
                   <div className="col-span-1 font-medium">{line.name}</div>
                   <div>
-                    <label className="text-[10px] text-slate-400 block">Unit Cost (₹)</label>
+                    <label className="text-[10px] text-slate-400 block">Unit price (₹)</label>
                     <input
                       type="number"
                       value={line.unitPrice}
@@ -705,7 +982,7 @@ export const SupplierRfqWorkspaceBase: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label className="text-[10px] text-slate-400 block">Discount %</label>
+                    <label className="text-[10px] text-slate-400 block">Discount (%)</label>
                     <input
                       type="number"
                       value={line.discountPercent}
@@ -718,7 +995,7 @@ export const SupplierRfqWorkspaceBase: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label className="text-[10px] text-slate-400 block">GST Rate %</label>
+                    <label className="text-[10px] text-slate-400 block">GST rate (%)</label>
                     <input
                       type="number"
                       value={line.taxRate}
@@ -739,7 +1016,7 @@ export const SupplierRfqWorkspaceBase: React.FC = () => {
                 Cancel
               </button>
               <button onClick={handleSaveQuote} className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-semibold hover:bg-indigo-700">
-                Save Quotation
+                Save supplier quote
               </button>
             </div>
           </div>
@@ -752,19 +1029,19 @@ export const SupplierRfqWorkspaceBase: React.FC = () => {
           <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 max-w-md w-full p-5 space-y-4 shadow-xl">
             <h3 className="font-bold text-base flex items-center gap-2">
               <Award className="w-5 h-5 text-emerald-600" />
-              Award Bid: {selectedQuoteForAward.supplier_name}
+              Choose supplier: {selectedQuoteForAward.supplier_name}
             </h3>
             <p className="text-xs text-slate-500">
-              SMRITI Procurement Governance requires documenting the selection justification. Note that the lowest price is not automatically selected if quality or delivery terms dictate otherwise.
+              Record why you chose this supplier. The lowest price is not always best if product quality or delivery terms matter more.
             </p>
 
             <div className="text-xs">
-              <label className="font-semibold block mb-1">Documented Selection Justification *</label>
+              <label className="font-semibold block mb-1">Reason for choosing this supplier *</label>
               <textarea
                 rows={3}
                 value={awardJustification}
                 onChange={(e) => setAwardJustification(e.target.value)}
-                placeholder="Document why this supplier was selected (e.g. Best landed cost, superior delivery reliability, favorable credit terms)..."
+                placeholder="e.g. More reliable delivery or better payment terms"
                 className="w-full p-2 border rounded-lg bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700"
               />
             </div>
@@ -774,7 +1051,7 @@ export const SupplierRfqWorkspaceBase: React.FC = () => {
                 Cancel
               </button>
               <button onClick={handleAwardQuotation} className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-semibold hover:bg-emerald-700">
-                Confirm Award
+                Confirm supplier choice
               </button>
             </div>
           </div>

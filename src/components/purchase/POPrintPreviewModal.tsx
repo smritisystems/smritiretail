@@ -37,6 +37,7 @@ import { DEFAULT_BUSINESS_TERMS } from "./CommercialDeliveryDrawer";
 import type { PurchaseOrderHeader, PurchaseOrderLineItem, PurchaseOrderSizePivotRow } from "./types.ts";
 import { getTenantCompanyContext, persistTenantContext, apiFetchV1 } from "../../lib/apiFetchV1";
 import { lookupFootwearStyleMetadata } from "../../lib/footwearStyleCatalog";
+import { replaceLegacyFixedPaymentTerm } from "../../utils/sanitizeTermsHtml";
 
 const ITEM_REFERENCE_FIELD_OPTIONS = [
   { key: "color", label: "Color" },
@@ -509,13 +510,22 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
   const mappedTotalPairs = mappedFootwearItems.reduce((sum, item) => sum + item.pairs, 0);
   const mappedTotalCartons = mappedFootwearItems.reduce((sum, item) => sum + item.cartons, 0);
 
+  const resolvedPaymentTerms =
+    header.paymentTerms ||
+    vendor?.payment_terms ||
+    (vendor?.payment_terms_days != null ? `${vendor.payment_terms_days} Days` : null) ||
+    vendor?.commercial?.paymentTerms ||
+    vendor?.commercial_terms?.payment_terms ||
+    "120 Days";
+
   // Resolve Business Terms
-  const resolvedBusinessTerms =
+  const resolvedBusinessTerms = replaceLegacyFixedPaymentTerm(
     (header as any)?.businessTerms ||
     (header as any)?.business_terms ||
     (header as any)?.commercial_terms?.business_terms ||
     (vendor as any)?.commercial?.business_terms ||
-    DEFAULT_BUSINESS_TERMS;
+    DEFAULT_BUSINESS_TERMS
+  );
 
   const tenantCtx = getTenantCompanyContext();
 
@@ -603,7 +613,7 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
     totalPairs: mappedTotalPairs,
     netOrderValue: mappedNetTotal,
     netOrderValueInWords: `${currencySymbol} ${mappedNetTotal.toFixed(2)} (calculated from live PO lines)`,
-    paymentTerms: header.paymentTerms || "30 Days Net",
+    paymentTerms: resolvedPaymentTerms,
     purchaser: header.buyer || "—",
     supplierReference: header.supplierReference || "—",
     documentStatus: header.status || (header as any)?.documentStatus || (reprintMode ? "ORIGINAL UNCHANGED" : "DRAFT"),
@@ -621,7 +631,7 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
     supplierPhone: vendor?.mobile || vendor?.phone || "",
     deliveryLocation: header.deliveryLocation || "Main Store (MAIN)",
     deliveryDate: header.deliveryDate || "",
-    paymentTerms: header.paymentTerms || "30 Days Net",
+    paymentTerms: resolvedPaymentTerms,
     supplierReference: header.supplierReference || "",
     purchaser: header.buyer || "",
     department: header.department || "General Purchase",
@@ -671,7 +681,7 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
     taxTotal: mappedFootwearItems.reduce((sum, item) => sum + item.lineTotal * (item.taxRatePercent / 100), 0),
     total: mappedFootwearItems.reduce((sum, item) => sum + item.lineTotal * (1 + item.taxRatePercent / 100), 0),
     amountInWords: "",
-    terms: "1. Goods delivered per SATRA norms.\n2. Payment terms 120 days net from GRN date.",
+    terms: "1. Goods delivered per SATRA norms.",
   };
 
   // Date formatting helper for retail purchase orders
@@ -988,16 +998,6 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
     (header.freightAmount || 0) +
     (header.otherCharges || 0);
 
-  // Resolve Vendor Profile Details with Real Fallbacks (Strict 120 Days Footwear Default)
-  const rawTerms =
-    (header.paymentTerms && header.paymentTerms !== "30 Days" ? header.paymentTerms : null) ||
-    (vendor?.payment_terms && vendor?.payment_terms !== "30 Days" ? vendor?.payment_terms : null) ||
-    (vendor?.payment_terms_days && vendor.payment_terms_days !== 30 ? `${vendor.payment_terms_days} Days` : null) ||
-    (vendor?.commercial?.paymentTerms && vendor?.commercial?.paymentTerms !== "30 Days" ? vendor?.commercial?.paymentTerms : null) ||
-    (vendor?.commercial_terms?.payment_terms && vendor?.commercial_terms?.payment_terms !== "30 Days" ? vendor?.commercial_terms?.payment_terms : null);
-
-  const vendorPaymentTerms = rawTerms || "120 Days";
-
   const vendorAddress =
     vendor?.address && vendor.address.trim()
       ? vendor.address.trim()
@@ -1054,7 +1054,7 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
     itemReferenceFields,
     imageColumns: effectiveImageColumns,
 
-    paymentTerms: vendorPaymentTerms,
+    paymentTerms: resolvedPaymentTerms,
     freightTerms: header.freightCharges || vendor?.freight_terms || "Paid by Supplier",
     currency: currency === "INR" ? `INR (${currencySymbol})` : currency,
     deliveryTerms:
@@ -1503,7 +1503,7 @@ export const POPrintPreviewModal: React.FC<POPrintPreviewModalProps> = ({
             <SizePivotMatrixA4
               header={{
                 ...header,
-                paymentTerms: header.paymentTerms || "120 Days",
+                paymentTerms: resolvedPaymentTerms,
                 businessTerms: resolvedBusinessTerms,
               }}
               rows={sizePivotRows}

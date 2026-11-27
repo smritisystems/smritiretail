@@ -13,8 +13,9 @@
  */
 
 import React, { useMemo, useState, useEffect } from "react";
-import { ExternalLink, Search, X, Sparkles, Layers, ShieldCheck, Database, Store } from "lucide-react";
+import { ExternalLink, Search, X, Clock, Star } from "lucide-react";
 import { useWorkspace } from "../../contexts/WorkspaceContext.tsx";
+import { useLayoutEngine } from "../../layout_engine/layout_store.tsx";
 import { apiFetchV1 } from "../../lib/apiFetchV1.ts";
 import type { TileData } from "./launchpadCatalog.ts";
 import {
@@ -48,11 +49,17 @@ export interface FioriLaunchpadProps {
   uxMode?: "regular" | "classic";
 }
 
+const getTileTitle = (tile: TileData) => tile.plainTitle || tile.title;
+const getTileSubtitle = (tile: TileData) => tile.plainSubtitle || tile.subtitle;
+const normalizeWorkspaceId = (id: string) => id === "pos" ? "billing-workspace" : id;
+
 export const FioriLaunchpad: React.FC<FioriLaunchpadProps> = ({ currentUser, onSelectModule }) => {
   const { popOutExternalWindow } = useWorkspace();
+  const { preferences, recentlyUsed, toggleFavorite } = useLayoutEngine();
   const [searchTerm, setSearchTerm] = useState<string>("");
+  const [showAllQuickActions, setShowAllQuickActions] = useState(false);
+  const [showAllPersonalWorkspaces, setShowAllPersonalWorkspaces] = useState(false);
   const [remoteMenus, setRemoteMenus] = useState<any[] | null>(null);
-  const [isControlPlaneSynced, setIsControlPlaneSynced] = useState<boolean>(false);
 
   // Asynchronously query PostgreSQL control plane (/api/v1/menus/resolved)
   useEffect(() => {
@@ -64,7 +71,6 @@ export const FioriLaunchpad: React.FC<FioriLaunchpadProps> = ({ currentUser, onS
         const data = Array.isArray(res) ? res : (res as any)?.data || (res as any)?.items || [];
         if (Array.isArray(data) && data.length > 0) {
           setRemoteMenus(data);
-          setIsControlPlaneSynced(true);
         }
       } catch {
         // Resilient offline fallback: retain static LAUNCHPAD_CATALOG without disruption
@@ -94,14 +100,41 @@ export const FioriLaunchpad: React.FC<FioriLaunchpadProps> = ({ currentUser, onS
     return visibleTiles.filter((t) => t.isQuickAction);
   }, [visibleTiles]);
 
+  const favoriteTiles = visibleTiles.filter((tile) =>
+    preferences.favorites.some((id) => normalizeWorkspaceId(id) === tile.id),
+  );
+  const favoriteIds = new Set(favoriteTiles.map((tile) => tile.id));
+  const recentTiles = recentlyUsed.reduce<TileData[]>((matches, id) => {
+    const tileId = normalizeWorkspaceId(id);
+    if (tileId === "dashboard" || tileId === "launchpad" || favoriteIds.has(tileId)) return matches;
+    const tile = visibleTiles.find((candidate) => candidate.id === tileId);
+    if (tile && !matches.some((match) => match.id === tile.id)) matches.push(tile);
+    return matches;
+  }, []);
+  const personalWorkspaces = [
+    ...favoriteTiles.map((tile) => ({ tile, kind: "Pinned" as const })),
+    ...recentTiles.map((tile) => ({ tile, kind: "Recently opened" as const })),
+  ];
+  const visiblePersonalWorkspaces = showAllPersonalWorkspaces
+    ? personalWorkspaces
+    : personalWorkspaces.slice(0, 5);
+  const visibleQuickActions = showAllQuickActions ? quickActions : quickActions.slice(0, 5);
+
+  const isTileFavorite = (tile: TileData) =>
+    preferences.favorites.some((id) => normalizeWorkspaceId(id) === tile.id);
+  const toggleTileFavorite = (tile: TileData) => {
+    const legacyFavorite = tile.id === "billing-workspace" && preferences.favorites.includes("pos");
+    toggleFavorite(legacyFavorite ? "pos" : tile.id);
+  };
+
   // Search filtered tiles
   const filteredTiles = useMemo(() => {
     if (!searchTerm.trim()) return visibleTiles;
     const query = searchTerm.toLowerCase().trim();
     return visibleTiles.filter(
       (t) =>
-        t.title.toLowerCase().includes(query) ||
-        t.subtitle.toLowerCase().includes(query) ||
+        [t.title, t.subtitle, t.plainTitle, t.plainSubtitle, ...(t.searchTerms || [])]
+          .some((value) => value?.toLowerCase().includes(query)) ||
         t.group.toLowerCase().includes(query) ||
         (t.tag && t.tag.toLowerCase().includes(query))
     );
@@ -239,30 +272,13 @@ export const FioriLaunchpad: React.FC<FioriLaunchpadProps> = ({ currentUser, onS
         <div className="absolute bottom-0 left-1/3 -mb-8 w-48 h-48 rounded-full bg-indigo-500/10 blur-2xl pointer-events-none" />
 
         <div className="relative z-10 space-y-1.5 max-w-xl">
-          <div className="flex items-center gap-2">
-            <span className="bg-blue-500/20 text-blue-300 border border-blue-400/30 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1">
-              <Sparkles size={11} className="text-blue-300" />
-              SMRITI Retail OS v6.2
-            </span>
-            <span className="text-[11px] text-blue-200/80 font-mono">
-              Industrial Terminal
-            </span>
-            {isControlPlaneSynced && (
-              <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1">
-                <Database size={10} className="text-emerald-300" />
-                Control Plane Synced
-              </span>
-            )}
-          </div>
-
           <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight font-display text-white">
-            Retail Operations Launchpad
+            What would you like to do?
           </h1>
-          <p className="text-xs md:text-sm text-blue-100/90 leading-relaxed">
-            Unified operational workspace director for high-speed POS billing, barcode printing, and inventory control.
+          <p className="text-sm md:text-base text-blue-100/90 leading-relaxed">
+            Search by task or workspace, or choose one of your pinned and recently opened workspaces below.
           </p>
 
-          {/* Quick Real-Time Filter Search Box */}
           <div className="pt-2">
             <div className="relative max-w-md">
               <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-300/70" />
@@ -270,14 +286,16 @@ export const FioriLaunchpad: React.FC<FioriLaunchpadProps> = ({ currentUser, onS
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search workspaces (e.g. POS, Barcode, GST, Ledger, Purchase)..."
-                className="w-full bg-white/10 hover:bg-white/15 focus:bg-white/20 border border-white/20 focus:border-blue-400 rounded-xl pl-9 pr-8 py-2 text-xs text-white placeholder-blue-200/60 outline-none transition font-medium backdrop-blur-xs shadow-inner"
+                aria-label="Search workspaces by task or name"
+                placeholder="Try “sell”, “receive stock”, “barcode” or a workspace name"
+                className="w-full min-h-11 bg-white/10 hover:bg-white/15 focus:bg-white/20 border border-white/20 focus:border-blue-400 rounded-xl pl-9 pr-12 py-2 text-sm text-white placeholder-blue-200/80 outline-none transition font-medium backdrop-blur-xs shadow-inner"
               />
               {searchTerm && (
                 <button
                   type="button"
                   onClick={() => setSearchTerm("")}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-blue-200 hover:text-white p-0.5 rounded"
+                  aria-label="Clear workspace search"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 min-h-9 min-w-9 flex items-center justify-center text-blue-200 hover:text-white rounded"
                 >
                   <X size={14} />
                 </button>
@@ -286,80 +304,109 @@ export const FioriLaunchpad: React.FC<FioriLaunchpadProps> = ({ currentUser, onS
           </div>
         </div>
 
-        {/* Live Operational Status Panel */}
-        <div className="relative z-10 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 gap-2.5 bg-black/25 p-3.5 rounded-xl border border-white/10 font-mono backdrop-blur-md shrink-0">
-          
-          <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/5">
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
-              <Store size={16} />
-            </div>
-            <div>
-              <div className="text-blue-200/70 text-[9px] uppercase font-bold tracking-wider">Store Status</div>
-              <div className="text-xs font-bold text-emerald-300 flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                Main Store
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/5">
-            <div className="w-8 h-8 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0">
-              <ShieldCheck size={16} />
-            </div>
-            <div>
-              <div className="text-blue-200/70 text-[9px] uppercase font-bold tracking-wider">Role Access</div>
-              <div className="text-xs font-bold text-white font-sans">{currentUser?.role || "SYSADMIN"}</div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/5">
-            <div className="w-8 h-8 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center shrink-0">
-              <Database size={16} />
-            </div>
-            <div>
-              <div className="text-blue-200/70 text-[9px] uppercase font-bold tracking-wider">Service Engine</div>
-              <div className="text-xs font-bold text-white">Connected</div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/5">
-            <div className="w-8 h-8 rounded-lg bg-purple-500/20 text-purple-400 flex items-center justify-center shrink-0">
-              <Layers size={16} />
-            </div>
-            <div>
-              <div className="text-blue-200/70 text-[9px] uppercase font-bold tracking-wider">Workspaces</div>
-              <div className="text-xs font-bold text-white font-mono">{filteredTiles.length} / {visibleTiles.length}</div>
-            </div>
-          </div>
-
+        <div className="relative z-10 rounded-xl border border-white/15 bg-black/20 px-5 py-4 text-left shrink-0">
+          <div className="text-sm text-blue-100">Available to you</div>
+          <div className="mt-1 text-2xl font-bold">{visibleTiles.length} workspaces</div>
+          <div className="mt-1 text-xs text-blue-100/80">Filtered by your account access</div>
         </div>
 
       </div>
 
-      {/* 2. Primary Quick Actions Row (Mobile / Touch Bar with Hotkey Badges) */}
-      {!searchTerm && quickActions.length > 0 && (
-        <div className="bg-white dark:bg-slate-900 border border-[#e2e8f0] dark:border-slate-800 rounded-2xl p-4 shadow-xs space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-xs font-bold font-mono uppercase tracking-wider text-[#041632] dark:text-white">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-              <span>Primary Quick Actions (1-Tap &amp; Keyboard Shortcuts)</span>
+      {!searchTerm && personalWorkspaces.length > 0 && (
+        <section className="bg-white dark:bg-slate-900 border border-[#e2e8f0] dark:border-slate-800 rounded-2xl p-4 shadow-xs space-y-3" aria-labelledby="launchpad-personal-heading">
+          <div className="flex flex-wrap items-end justify-between gap-2">
+            <div>
+              <h2 id="launchpad-personal-heading" className="text-lg font-bold text-[#041632] dark:text-white">
+                Your workspaces
+              </h2>
+              <p className="text-sm text-[#64748b] dark:text-slate-400">
+                Pinned workspaces and the ones you opened recently.
+              </p>
             </div>
-            <span className="text-[10px] text-[#64748b] dark:text-slate-400 font-mono">Instant F-Key Routing</span>
+            {personalWorkspaces.length > 5 && (
+              <button
+                type="button"
+                onClick={() => setShowAllPersonalWorkspaces((showAll) => !showAll)}
+                aria-expanded={showAllPersonalWorkspaces}
+                className="min-h-10 rounded-lg px-3 text-sm font-semibold text-blue-700 hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-slate-800"
+              >
+                {showAllPersonalWorkspaces ? "Show fewer" : `Show all ${personalWorkspaces.length}`}
+              </button>
+            )}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+            {visiblePersonalWorkspaces.map(({ tile, kind }) => {
+              const isFavorite = isTileFavorite(tile);
+              return (
+                <article key={`${kind}-${tile.id}`} className="rounded-xl border border-[#e2e8f0] dark:border-slate-700 bg-[#f8fafc] dark:bg-slate-800 p-3.5 flex flex-col gap-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-xs font-semibold ${kind === "Pinned" ? "bg-amber-50 text-amber-800 dark:bg-amber-950 dark:text-amber-200" : "bg-blue-50 text-blue-800 dark:bg-blue-950 dark:text-blue-200"}`}>
+                      {kind === "Pinned" ? <Star size={13} aria-hidden="true" /> : <Clock size={13} aria-hidden="true" />}
+                      {kind}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => toggleTileFavorite(tile)}
+                      aria-label={`${isFavorite ? "Remove" : "Pin"} ${getTileTitle(tile)} ${isFavorite ? "from" : "to"} your workspaces`}
+                      aria-pressed={isFavorite}
+                      title={isFavorite ? "Remove from pinned workspaces" : "Pin workspace"}
+                      className="min-h-10 min-w-10 inline-flex items-center justify-center rounded-lg text-amber-700 hover:bg-amber-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 dark:text-amber-300 dark:hover:bg-slate-700"
+                    >
+                      <Star size={18} fill={isFavorite ? "currentColor" : "none"} aria-hidden="true" />
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onSelectModule(tile.id)}
+                    className="min-h-16 w-full text-left rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                  >
+                    <span className="block font-bold text-base text-[#041632] dark:text-white">{getTileTitle(tile)}</span>
+                    <span className="mt-1 block text-sm leading-snug text-[#64748b] dark:text-slate-300">{getTileSubtitle(tile)}</span>
+                  </button>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* Quick actions remain available by click and keyboard; expand to see the full shortcut set. */}
+      {!searchTerm && quickActions.length > 0 && (
+        <section className="bg-white dark:bg-slate-900 border border-[#e2e8f0] dark:border-slate-800 rounded-2xl p-4 shadow-xs space-y-3" aria-labelledby="launchpad-quick-actions-heading">
+          <div className="flex flex-wrap items-end justify-between gap-2">
+            <div>
+              <h2 id="launchpad-quick-actions-heading" className="text-base font-bold text-[#041632] dark:text-white">
+                Common tasks
+              </h2>
+              <p className="text-sm text-[#64748b] dark:text-slate-400">Quick actions with optional keyboard shortcuts.</p>
+            </div>
+            {quickActions.length > 5 && (
+              <button
+                type="button"
+                onClick={() => setShowAllQuickActions((showAll) => !showAll)}
+                aria-expanded={showAllQuickActions}
+                aria-controls="launchpad-quick-actions"
+                className="min-h-10 rounded-lg px-3 text-sm font-semibold text-blue-700 hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-slate-800"
+              >
+                {showAllQuickActions ? "Show fewer" : `Show all ${quickActions.length} quick actions`}
+              </button>
+            )}
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-            {quickActions.map((qa) => {
+          <div id="launchpad-quick-actions" className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
+            {visibleQuickActions.map((qa) => {
               const style = getQuickActionStyle(qa);
               return (
                 <button
                   key={`qa-${qa.id}`}
                   type="button"
                   onClick={() => onSelectModule(qa.id)}
-                  className={`relative p-3.5 bg-[#f8fafc] dark:bg-slate-800/80 ${style.bg} border border-[#e2e8f0] dark:border-slate-700/80 rounded-xl flex flex-col items-center justify-center text-center gap-2 transition-all duration-200 group cursor-pointer shadow-xs hover:-translate-y-1 hover:shadow-md`}
+                  aria-label={`Open ${getTileTitle(qa)}${qa.shortcut ? `, shortcut ${qa.shortcut}` : ""}`}
+                  className={`relative min-h-28 p-3.5 bg-[#f8fafc] dark:bg-slate-800/80 ${style.bg} border border-[#e2e8f0] dark:border-slate-700/80 rounded-xl flex flex-col items-center justify-center text-center gap-2 transition-all duration-200 group cursor-pointer shadow-xs hover:-translate-y-1 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600`}
                 >
                   {/* Hotkey Tag Badge */}
                   {qa.shortcut && (
-                    <span className="absolute top-2 right-2 font-mono text-[9px] font-extrabold px-1.5 py-0.5 rounded shadow-2xs border border-black/10 bg-white/90 dark:bg-slate-900/90 text-[#041632] dark:text-white group-hover:bg-white/20 group-hover:text-white group-hover:border-white/30 transition-colors">
+                    <span className="absolute top-2 right-2 font-mono text-xs font-extrabold px-1.5 py-0.5 rounded shadow-2xs border border-black/10 bg-white/90 dark:bg-slate-900/90 text-[#041632] dark:text-white group-hover:bg-white/20 group-hover:text-white group-hover:border-white/30 transition-colors">
                       {qa.shortcut}
                     </span>
                   )}
@@ -368,18 +415,18 @@ export const FioriLaunchpad: React.FC<FioriLaunchpadProps> = ({ currentUser, onS
                     <span className="material-symbols-outlined text-[24px]">{qa.icon}</span>
                   </div>
 
-                  <span className="text-xs font-bold font-display line-clamp-1 text-[#041632] dark:text-slate-100 group-hover:text-white transition-colors">
-                    {qa.title}
+                  <span className="text-sm font-bold font-display line-clamp-2 text-[#041632] dark:text-slate-100 group-hover:text-white transition-colors">
+                    {getTileTitle(qa)}
                   </span>
 
-                  <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${style.badge} group-hover:bg-white/20 group-hover:text-white group-hover:border-white/30 transition-colors`}>
+                  <span className={`text-xs font-mono px-2 py-0.5 rounded-full border ${style.badge} group-hover:bg-white/20 group-hover:text-white group-hover:border-white/30 transition-colors`}>
                     {qa.tag || "Quick"}
                   </span>
                 </button>
               );
             })}
           </div>
-        </div>
+        </section>
       )}
 
       {/* 3. Grouped Workspace Cards */}
@@ -388,14 +435,14 @@ export const FioriLaunchpad: React.FC<FioriLaunchpadProps> = ({ currentUser, onS
           <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 mx-auto flex items-center justify-center">
             <Search size={24} />
           </div>
-          <h3 className="font-bold text-sm text-[#041632] dark:text-white">No workspaces match "{searchTerm}"</h3>
-          <p className="text-xs text-[#64748b] dark:text-slate-400">Try searching for different keywords like POS, Barcode, Ledger, or Tax.</p>
+          <h3 className="font-bold text-base text-[#041632] dark:text-white">No workspaces match "{searchTerm}"</h3>
+          <p className="text-sm text-[#64748b] dark:text-slate-400">Try a task or workspace name, such as “sell”, “receive stock”, or “barcode”.</p>
           <button
             type="button"
             onClick={() => setSearchTerm("")}
-            className="px-4 py-1.5 bg-[#041632] dark:bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-[#1b2b48] dark:hover:bg-blue-700 transition"
+            className="min-h-11 px-4 py-2 bg-[#041632] dark:bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-[#1b2b48] dark:hover:bg-blue-700 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
           >
-            Clear Search Filter
+            Clear search
           </button>
         </div>
       ) : (
@@ -407,70 +454,78 @@ export const FioriLaunchpad: React.FC<FioriLaunchpadProps> = ({ currentUser, onS
             <section key={groupName} className="space-y-3">
               {/* Category Section Header */}
               <div className="flex items-center justify-between border-b border-[#e2e8f0] dark:border-slate-800 pb-2">
-                <h2 className="text-xs font-extrabold text-[#041632] dark:text-white uppercase tracking-wider flex items-center gap-2 font-mono">
+                <h2 className="text-base font-bold text-[#041632] dark:text-white flex items-center gap-2">
                   <span className={`w-2.5 h-2.5 rounded-full ${accent.dot}`} />
                   <span>{groupName}</span>
                 </h2>
-                <span className="text-[11px] text-[#64748b] dark:text-slate-400 font-mono bg-white dark:bg-slate-900 border border-[#e2e8f0] dark:border-slate-800 px-2 py-0.5 rounded-full font-semibold shadow-2xs">
+                <span className="text-sm text-[#64748b] dark:text-slate-400 bg-white dark:bg-slate-900 border border-[#e2e8f0] dark:border-slate-800 px-2 py-0.5 rounded-full font-semibold shadow-2xs">
                   {tiles.length} {tiles.length === 1 ? "Workspace" : "Workspaces"}
                 </span>
               </div>
 
               {/* Grid of Elevated Workspace Tiles */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5">
-                {tiles.map((tile) => (
-                  <button
-                    key={tile.id}
-                    type="button"
-                    onClick={() => onSelectModule(tile.id)}
-                    className={`group bg-white dark:bg-slate-900 hover:bg-[#f8fafc] dark:hover:bg-slate-800 border border-[#e2e8f0] dark:border-slate-800 ${accent.border} ${accent.hoverBorder} rounded-xl p-4 text-left transition-all duration-200 hover:shadow-md hover:-translate-y-1 flex flex-col justify-between cursor-pointer relative overflow-hidden`}
-                  >
-                    <div>
-                      {/* Top Row: Icon, Tag Badge & Pop-out */}
-                      <div className="flex items-start justify-between gap-2 mb-2.5">
+                {tiles.map((tile) => {
+                  const isFavorite = isTileFavorite(tile);
+                  return (
+                    <article
+                      key={tile.id}
+                      className={`group bg-white dark:bg-slate-900 hover:bg-[#f8fafc] dark:hover:bg-slate-800 border border-[#e2e8f0] dark:border-slate-800 ${accent.border} ${accent.hoverBorder} rounded-xl p-4 transition-all duration-200 hover:shadow-md hover:-translate-y-1 flex flex-col gap-3 relative overflow-hidden`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
                         <div className={`w-10 h-10 rounded-xl ${accent.iconBg} group-hover:scale-105 flex items-center justify-center transition-all duration-200 shadow-2xs shrink-0 border border-black/5`}>
-                          <span className="material-symbols-outlined text-[22px]">{tile.icon}</span>
+                          <span className="material-symbols-outlined text-[22px]" aria-hidden="true">{tile.icon}</span>
                         </div>
 
-                        <div className="flex items-center gap-1.5">
-                          <span
-                            role="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              popOutExternalWindow(tile.id, tile.title, tile.icon);
-                            }}
-                            title={`Pop out ${tile.title} into external window`}
-                            className="p-1 rounded-md text-[#94a3b8] hover:text-[#041632] dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                          >
-                            <ExternalLink size={13} />
-                          </span>
-
+                        <div className="flex items-center gap-1">
                           {tile.tag && (
-                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full font-mono border ${accent.badge}`}>
+                            <span className={`text-xs font-semibold px-2 py-1 rounded-full border ${accent.badge}`}>
                               {tile.tag}
                             </span>
                           )}
+                          <button
+                            type="button"
+                            onClick={() => toggleTileFavorite(tile)}
+                            aria-label={`${isFavorite ? "Remove" : "Pin"} ${getTileTitle(tile)} ${isFavorite ? "from" : "to"} your workspaces`}
+                            aria-pressed={isFavorite}
+                            title={isFavorite ? "Remove from pinned workspaces" : "Pin workspace"}
+                            className="min-h-10 min-w-10 inline-flex items-center justify-center rounded-lg text-amber-700 hover:bg-amber-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 dark:text-amber-300 dark:hover:bg-slate-700"
+                          >
+                            <Star size={18} fill={isFavorite ? "currentColor" : "none"} aria-hidden="true" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => popOutExternalWindow(tile.id, tile.title, tile.icon)}
+                            aria-label={`Open ${getTileTitle(tile)} in a separate window`}
+                            title={`Open ${tile.title} in a separate window`}
+                            className="min-h-10 min-w-10 inline-flex items-center justify-center rounded-lg text-[#64748b] hover:text-[#041632] dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                          >
+                            <ExternalLink size={16} aria-hidden="true" />
+                          </button>
                         </div>
                       </div>
 
-                      {/* Title & Description */}
-                      <h3 className="font-bold text-sm text-[#041632] dark:text-white group-hover:text-[#3e5f90] dark:group-hover:text-indigo-400 transition-colors mt-1 font-display">
-                        {tile.title}
-                      </h3>
-                      <p className="text-xs text-[#64748b] dark:text-slate-400 mt-1 leading-snug line-clamp-2">
-                        {tile.subtitle}
-                      </p>
-                    </div>
-
-                    {/* Card Footer Action Indicator */}
-                    <div className={`mt-3.5 pt-2 border-t border-[#f1f5f9] dark:border-slate-800/80 flex items-center justify-between text-[11px] ${accent.arrow} font-semibold font-mono`}>
-                      <span>Open Workspace</span>
-                      <span className="material-symbols-outlined text-[15px] group-hover:translate-x-1 transition-transform">
-                        arrow_forward
-                      </span>
-                    </div>
-                  </button>
-                ))}
+                      <button
+                        type="button"
+                        onClick={() => onSelectModule(tile.id)}
+                        className="w-full flex-1 text-left rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                      >
+                        <span className="block font-bold text-base text-[#041632] dark:text-white group-hover:text-[#3e5f90] dark:group-hover:text-indigo-400 transition-colors font-display">
+                          {getTileTitle(tile)}
+                        </span>
+                        <span className="block text-sm text-[#64748b] dark:text-slate-300 mt-1 leading-snug line-clamp-3">
+                          {getTileSubtitle(tile)}
+                        </span>
+                        <span className={`mt-3.5 pt-2 border-t border-[#f1f5f9] dark:border-slate-800/80 flex items-center justify-between text-sm ${accent.arrow} font-semibold`}>
+                          <span>Open workspace</span>
+                          <span className="material-symbols-outlined text-[17px] group-hover:translate-x-1 transition-transform" aria-hidden="true">
+                            arrow_forward
+                          </span>
+                        </span>
+                      </button>
+                    </article>
+                  );
+                })}
               </div>
             </section>
           );

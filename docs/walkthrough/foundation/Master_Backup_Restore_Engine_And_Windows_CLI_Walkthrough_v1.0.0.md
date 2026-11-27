@@ -163,7 +163,9 @@ All tests and verifications exited with status code 0.
 
 ## 10. Known Limitations
 - Network shared drives and cloud providers (Google Drive, OneDrive) write to local staging packages before uploading; cloud OAuth2 token refresh requires manual connection configuration.
-- Database export dumps logical tables (products, customers, suppliers, sales invoices, items, stock ledger, companies, users); binary raw PostgreSQL cluster dumps (`pg_dumpall`) require elevated host Postgres privileges outside Docker container constraints.
+- Full backups run PostgreSQL 15 `pg_dump`, `pg_dumpall`, and `pg_restore` from the API container over the configured database connection. The API image must include client tools matching the database major version, and `/app/backups` must be backed by persistent storage.
+- `pg_dumpall` captures database globals using the configured database credentials; the PostgreSQL role must have the privileges required by the objects and globals being exported.
+- Scheduled backup polling can run in multiple API workers. A PostgreSQL advisory transaction lock serializes due-check and job creation, while persisted job records allow workers to detect an active job created by another process.
 
 ---
 

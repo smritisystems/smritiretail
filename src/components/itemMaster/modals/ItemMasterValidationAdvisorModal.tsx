@@ -108,22 +108,13 @@ export const ItemMasterValidationAdvisorModal: React.FC<ItemMasterValidationAdvi
         id: "missing_barcode",
         category: "BARCODE",
         severity: "WARNING",
-        title: "Missing Barcode (POS Gun Scanner Required)",
+        title: "Barcode Not Assigned (Resolve Before Receipt)",
         affectedCount: missingBarcodeRows.length,
         explanation:
-          "Barcode scanner guns at POS checkout lookup items using barcodes. Without a barcode, cashiers must manually type the SKU or product code.",
+          "Barcode scanners can speed up item lookup, but a barcode is not required to create a purchase order or maintain the item's SKU and variant identity.",
         guidance:
-          "Enter your manufacturer EAN-13 barcode, or auto-generate internal barcodes so items can be scanned immediately.",
-        recommendation: "Auto-generate internal 13-digit retail barcodes.",
-        quickFixLabel: "Auto-Generate Barcodes for Missing Rows",
-        fixAction: (currentRows) =>
-          currentRows.map((r, idx) => {
-            if (!(r.barcode && r.barcode.trim())) {
-              const syntheticBc = `890${Date.now().toString().slice(-7)}${String(idx + 1).padStart(3, "0")}`;
-              return { ...r, barcode: syntheticBc };
-            }
-            return r;
-          }),
+          "Keep the barcode blank during PO entry if needed. Before receiving, generate an internal Code 128 from the confirmed PO or enter the supplier barcode; use supplier/GS1 identifiers when external trade requires them.",
+        recommendation: "Assign a unique internal or supplier barcode before goods receipt.",
       });
     }
 

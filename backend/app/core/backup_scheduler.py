@@ -20,9 +20,13 @@ import asyncio
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Dict, Any
 
+from sqlalchemy import text
+
 from .logging import logger
 from .backup_engine import MasterBackupEngine, BACKUP_PACKAGES_DIR, SETTINGS_FILE
 from ..schemas.backup import BackupSchedulerStatusResponse, BackupSettingsConfig
+
+BACKUP_SCHEDULER_LOCK_KEY = 0x534D52495449
 
 
 class BackupSchedulerDaemon:
@@ -143,29 +147,37 @@ class BackupSchedulerDaemon:
     async def _tick(self) -> None:
         """Evaluates schedule and triggers backup if due."""
         try:
-            cfg = self._load_settings()
-            if not cfg.automatic_backup_enabled:
-                return
-
-            if not self.is_backup_due(cfg):
-                return
-
-            # Check if any backup job is currently running
-            active = MasterBackupEngine.get_active_running_job()
-            if active:
-                logger.info(f"[BackupScheduler] Tick: Active job '{active.job_id}' is running. Skipping tick.")
-                return
-
-            logger.info("[BackupScheduler] Tick: Scheduled backup is due. Triggering automated backup.")
             from ..db.session import async_session
             from ..services.backup_restore_service import BackupRestoreService
 
-            async with async_session() as db:
-                svc = BackupRestoreService(db, "COMP-001")
-                job = await svc.start_backup_job(
-                    storage_location=cfg.storage_location,
-                    initiating_user="Automated Scheduler Daemon",
+            async with async_session() as lock_session:
+                lock_result = await lock_session.execute(
+                    text("SELECT pg_try_advisory_xact_lock(:lock_key)"),
+                    {"lock_key": BACKUP_SCHEDULER_LOCK_KEY},
                 )
+                if not lock_result.scalar():
+                    logger.debug("[BackupScheduler] Another API worker is evaluating the schedule; skipping this tick.")
+                    return
+
+                cfg = self._load_settings()
+                if not cfg.automatic_backup_enabled:
+                    return
+
+                if not self.is_backup_due(cfg):
+                    return
+
+                active = MasterBackupEngine.get_active_running_job()
+                if active:
+                    logger.info(f"[BackupScheduler] Tick: Active job '{active.job_id}' is running. Skipping tick.")
+                    return
+
+                logger.info("[BackupScheduler] Tick: Scheduled backup is due. Triggering automated backup.")
+                async with async_session() as db:
+                    svc = BackupRestoreService(db, "COMP-001")
+                    job = await svc.start_backup_job(
+                        storage_location=cfg.storage_location,
+                        initiating_user="Automated Scheduler Daemon",
+                    )
                 self._last_run_at = datetime.now(timezone.utc).isoformat()
                 self._total_automated_runs += 1
                 logger.info(f"[BackupScheduler] Triggered automated backup job '{job.job_id}'.")

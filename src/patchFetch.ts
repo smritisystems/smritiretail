@@ -23,6 +23,8 @@
  * * License    : Proprietary Commercial Software
  */
 
+import { getCsrfToken } from "./lib/apiFetchV1.ts";
+
 const originalJson = Response.prototype.json;
 Response.prototype.json = async function() {
   const text = await this.text();
@@ -39,16 +41,19 @@ Response.prototype.json = async function() {
 const originalFetch = window.fetch;
 const patchedFetch = function(this: any, input: RequestInfo | URL, init?: RequestInit) {
   const options = init || {};
-  const headers = new Headers(options.headers || {});
+  const request = input instanceof Request ? input : null;
+  const headers = new Headers(request?.headers || {});
+  new Headers(options.headers || {}).forEach((value, key) => headers.set(key, value));
+  const method = (options.method || request?.method || "GET").toUpperCase();
+  const requestUrl = request ? request.url : String(input);
+  const isSameOrigin = new URL(requestUrl, window.location.origin).origin === window.location.origin;
 
-  // Load tokens from localStorage
-  const jwtToken = localStorage.getItem("smriti_jwt_token");
-  const sessionToken = localStorage.getItem("smriti_session_token");
-
-  if (jwtToken) {
-    headers.set("Authorization", `Bearer ${jwtToken}`);
-  } else if (sessionToken) {
-    headers.set("x-session-token", sessionToken);
+  if (isSameOrigin) {
+    options.credentials = "same-origin";
+    if (["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
+      const csrfToken = getCsrfToken();
+      if (csrfToken) headers.set("X-CSRF-Token", csrfToken);
+    }
   }
 
   options.headers = headers;

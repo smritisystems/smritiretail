@@ -140,6 +140,8 @@ class EphemeralTenantHarness:
         import subprocess
         from sqlalchemy import create_engine, text
         backend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+        if revision == "head":
+            revision = "tenant@head"
         conn_info = cls._get_pg_admin_connection_info()
         target_url = (
             f"postgresql://{conn_info['user']}:{conn_info['password']}@"

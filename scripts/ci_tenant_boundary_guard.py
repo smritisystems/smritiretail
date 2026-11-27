@@ -260,24 +260,29 @@ def check_migration_target_guards(root: Path, verbose: bool) -> List[Violation]:
 
 
 def check_ci_alembic_has_target_flags(root: Path, verbose: bool) -> List[Violation]:
-    """Check CI workflow uses -x target= flags with alembic commands."""
+    """Check CI migrations use the head assigned to each declared database target."""
     violations = []
     ci_files = list((root / ".github" / "workflows").glob("*.yml"))
     for ci_file in ci_files:
         content = ci_file.read_text(encoding="utf-8", errors="ignore")
-        # Find alembic upgrade head calls without -x target=
         lines = content.splitlines()
         for i, line in enumerate(lines, 1):
             stripped = line.strip()
-            if "alembic" in stripped and "upgrade head" in stripped:
-                if "-x target=" not in stripped and "target=" not in stripped:
-                    violations.append(Violation(
-                        ci_file, i,
-                        "alembic upgrade head without -x target=",
-                        f"CI alembic command missing -x target= flag: '{stripped}'. "
-                        f"Use: alembic -x target=control -x db=smritisys upgrade head  "
-                        f"or: alembic -x target=tenant -x db=<company> upgrade head"
-                    ))
+            if "alembic" not in stripped or "upgrade" not in stripped:
+                continue
+
+            target_match = re.search(r"(?:-x\s+)?target=(control|tenant)", stripped)
+            expected_head = (
+                f"{target_match.group(1)}@head" if target_match is not None else None
+            )
+            if expected_head is None or f"upgrade {expected_head}" not in stripped:
+                violations.append(Violation(
+                    ci_file,
+                    i,
+                    "Alembic upgrade does not select a target-specific head",
+                    f"Use the branch matching the target in this command: '{stripped}'. "
+                    "Expected `control@head` for smritisys or `tenant@head` for a tenant DB.",
+                ))
     return violations
 
 

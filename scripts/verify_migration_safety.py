@@ -29,7 +29,7 @@ async def test_fresh_database_initialization():
     await conn.close()
     print(f"Created isolated fresh database: {TEST_FRESH_DB}")
 
-    # Set DATABASE_URL and POSTGRES_PORT to fresh database and run alembic upgrade head
+    # Set DATABASE_URL and POSTGRES_PORT to a fresh tenant DB before running this check.
     env = os.environ.copy()
     env["DATABASE_URL"] = f"postgresql+asyncpg://postgres:postgres@localhost:2781/{TEST_FRESH_DB}"
     env["POSTGRES_PORT"] = "2781"
@@ -42,7 +42,7 @@ async def test_fresh_database_initialization():
         "-x", "target=tenant",
         "-x", f"db={TEST_FRESH_DB}",
         "-x", f"db_url=postgresql+asyncpg://postgres:postgres@localhost:2781/{TEST_FRESH_DB}",
-        "upgrade", "head"
+        "upgrade", "tenant@head"
     ]
     print(f"Executing Alembic upgrade head: {' '.join(cmd)}")
     proc = subprocess.run(cmd, env=env, capture_output=True, text=True, cwd=backend_dir)

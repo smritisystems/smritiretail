@@ -3169,7 +3169,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
             )}
             <span className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 px-2 py-0.5 rounded-full">
               <span className="material-symbols-outlined text-[12px]">straighten</span>
-              Sizewise
+              By size
             </span>
           </div>
           {/* Phase 1: header quick actions — Save removed (footer is single save path) */}
@@ -3203,7 +3203,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
         <div className="flex items-end flex-wrap gap-3">
           {/* Type */}
           <div>
-            <label className="block text-[10px] text-slate-400 font-medium mb-0.5">Type</label>
+            <label className="block text-[10px] text-slate-400 font-medium mb-0.5">Order type</label>
             <select
               value={header.documentType}
               onChange={e => setHeader(h => ({ ...h, documentType: e.target.value }))}
@@ -3215,7 +3215,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
           </div>
           {/* Phase 1: Document identity — composite read-only badge, Prefix+Number fields removed */}
           <div>
-            <label className="block text-[10px] text-slate-400 font-medium mb-0.5">PO Number</label>
+            <label className="block text-[10px] text-slate-400 font-medium mb-0.5">Order number</label>
             <div
               id="sw-po-order-number-badge"
               title="Document number is assigned automatically. Contact your administrator to change the series."
@@ -3229,7 +3229,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
           </div>
           {/* Date */}
           <div>
-            <label className="block text-[10px] text-slate-400 font-medium mb-0.5">Date</label>
+            <label className="block text-[10px] text-slate-400 font-medium mb-0.5">Order date</label>
             <input
               type="date"
               value={header.orderDate}
@@ -3247,7 +3247,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
           {/* Supplier — Proportionate max-w-md (448px) on desktop per Decision D */}
           <div className="flex-1 min-w-[240px] max-w-md">
             <label className="block text-[10px] text-slate-400 font-medium mb-0.5">
-              Supplier / Vendor <span className="text-rose-500">*</span>
+              Supplier <span className="text-rose-500">*</span>
             </label>
             <SupplierSelect
               id="sw-supplier-select"
@@ -3255,7 +3255,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
               value={header.supplierId}
               disabled={suppliersLoading}
               compact={true}
-              placeholder={suppliersLoading ? "Loading suppliers..." : "Select or search vendor..."}
+              placeholder={suppliersLoading ? "Loading suppliers..." : "Select or search supplier..."}
               onChange={(supplierId, sel) => {
                 const defaults: Partial<CommercialDeliveryData> = {
                   paymentTerms: sel?.payment_terms || (sel?.payment_terms_days ? `${sel.payment_terms_days} Days` : undefined),
@@ -3296,7 +3296,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
           </div>
           {/* Lead Time */}
           <div>
-            <label className="block text-[10px] text-slate-400 font-medium mb-0.5">Lead Time</label>
+            <label className="block text-[10px] text-slate-400 font-medium mb-0.5">Days until delivery</label>
             <div className="flex items-center gap-1">
               <input
                 type="number"
@@ -4254,7 +4254,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
               </button>
               <span className="text-[10px] text-slate-400 font-mono">
                 {activeLineCount} item{activeLineCount !== 1 ? "s" : ""} · {grandTotalQty} units ·
-                Mode: Sizewise
+                Item entry: By size
               </span>
             </div>
           </div>
@@ -4907,7 +4907,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
                 className="flex items-center gap-1.5 px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg shadow-sm transition"
               >
                 <span className="material-symbols-outlined text-[16px]">check_circle</span>
-                Save & Confirm
+                Save & confirm order
               </button>
             </div>
           </div>
@@ -4920,7 +4920,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
           <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs space-y-3">
             <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm mb-2">Delivery Details</h3>
             <div>
-              <label className="block font-medium text-slate-500 mb-1">Delivery Location / Warehouse</label>
+              <label className="block font-medium text-slate-500 mb-1">Receiving warehouse</label>
               {availableWarehouses.length > 0 ? (
                 <select
                   value={header.warehouseId || ""}
@@ -5200,7 +5200,7 @@ export const PoSizewiseTab: React.FC<PoSizewiseTabProps> = ({
             className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg px-5 py-1.5 font-bold transition shadow-xs disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
           >
             <span className="material-symbols-outlined text-[16px]">check_circle</span>
-            {editingOrderId ? "Update & Confirm" : "Save & Confirm"}
+            {editingOrderId ? "Update & confirm order" : "Save & confirm order"}
           </button>
         </div>
       </footer>

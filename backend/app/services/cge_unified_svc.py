@@ -16,12 +16,14 @@ import uuid
 from decimal import Decimal
 from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
+from fastapi import HTTPException
 from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.cge_policy import CGEUnifiedPolicy
 from ..models.loyalty import LoyaltyPointsLedger, LoyaltyMember
 from ..models.commission import CommissionLedger
+from ..models.sales import SalesInvoice, SalesReturn
 from ..schemas.cge_unified import (
     CGEPolicyCreateReq,
     CGEAntiAbuseCheckReq,
@@ -144,9 +146,132 @@ class CGEUnifiedPolicyEngine:
         Executes cascading reversal of commercial growth benefits (loyalty points, sales commissions)
         upon order cancellation or refund.
         """
-        reversal_id = f"rev_{uuid.uuid4().hex[:12]}"
+        return_stmt = (
+            select(SalesReturn)
+            .where(
+                SalesReturn.id == req.sales_return_id,
+                SalesReturn.company_id == company_id,
+                SalesReturn.is_deleted == False,
+            )
+            .with_for_update()
+        )
+        sales_return = (await session.execute(return_stmt)).scalars().first()
+        if not sales_return:
+            raise HTTPException(status_code=404, detail="Sales return not found for this company.")
+        if str(sales_return.status or "").strip().upper() not in {"COMPLETED", "PROCESSED"}:
+            raise HTTPException(
+                status_code=409,
+                detail="Growth reversals require a completed or processed sales return.",
+            )
+
+        invoice_stmt = (
+            select(SalesInvoice)
+            .where(
+                SalesInvoice.id == sales_return.original_invoice_id,
+                SalesInvoice.company_id == company_id,
+                SalesInvoice.invoice_no == req.original_invoice_no,
+                SalesInvoice.is_deleted == False,
+            )
+            .with_for_update()
+        )
+        invoice = (await session.execute(invoice_stmt)).scalars().first()
+        if not invoice:
+            raise HTTPException(
+                status_code=404,
+                detail="Sales return does not match the specified invoice.",
+            )
+        if str(invoice.status or "").strip().upper() not in {"POSTED", "PAID"}:
+            raise HTTPException(
+                status_code=409,
+                detail="Growth reversals require a posted or paid invoice.",
+            )
+
+        invoice_total = Decimal(str(invoice.grand_total or 0))
+        return_total = Decimal(str(sales_return.grand_total or 0))
+        refund_amount = Decimal(str(req.refund_amount))
+        if invoice_total <= 0 or return_total <= 0 or refund_amount != return_total:
+            raise HTTPException(
+                status_code=422,
+                detail="Refund amount must be positive and match the completed sales return total.",
+            )
+        if return_total > invoice_total:
+            raise HTTPException(
+                status_code=422,
+                detail="Sales return total cannot exceed the original invoice total.",
+            )
+        if not req.reverse_loyalty and not req.reverse_commission:
+            raise HTTPException(
+                status_code=422,
+                detail="At least one growth ledger must be selected for reversal.",
+            )
+
+        reversal_id = f"rev_{uuid.uuid5(uuid.NAMESPACE_URL, f'{company_id}:{sales_return.id}').hex[:12]}"
         reversed_loyalty = Decimal("0.00")
         reversed_commission = Decimal("0.00")
+        existing_loyalty = (
+            await session.execute(
+                select(LoyaltyPointsLedger).where(
+                    LoyaltyPointsLedger.company_id == company_id,
+                    LoyaltyPointsLedger.reference_return_id == sales_return.id,
+                    LoyaltyPointsLedger.transaction_type == "REVERSAL",
+                    LoyaltyPointsLedger.is_deleted == False,
+                )
+            )
+        ).scalars().all()
+        existing_commission = (
+            await session.execute(
+                select(CommissionLedger).where(
+                    CommissionLedger.company_id == company_id,
+                    CommissionLedger.reference_return_id == sales_return.id,
+                    CommissionLedger.transaction_type == "REVERSED",
+                    CommissionLedger.is_deleted == False,
+                )
+            )
+        ).scalars().all()
+        legacy_loyalty = (
+            await session.execute(
+                select(LoyaltyPointsLedger).where(
+                    LoyaltyPointsLedger.company_id == company_id,
+                    LoyaltyPointsLedger.reference_invoice_id == req.original_invoice_no,
+                    LoyaltyPointsLedger.reference_return_id.is_(None),
+                    LoyaltyPointsLedger.transaction_type == "REVERSAL",
+                    LoyaltyPointsLedger.is_deleted == False,
+                )
+            )
+        ).scalars().all()
+        legacy_commission = (
+            await session.execute(
+                select(CommissionLedger).where(
+                    CommissionLedger.company_id == company_id,
+                    CommissionLedger.reference_invoice_id == req.original_invoice_no,
+                    CommissionLedger.reference_return_id.is_(None),
+                    CommissionLedger.transaction_type == "REVERSED",
+                    CommissionLedger.is_deleted == False,
+                )
+            )
+        ).scalars().all()
+        prior_loyalty = existing_loyalty + legacy_loyalty
+        prior_commission = existing_commission + legacy_commission
+        if prior_loyalty or prior_commission:
+            return CGEReversalResponse(
+                reversal_id=reversal_id,
+                original_invoice_no=req.original_invoice_no,
+                reversed_loyalty_points=sum(
+                    (abs(Decimal(str(entry.points or 0))) for entry in prior_loyalty),
+                    Decimal("0.00"),
+                ),
+                reversed_commission_amount=sum(
+                    (
+                        abs(Decimal(str(entry.commission_amount or 0)))
+                        for entry in prior_commission
+                    ),
+                    Decimal("0.00"),
+                ),
+                status="DUPLICATE_IGNORED",
+                timestamp=datetime.now(timezone.utc),
+            )
+
+        refund_ratio = refund_amount / invoice_total
 
         # 1. Reverse Loyalty Points if requested
         if req.reverse_loyalty:
@@ -159,14 +284,19 @@ class CGEUnifiedPolicyEngine:
             )
             entries = (await session.execute(stmt)).scalars().all()
             for entry in entries:
-                pts_to_rev = entry.points
+                pts_to_rev = (
+                    Decimal(str(entry.points or 0)) * refund_ratio
+                ).quantize(Decimal("0.01"))
+                if pts_to_rev <= 0:
+                    continue
                 rev_entry = LoyaltyPointsLedger(
                     id=f"lpl_{uuid.uuid4().hex[:12]}",
                     company_id=company_id,
                     member_id=entry.member_id,
                     transaction_type="REVERSAL",
-                    points=-abs(pts_to_rev),
+                    points=-pts_to_rev,
                     reference_invoice_id=req.original_invoice_no,
+                    reference_return_id=sales_return.id,
                     narration=f"Reversal for refunded invoice {req.original_invoice_no}: {req.reason}",
                     is_active=True,
                     is_deleted=False,
@@ -174,7 +304,11 @@ class CGEUnifiedPolicyEngine:
                 session.add(rev_entry)
 
                 # Update member balance
-                m_stmt = select(LoyaltyMember).where(LoyaltyMember.id == entry.member_id)
+                m_stmt = (
+                    select(LoyaltyMember)
+                    .where(LoyaltyMember.id == entry.member_id)
+                    .with_for_update()
+                )
                 member = (await session.execute(m_stmt)).scalars().first()
                 if member:
                     cur_bal = Decimal(str(member.current_points_balance or 0))
@@ -191,6 +325,11 @@ class CGEUnifiedPolicyEngine:
             )
             comm_entries = (await session.execute(c_stmt)).scalars().all()
             for c_entry in comm_entries:
+                commission_to_reverse = (
+                    Decimal(str(c_entry.commission_amount or 0)) * refund_ratio
+                ).quantize(Decimal("0.01"))
+                if commission_to_reverse <= 0:
+                    continue
                 rev_comm = CommissionLedger(
                     id=f"cml_{uuid.uuid4().hex[:12]}",
                     company_id=company_id,
@@ -198,14 +337,15 @@ class CGEUnifiedPolicyEngine:
                     participant_role=c_entry.participant_role,
                     transaction_type="REVERSED",
                     gross_sales_amount=Decimal("0.00"),
-                    commission_amount=-abs(c_entry.commission_amount),
+                    commission_amount=-commission_to_reverse,
                     reference_invoice_id=req.original_invoice_no,
+                    reference_return_id=sales_return.id,
                     narration=f"Commission clawback on refund for {req.original_invoice_no}",
                     is_active=True,
                     is_deleted=False,
                 )
                 session.add(rev_comm)
-                reversed_commission += c_entry.commission_amount
+                reversed_commission += commission_to_reverse
 
         await session.commit()
 

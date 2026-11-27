@@ -69,6 +69,8 @@ interface PORow {
   items?: Array<{
     id: string;
     product_id?: string;
+    barcode?: string | null;
+    barcode_pending?: boolean;
     code?: string;
     name?: string;
     quantity?: number | string;
@@ -106,7 +108,7 @@ interface StatusTabDef {
 const STATUS_TABS: StatusTabDef[] = [
   {
     id: "ALL",
-    label: "All POs",
+    label: "All orders",
     icon: "list_alt",
     color: "text-slate-700 dark:text-slate-300",
     borderColor: "border-slate-600 dark:border-slate-400",
@@ -188,12 +190,18 @@ export const POWorkspaceTab: React.FC<POWorkspaceTabProps> = ({
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
   const [cancelTarget, setCancelTarget] = useState<PORow | null>(null);
   const [amendTarget, setAmendTarget] = useState<PORow | null>(null);
+  const [barcodeTarget, setBarcodeTarget] = useState<PORow | null>(null);
+  const [barcodeValues, setBarcodeValues] = useState<Record<string, string>>({});
+  const [barcodeType, setBarcodeType] = useState("EAN13");
+  const [barcodeSource, setBarcodeSource] = useState<"SUPPLIER" | "INTERNAL">("SUPPLIER");
+  const [barcodeSaving, setBarcodeSaving] = useState<string | null>(null);
   const [amendLoading, setAmendLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [tabCounts, setTabCounts] = useState<Partial<Record<POStatus | "ALL", number>>>({});
   const [isReportsOpen, setIsReportsOpen] = useState(false);
 
   const isManager = canActOnPO(currentUser?.role);
+  const canAssignBarcode = ["MANAGER", "SYSADMIN"].includes((currentUser?.role || "").toUpperCase());
 
   // ── Fetch suppliers map for resilient vendor name resolution ──────────────
   useEffect(() => {
@@ -283,6 +291,49 @@ export const POWorkspaceTab: React.FC<POWorkspaceTabProps> = ({
       onNotification?.("Confirm Failed", msg, "error");
     } finally {
       setActionLoading((p) => ({ ...p, [po.id]: false }));
+    }
+  };
+
+  const handleAssignBarcode = async (lineId: string) => {
+    if (!barcodeTarget) return;
+    const barcode = (barcodeValues[lineId] || "").trim();
+    if (barcodeSource === "SUPPLIER" && !barcode) {
+      onNotification?.("Barcode Required", "Enter a barcode before assigning it.", "warning");
+      return;
+    }
+    setBarcodeSaving(lineId);
+    try {
+      const result = await apiFetchV1<{ barcode?: string }>(`/purchase/orders/${barcodeTarget.id}/items/${lineId}/barcode`, {
+        method: "POST",
+        body: JSON.stringify({
+          ...(barcodeSource === "SUPPLIER" ? { barcode, barcode_type: barcodeType } : {}),
+          source: barcodeSource,
+        }),
+      });
+      onNotification?.(
+        barcodeSource === "INTERNAL" ? "Internal Barcode Generated" : "Barcode Assigned",
+        barcodeSource === "INTERNAL"
+          ? `Internal Code 128 ${result.barcode || ""} was generated and linked to the item variant.`.trim()
+          : `Barcode ${barcode} is now linked to the item variant.`,
+        "success",
+      );
+      setBarcodeTarget((current) => current ? {
+        ...current,
+        items: current.items?.map((item) => item.id === lineId
+          ? { ...item, barcode: result.barcode || barcode, barcode_pending: false }
+          : item),
+      } : null);
+      setBarcodeValues((current) => {
+        const next = { ...current };
+        delete next[lineId];
+        return next;
+      });
+      await fetchOrders(activeTab);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Barcode assignment failed.";
+      onNotification?.("Barcode Assignment Failed", msg, "error");
+    } finally {
+      setBarcodeSaving(null);
     }
   };
 
@@ -384,7 +435,12 @@ export const POWorkspaceTab: React.FC<POWorkspaceTabProps> = ({
       <div className="shrink-0 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 py-2 flex items-center justify-between gap-4 shadow-2xs">
         <div className="flex items-center gap-2.5">
           <span className="material-symbols-outlined text-indigo-600 dark:text-indigo-400 text-base">receipt_long</span>
-          <span className="font-semibold text-slate-800 dark:text-slate-200 text-sm">PO Workspace</span>
+          <div className="flex flex-col">
+            <span className="font-semibold text-slate-800 dark:text-slate-200 text-sm">Purchase orders</span>
+            <span className="text-[10px] text-slate-500 dark:text-slate-400">
+              Track orders from draft through receipt. Filter by status or search by order or supplier.
+            </span>
+          </div>
           {isManager && (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-900/50 border border-emerald-200 dark:border-emerald-700/50 text-emerald-700 dark:text-emerald-400 text-[10px] font-medium">
               <span className="material-symbols-outlined text-[11px]">verified_user</span>
@@ -401,7 +457,8 @@ export const POWorkspaceTab: React.FC<POWorkspaceTabProps> = ({
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search PO / Supplier..."
+              placeholder="Search orders or suppliers..."
+              aria-label="Search purchase orders by order number, supplier, or notes"
               className="bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg pl-7 pr-3 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-800 transition w-52"
             />
           </div>
@@ -497,8 +554,17 @@ export const POWorkspaceTab: React.FC<POWorkspaceTabProps> = ({
             </span>
             <p className="text-slate-500 dark:text-slate-400 text-sm">
               {search.trim()
-                ? `No ${activeTabDef.label} POs match "${search}"`
-                : `No ${activeTabDef.label === "All POs" ? "" : activeTabDef.label + " "}purchase orders found`}
+                ? `No purchase orders match "${search.trim()}".`
+                : activeTab === "ALL"
+                  ? "No purchase orders yet."
+                  : `No ${activeTabDef.label.toLowerCase()} purchase orders found.`}
+            </p>
+            <p className="text-slate-400 dark:text-slate-500 text-xs text-center max-w-md">
+              {search.trim()
+                ? "Check the order number or supplier name and try again."
+                : activeTab === "ALL"
+                  ? "Choose New purchase order to create one."
+                  : "Try another status filter to see orders in a different step."}
             </p>
           </div>
         )}
@@ -509,13 +575,13 @@ export const POWorkspaceTab: React.FC<POWorkspaceTabProps> = ({
             <table className="w-full text-xs border-collapse">
               <thead>
                 <tr className="text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/80 text-left font-semibold">
-                  <th className="py-2.5 px-3 w-[140px]">PO Number</th>
+                  <th className="py-2.5 px-3 w-[140px]">Order number</th>
                   <th className="py-2.5 pr-3">Status</th>
                   <th className="py-2.5 pr-3">Supplier</th>
-                  <th className="py-2.5 pr-3 w-[95px]">PO Date</th>
+                  <th className="py-2.5 pr-3 w-[95px]">Order date</th>
                   <th className="py-2.5 pr-3 w-[105px]">Receiving Date</th>
-                  <th className="py-2.5 pr-3 text-right w-[120px]">Amount</th>
-                  <th className="py-2.5 pr-3 w-[60px] text-center">Lines</th>
+                  <th className="py-2.5 pr-3 text-right w-[120px]">Order total</th>
+                  <th className="py-2.5 pr-3 w-[60px] text-center">Items</th>
                   <th className="py-2.5 pr-3 font-medium w-[200px] text-right">Actions</th>
                 </tr>
               </thead>
@@ -575,6 +641,20 @@ export const POWorkspaceTab: React.FC<POWorkspaceTabProps> = ({
 
                       {/* Actions */}
                       <td className="py-2.5 pr-3 text-right">
+                        {canAssignBarcode && s === "CONFIRMED" && po.items?.some((item) => item.barcode_pending !== false && !item.barcode) && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setBarcodeTarget(po);
+                              setBarcodeValues({});
+                            }}
+                            className="mr-2 inline-flex items-center gap-1 rounded-md border border-indigo-200 dark:border-indigo-800 px-2 py-1 text-[10px] font-semibold text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30"
+                            title="Assign item barcodes before receiving starts"
+                          >
+                            <span className="material-symbols-outlined text-[14px]">barcode_scanner</span>
+                            Attach barcode
+                          </button>
+                        )}
                         <DocumentActionToolbar
                           currentStatus={s}
                           busy={busy}
@@ -607,7 +687,7 @@ export const POWorkspaceTab: React.FC<POWorkspaceTabProps> = ({
             {orders.length !== filteredOrders.length && (
               <> of <span className="text-slate-900 dark:text-slate-200 font-semibold">{orders.length}</span></>
             )}{" "}
-            {activeTabDef.label === "All POs" ? "purchase orders" : activeTabDef.label.toLowerCase() + " POs"}
+            {activeTabDef.label === "All orders" ? "purchase orders" : activeTabDef.label.toLowerCase() + " purchase orders"}
           </span>
           {!isManager && (
             <span className="flex items-center gap-1 text-amber-600 dark:text-amber-500/80 text-[11px]">
@@ -653,6 +733,96 @@ export const POWorkspaceTab: React.FC<POWorkspaceTabProps> = ({
           onConfirm={handleAmendConfirmed}
           onCancel={() => setAmendTarget(null)}
         />
+      )}
+
+      {barcodeTarget && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="po-barcode-title">
+          <div className="w-full max-w-2xl rounded-xl bg-white dark:bg-slate-900 shadow-xl border border-slate-200 dark:border-slate-700">
+            <div className="flex items-start justify-between border-b border-slate-200 dark:border-slate-700 px-5 py-4">
+              <div>
+                <h2 id="po-barcode-title" className="font-semibold text-slate-900 dark:text-slate-100">Assign item barcodes</h2>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{barcodeTarget.order_no} · Allowed only before receiving begins</p>
+              </div>
+              <button type="button" onClick={() => setBarcodeTarget(null)} className="text-slate-500 hover:text-slate-800 dark:hover:text-slate-200" aria-label="Close barcode dialog">×</button>
+            </div>
+            <div className="space-y-3 px-5 py-4">
+              <div className="flex flex-wrap items-center gap-3">
+                <label className="flex items-center gap-3 text-xs text-slate-600 dark:text-slate-300">
+                  Barcode source
+                  <select
+                    value={barcodeSource}
+                    onChange={(event) => setBarcodeSource(event.target.value === "INTERNAL" ? "INTERNAL" : "SUPPLIER")}
+                    className="rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1.5"
+                  >
+                    <option value="SUPPLIER">Supplier barcode</option>
+                    <option value="INTERNAL">Generate internal code</option>
+                  </select>
+                </label>
+                {barcodeSource === "SUPPLIER" ? (
+                  <label className="flex items-center gap-3 text-xs text-slate-600 dark:text-slate-300">
+                    Barcode type
+                    <select
+                      value={barcodeType}
+                      onChange={(event) => setBarcodeType(event.target.value)}
+                      className="rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1.5"
+                    >
+                      <option value="EAN13">EAN-13</option>
+                      <option value="EAN8">EAN-8</option>
+                      <option value="UPCA">UPC-A</option>
+                      <option value="UPCE">UPC-E</option>
+                      <option value="CODE128">Code 128</option>
+                      <option value="CODE39">Code 39</option>
+                      <option value="QR">QR Code</option>
+                    </select>
+                  </label>
+                ) : (
+                  <p className="text-xs text-slate-500 dark:text-slate-400">A unique internal Code 128 identifier will be generated.</p>
+                )}
+              </div>
+              <div className="max-h-[50vh] space-y-2 overflow-y-auto">
+                {(barcodeTarget.items || []).map((item) => (
+                  <div key={item.id} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_auto] items-center gap-3 rounded-lg border border-slate-200 dark:border-slate-700 p-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-xs font-medium text-slate-800 dark:text-slate-200">{item.name || item.code}</p>
+                      <p className="truncate font-mono text-[10px] text-slate-500 dark:text-slate-400">{item.code}</p>
+                    </div>
+                    {item.barcode ? (
+                      <span className="truncate font-mono text-xs text-emerald-700 dark:text-emerald-300">{item.barcode}</span>
+                    ) : barcodeSource === "SUPPLIER" ? (
+                      <input
+                        type="text"
+                        value={barcodeValues[item.id] || ""}
+                        onChange={(event) => setBarcodeValues((current) => ({ ...current, [item.id]: event.target.value }))}
+                        placeholder="Scan or enter supplier barcode"
+                        maxLength={100}
+                        className="min-w-0 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1.5 font-mono text-xs"
+                      />
+                    ) : (
+                      <span className="text-[10px] text-slate-400">Generated on request</span>
+                    )}
+                    {item.barcode ? (
+                      <span className="text-[10px] font-medium text-emerald-700 dark:text-emerald-300">Assigned</span>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={barcodeSaving === item.id || (barcodeSource === "SUPPLIER" && !barcodeValues[item.id]?.trim())}
+                        onClick={() => handleAssignBarcode(item.id)}
+                        className="rounded-md bg-indigo-600 px-2.5 py-1.5 text-[10px] font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {barcodeSaving === item.id
+                          ? barcodeSource === "INTERNAL" ? "Generating…" : "Saving…"
+                          : barcodeSource === "INTERNAL" ? "Generate" : "Assign"}
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="flex justify-end border-t border-slate-200 dark:border-slate-700 px-5 py-3">
+              <button type="button" onClick={() => setBarcodeTarget(null)} className="rounded-md border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-xs font-medium">Done</button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ── Procurement Reports & Audit Studio Modal ────────────────────── */}

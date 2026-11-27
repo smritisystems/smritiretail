@@ -25,6 +25,11 @@ backend_dir = Path(__file__).resolve().parent.parent
 if str(backend_dir) not in sys.path:
     sys.path.insert(0, str(backend_dir))
 
+from app.test_environment import require_isolated_test_environment
+
+require_isolated_test_environment()
+
+
 env_file = backend_dir.parent / ".env"
 if env_file.exists():
     for k, v in dotenv_values(env_file).items():
@@ -153,7 +158,7 @@ def seed_control_plane_test_assignments():
             f"  URL: {CONTROL_PLANE_URL}\n"
             f"  Error: {e}\n"
             f"  Resolution: Ensure PostgreSQL is running and smritisys database exists. "
-            f"Run: alembic upgrade head"
+            f"Run: alembic -x target=control -x db=smritisys upgrade control@head"
         )
 
     try:
@@ -430,7 +435,8 @@ def seed_control_plane_test_assignments():
             f"[Conftest FATAL] Failed to seed Control Plane (smritisys) test data.\n"
             f"  Error: {type(e).__name__}: {e}\n"
             f"  This means the test environment is not correctly set up.\n"
-            f"  Resolution: Verify smritisys schema is fully migrated (alembic upgrade head), "
+            f"  Resolution: Verify smritisys schema is fully migrated "
+            f"(alembic -x target=control -x db=smritisys upgrade control@head), "
             f"all required tables exist, and COMP-001 / users / roles are insertable."
         )
 

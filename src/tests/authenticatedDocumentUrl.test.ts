@@ -13,8 +13,9 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
+  apiFetchV1,
+  clearLegacyAuthTokens,
   getAuthenticatedDocumentUrl,
-  syncAuthCookies,
   clearAuthSession,
 } from "../lib/apiFetchV1.ts";
 
@@ -91,16 +92,39 @@ describe("Authenticated Document URL & Cookie Protection Suite (SMRITI-AUTH-001 
     expect(parsed.searchParams.get("token")).toBeNull();
   });
 
-  it("syncs access_token and smriti_jwt_token into document.cookie", () => {
-    syncAuthCookies("jwt-cookie-token-789");
+  it("purges legacy bearer tokens without writing credentials into JavaScript cookies", () => {
+    mockStorage["smriti_jwt_token"] = "legacy-access-token";
+    mockStorage["smriti_refresh_token"] = "legacy-refresh-token";
+    mockCookies = "access_token=legacy-cookie-token; smriti_jwt_token=legacy-cookie-token";
 
-    expect(document.cookie).toContain("access_token=jwt-cookie-token-789");
-    expect(document.cookie).toContain("smriti_jwt_token=jwt-cookie-token-789");
+    clearLegacyAuthTokens();
+
+    expect(mockStorage["smriti_jwt_token"]).toBeUndefined();
+    expect(mockStorage["smriti_refresh_token"]).toBeUndefined();
+    expect(document.cookie).not.toContain("legacy-cookie-token");
+  });
+
+  it("uses browser cookies without attaching a bearer token from legacy storage", async () => {
+    mockStorage["smriti_jwt_token"] = "must-not-be-sent";
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ id: "user-1" }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      })
+    );
+
+    await apiFetchV1("/auth/me");
+
+    const requestInit = fetchSpy.mock.calls[0][1] as RequestInit;
+    const headers = new Headers(requestInit.headers);
+    expect(headers.get("Authorization")).toBeNull();
+    expect(headers.get("X-Auth-Transport")).toBe("cookie");
+    expect(requestInit.credentials).toBe("same-origin");
   });
 
   it("clears cookies and localStorage on clearAuthSession", () => {
     mockStorage["smriti_jwt_token"] = "valid-token";
-    syncAuthCookies("valid-token");
+    mockCookies = "access_token=valid-token";
 
     clearAuthSession("logout_test");
 

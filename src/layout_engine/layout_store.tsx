@@ -14,6 +14,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import { apiFetchV1 } from "../lib/apiFetch.ts";
+import { hasAuthSession } from "../lib/apiFetchV1.ts";
 import {
   buildDocumentContextualSubmenu,
   ContextualMenuItem,
@@ -104,6 +105,25 @@ const DEFAULT_PREFERENCES: LayoutPreferences = {
   uxMode: getInitialUxMode(),
 };
 
+const getInitialRecentlyUsed = (): string[] => {
+  const storage = typeof window !== "undefined"
+    ? window.localStorage
+    : typeof localStorage !== "undefined"
+      ? localStorage
+      : null;
+  if (!storage) return [];
+  const saved = storage.getItem("smriti_recently_used_workspaces");
+  if (!saved) return [];
+
+  try {
+    const parsed: unknown = JSON.parse(saved);
+    if (!Array.isArray(parsed)) return [];
+    return [...new Set(parsed.filter((id): id is string => typeof id === "string"))].slice(0, 5);
+  } catch {
+    return [];
+  }
+};
+
 const LayoutStoreContext = createContext<LayoutStoreContextType | undefined>(
   undefined,
 );
@@ -135,10 +155,7 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
     const mode = initialUxMode || getInitialUxMode();
     return { ...DEFAULT_PREFERENCES, uxMode: mode };
   });
-  const [recentlyUsed, setRecentlyUsed] = useState<string[]>([
-    "dashboard",
-    "pos",
-  ]);
+  const [recentlyUsed, setRecentlyUsed] = useState<string[]>(getInitialRecentlyUsed);
   const [activeDocument, setActiveDocumentState] = useState<ActiveDocumentContext | null>(null);
   const [activeSubmenuId, setActiveSubmenuId] = useState<string | null>(null);
   const [registeredWorkspaces, setRegisteredWorkspaces] = useState<
@@ -444,8 +461,7 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
   const reloadResolvedMenus = useCallback(async () => {
     if (menuResolutionPromiseRef.current) return menuResolutionPromiseRef.current;
 
-    const token = localStorage.getItem("smriti_jwt_token") || localStorage.getItem("smriti_session_token");
-    if (!token) {
+    if (!hasAuthSession()) {
       menuResolutionGenerationRef.current += 1;
       menuResolutionPromiseRef.current = null;
       setResolvedNavigationIds(null);
@@ -725,7 +741,11 @@ export const LayoutEngineProvider: React.FC<ProviderProps> = ({
   const addToRecentlyUsed = (workspaceId: string) => {
     setRecentlyUsed((prev) => {
       const filtered = prev.filter((id) => id !== workspaceId);
-      return [workspaceId, ...filtered].slice(0, 5); // Max 5 items
+      const updated = [workspaceId, ...filtered].slice(0, 5);
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem("smriti_recently_used_workspaces", JSON.stringify(updated));
+      }
+      return updated;
     });
     // Save lastWorkspace
     if (preferences.lastWorkspace !== workspaceId) {

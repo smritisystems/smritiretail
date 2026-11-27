@@ -14,18 +14,21 @@ License      : Proprietary Commercial Software
 Classification: Database Automated Migration & Pre-Migration Backup Engine
 """
 
-import os
-import sys
-import json
-import time
-import shutil
-import hashlib
 import argparse
+import hashlib
+import json
+import os
+import shutil
 import subprocess
+import sys
+import time
 from datetime import datetime, timezone
-from typing import Dict, List, Optional, Any, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
+
 import psycopg2
+from alembic.config import Config
+from alembic.script import ScriptDirectory
 
 # Base Paths
 WORKSPACE_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -339,9 +342,10 @@ def create_database_backup(dbname: str, backup_dir: str) -> Dict[str, Any]:
 
 def run_alembic_upgrade(dbname: str, is_control: bool) -> Tuple[bool, str, str]:
     """
-    Executes alembic upgrade head for the specified target.
+    Executes the Alembic head assigned to the specified target.
     """
     target = "control" if is_control else "tenant"
+    target_head = f"{target}@head"
     env = os.environ.copy()
     env["POSTGRES_PORT"] = str(PG_PORT)
     env["ALEMBIC_TARGET"] = target
@@ -353,7 +357,7 @@ def run_alembic_upgrade(dbname: str, is_control: bool) -> Tuple[bool, str, str]:
         "-x", f"target={target}",
         "-x", f"db={dbname}",
         "-x", f"db_url=postgresql+asyncpg://{PG_USER}:{PG_PASSWORD}@{PG_HOST}:{PG_PORT}/{dbname}",
-        "upgrade", "head",
+        "upgrade", target_head,
     ]
 
     res = subprocess.run(
@@ -373,48 +377,34 @@ def _get_alembic_head(is_control: bool, dbname: str) -> Optional[str]:
     """
     target = "control" if is_control else "tenant"
     try:
-        env = os.environ.copy()
-        database_url = f"postgresql+asyncpg://{PG_USER}:{PG_PASSWORD}@{PG_HOST}:{PG_PORT}/{dbname}"
-        env["DATABASE_URL"] = database_url
-        res = subprocess.run(
-            [
-                VENV_ALEMBIC,
-                "-c", ALEMBIC_INI,
-                "-x", f"target={target}",
-                "-x", f"db={dbname}",
-                "-x", f"db_url={database_url}",
-                "heads", "--verbose",
-            ],
-            cwd=BACKEND_DIR,
-            env=env,
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-        for line in res.stdout.splitlines():
-            # Verbose Alembic output is "Rev: v1552 (head)"; non-verbose
-            # output is "v1552 (head)".
-            if "(head)" in line:
-                revision_match = re.search(r"\bRev:\s*(\S+)", line)
-                if revision_match:
-                    return revision_match.group(1)
-                return line.strip().split()[0]
-    except Exception:
-        pass
+        config = Config(ALEMBIC_INI)
+        config.set_main_option("script_location", os.path.join(BACKEND_DIR, "alembic"))
+        script_directory = ScriptDirectory.from_config(config)
+        matching_heads = [
+            revision_id
+            for revision_id in script_directory.get_heads()
+            if target in (script_directory.get_revision(revision_id).branch_labels or ())
+        ]
+        if len(matching_heads) != 1:
+            raise RuntimeError(
+                f"Expected exactly one {target} head, found {len(matching_heads)}."
+            )
+        return matching_heads[0]
+    except Exception as exc:
+        print(f"  [-] Could not resolve the {target} migration head: {exc}")
     return None
 
 
 def _is_at_head(current_version: Optional[str], dbname: str, is_control: bool) -> bool:
     """
-    Dynamically determines whether current_version matches the Alembic head.
-    Falls back gracefully if the head cannot be determined.
+    Dynamically determines whether current_version matches the target's Alembic head.
+    Fails closed if the target head cannot be determined.
     """
     if not current_version:
         return False
     head = _get_alembic_head(is_control=is_control, dbname=dbname)
     if head is None:
-        # Cannot determine head — do not fail the whole verification
-        return True
+        return False
     return current_version.strip() == head.strip()
 
 

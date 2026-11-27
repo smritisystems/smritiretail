@@ -12,6 +12,13 @@
 .github
 node_modules
 dist
+.venv
+backups/
+exports/
+backend/
+.kilo/
+docs/
+scratch/
 backend/.venv
 backend/app/tests/.pytest_cache
 backend/app/__pycache__
@@ -22,6 +29,7 @@ backend/app/__pycache__
 .coverage
 htmlcov
 .env
+.env.*
 backups/
 *.sql
 *.tar

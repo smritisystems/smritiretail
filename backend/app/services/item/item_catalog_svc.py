@@ -67,12 +67,12 @@ class ItemCatalogService:
     ) -> str:
         """
         [DEPRECATED / PROHIBITED - ADR-001 / R-01]
-        Runtime synthetic barcode generation is strictly prohibited.
-        Official barcodes must be assigned or left unassigned.
+        Placeholder generation in Item Master is prohibited. Supplier codes may
+        be entered there; internal Code 128 values are assigned through a
+        confirmed-purchase-order workflow.
         """
         raise RuntimeError(
-            "Synthetic barcode generation is prohibited under SMRITI Item Master Architecture (ADR-001/R-01). "
-            "Official barcodes must be assigned or left unassigned."
+            "Placeholder generation is prohibited in Item Master. Enter a supplier barcode or assign an internal Code 128 through a confirmed purchase order."
         )
 
     @classmethod

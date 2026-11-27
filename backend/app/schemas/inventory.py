@@ -26,7 +26,7 @@ class ProductBase(BaseModel):
     stock: int = 0
     category: str = Field(default="Footwear", max_length=100)
     is_favorite: Optional[bool] = False
-    barcode: str = Field(..., max_length=100, description="Barcode")
+    barcode: Optional[str] = Field(None, max_length=100, description="Optional barcode")
     secondary_barcodes: Optional[List[str]] = Field(default_factory=list)
     brand: Optional[str] = Field(None, max_length=100)
     vendor_code: Optional[str] = Field(None, max_length=100)
@@ -79,13 +79,11 @@ class ProductBase(BaseModel):
 
     @field_validator("barcode", mode="before")
     @classmethod
-    def validate_barcode(cls, v: Any, info: ValidationInfo) -> str:
+    def validate_barcode(cls, v: Any, info: ValidationInfo) -> Optional[str]:
         if v is None:
-            raise ValueError("Barcode is required.")
+            return None
         s = str(v).strip()
-        if not s:
-            raise ValueError("Barcode is required.")
-        return s
+        return s or None
 
     @field_validator("hsn_code", mode="before")
     @classmethod
@@ -341,12 +339,9 @@ class ProductResponse(ProductBase):
 
     @field_validator("barcode", mode="before")
     @classmethod
-    def fallback_empty_barcode(cls, v: Any, info: ValidationInfo) -> str:
+    def fallback_empty_barcode(cls, v: Any, info: ValidationInfo) -> Optional[str]:
         s = str(v).strip() if v is not None else ""
-        if not s:
-            code_val = info.data.get("code") if info.data else None
-            return str(code_val).strip() if code_val else "UNASSIGNED"
-        return s
+        return s or None
 
     @model_validator(mode="after")
     def validate_pricing_hierarchy(self) -> "ProductResponse":  # type: ignore[override]

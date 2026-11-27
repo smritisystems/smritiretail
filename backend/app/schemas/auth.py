@@ -55,8 +55,8 @@ class UserResponse(BaseModel):
 
 
 class TokenResponse(BaseModel):
-    access_token: str
-    refresh_token: str
+    access_token: Optional[str] = None
+    refresh_token: Optional[str] = None
     token_type: str = "bearer"
     role: UserRole
     company_id: Optional[str] = None
@@ -71,12 +71,12 @@ class TokenResponse(BaseModel):
 
 class AccessTokenResponse(BaseModel):
     """Returned by the refresh endpoint — new access token only."""
-    access_token: str
+    access_token: Optional[str] = None
     token_type: str = "bearer"
 
 
 class RefreshRequest(BaseModel):
-    refresh_token: str
+    refresh_token: Optional[str] = None
 
 
 class BootstrapRequest(BaseModel):

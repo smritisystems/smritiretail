@@ -75,7 +75,7 @@ const UNITS_LIST = ["Pair", "Pcs", "Box", "Set", "Mtr", "Kg", "Dzn"];
 const LEAD_TIME_OPTIONS = [3, 7, 10, 15, 30];
 
 export const PURCHASER_FIELD_LABEL = "Purchaser";
-export const PO_PRIMARY_SUBMIT_LABEL = "Submit PO";
+export const PO_PRIMARY_SUBMIT_LABEL = "Submit order";
 export const formatLeadTimeLabel = (days: number) => `${days} ${days === 1 ? "day" : "days"}`;
 
 const addDaysToDate = (dateValue: string, days: number) => {
@@ -1353,7 +1353,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
       if (itemView !== "size_pivot") {
         updateLineItem(activeRowIndex, {
           stockNo: stockVal,
-          barcode: (result.record?.barcode as string) || stockVal,
+          barcode: (result.record?.barcode as string) || "",
           product: nameVal,
           brand:   brandVal,
           style:   styleVal,
@@ -1790,7 +1790,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                Create purchase order to request goods from supplier
+                Choose a supplier and receiving warehouse, add items, then save a draft or submit the order.
               </p>
             </div>
           </div>
@@ -1992,7 +1992,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
               <div className="flex items-center gap-2 mb-2.5 pb-1.5 border-b border-slate-100 dark:border-slate-700">
                 <span className="material-symbols-outlined text-blue-600 text-[18px]">receipt_long</span>
                 <h2 className="font-bold text-slate-800 dark:text-slate-200 text-xs uppercase tracking-wider">
-                  Document Information
+                  Order details
                 </h2>
               </div>
               <div className="space-y-2">
@@ -2021,7 +2021,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                   </div>
                   <div className="col-span-8">
                     <label className="block font-medium text-slate-500 dark:text-slate-400 mb-1 text-[11px]">
-                      PO Number <span className="text-rose-500">*</span>
+                      Order number <span className="text-rose-500">*</span>
                     </label>
                     <div className="relative flex items-center">
                       <input
@@ -2046,7 +2046,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                 </div>
                 <div>
                   <label className="block font-medium text-slate-500 dark:text-slate-400 mb-1 text-[11px]">
-                    PO Date <span className="text-rose-500">*</span>
+                    Order date <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="date"
@@ -2086,7 +2086,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                 {/* Searchable Supplier */}
                 <div>
                   <label className="block font-medium text-slate-500 dark:text-slate-400 mb-0.5 text-[11px]">
-                    Supplier / Vendor <span className="text-rose-500">*</span>
+                    Supplier <span className="text-rose-500">*</span>
                   </label>
                   <SupplierSelect
                     id="pogen-supplier-select"
@@ -2094,7 +2094,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                     value={header.supplierId}
                     disabled={suppliersLoading}
                     compact={true}
-                    placeholder={suppliersLoading ? "Loading suppliers..." : "Select or search vendor..."}
+                    placeholder={suppliersLoading ? "Loading suppliers..." : "Select or search supplier..."}
                     onChange={(supplierId, sel) => {
                       handleVendorChangeRequest(supplierId, sel?.name ?? sel?.company_name ?? header.supplierName, sel);
                     }}
@@ -2139,7 +2139,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                     />
                   </div>
                   <div className="col-span-5">
-                    <label className="block font-medium text-slate-500 dark:text-slate-400 mb-0.5 text-[11px]">Lead Time</label>
+                    <label className="block font-medium text-slate-500 dark:text-slate-400 mb-0.5 text-[11px]">Days until delivery</label>
                     <input
                       type="number"
                       min="0"
@@ -2163,7 +2163,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                 </div>
 
                 <div>
-                  <label className="block font-medium text-slate-500 dark:text-slate-400 mb-0.5 text-[11px]">Delivery Location / Warehouse</label>
+                  <label className="block font-medium text-slate-500 dark:text-slate-400 mb-0.5 text-[11px]">Receiving warehouse</label>
                   {availableWarehouses.length > 0 ? (
                     <select
                       value={header.warehouseId || ""}
@@ -2199,7 +2199,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
               <div className="flex items-center gap-2 mb-2 pb-1.5 border-b border-slate-100 dark:border-slate-700">
                 <span className="material-symbols-outlined text-blue-600 text-[18px]">handshake</span>
                 <h2 className="font-bold text-slate-800 dark:text-slate-200 text-xs uppercase tracking-wider">
-                  Terms &amp; Reference
+                  Payment terms &amp; reference
                 </h2>
               </div>
               <div className="space-y-1.5">
@@ -2726,7 +2726,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                                 type="text"
                                 id={`pogen-gen-barcode-${idx + 1}`}
                                 value={item.barcode || ""}
-                                placeholder="Scan / Barcode"
+                                placeholder="Optional / scan barcode"
                                 title={item.barcode || "Barcode"}
                                 onFocus={() => setActiveRowIndex(idx)}
                                 onChange={(e) => handleBarcodeChange(idx, e.target.value)}
@@ -2958,7 +2958,7 @@ export const PoGenerateTab: React.FC<PurchaseOrderGenerationTabProps> = ({
                                 type="text"
                                 id={`pogen-gen-barcode-${idx + 1}`}
                                 value={item.barcode || ""}
-                                placeholder="Scan / Barcode"
+                                placeholder="Optional / scan barcode"
                                 title={item.barcode || "Barcode"}
                                 onFocus={() => setActiveRowIndex(idx)}
                                 onChange={(e) => handleBarcodeChange(idx, e.target.value)}

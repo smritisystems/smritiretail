@@ -16,7 +16,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?Set a unique POSTGRES_PASSWORD in .env}"
       POSTGRES_DB: ${POSTGRES_DB:-smritisys}
     ports:
       - "127.0.0.1:${POSTGRES_PORT:-2781}:5432"
@@ -43,7 +43,7 @@ services:
     ports:
       - "${PORT:-8101}:3000"
     environment:
-      DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@smriti-db:5432/${POSTGRES_DB:-smritisys}"
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?Set a unique POSTGRES_PASSWORD in .env}@smriti-db:5432/${POSTGRES_DB:-smritisys}"
       DATABASE_PROVIDER: "postgres"
       SYNC_PROVIDER: "postgres"
       CACHE_PROVIDER: "memory"
@@ -69,9 +69,11 @@ services:
     container_name: smriti-api
     restart: unless-stopped
     ports:
-      - "${BACKEND_API_PORT:-1981}:8000"
+      - "${BACKEND_API_BIND_ADDRESS:-127.0.0.1}:${BACKEND_API_PORT:-1981}:8000"
     environment:
-      DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@smriti-db:5432/${POSTGRES_DB:-smritisys}"
+      ENVIRONMENT: "${ENVIRONMENT:?Set ENVIRONMENT explicitly (use docker-compose.dev.yml for development)}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?Set a unique POSTGRES_PASSWORD in .env}"
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?Set a unique POSTGRES_PASSWORD in .env}@smriti-db:5432/${POSTGRES_DB:-smritisys}"
       GEMINI_API_KEY: "${GEMINI_API_KEY}"
       JWT_SECRET_KEY: "${JWT_SECRET_KEY:?Error: JWT_SECRET_KEY must be set in .env or environment}"
       INTERNAL_SERVICE_KEY: "${INTERNAL_SERVICE_KEY:?Error: INTERNAL_SERVICE_KEY must be set in .env or environment}"
@@ -83,6 +85,7 @@ services:
       - ./backend/app:/app/app
       - ./backend/tools:/app/tools
       - ./backend/alembic:/app/alembic
+      - ./backend/backups:/app/backups
       - ./:/workspace
       - ./CHANGELOG.md:/app/CHANGELOG.md
     depends_on:

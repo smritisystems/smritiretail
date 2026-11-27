@@ -38,7 +38,7 @@ services:
     restart: unless-stopped
     command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
     ports:
-      - "${BACKEND_API_DEV_PORT:-1982}:8000"
+      - "127.0.0.1:${BACKEND_API_DEV_PORT:-1982}:8000"
     environment:
       DATABASE_URL: "postgresql://${POSTGRES_DEV_USER:-postgres}:${POSTGRES_DEV_PASSWORD:-postgres}@smriti-dev-db:5432/${POSTGRES_DEV_DB:-smritisys_dev}"
       GEMINI_API_KEY: "${GEMINI_API_KEY}"

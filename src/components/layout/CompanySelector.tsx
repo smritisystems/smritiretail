@@ -114,8 +114,7 @@ export const CompanySelector: React.FC = () => {
           method: 'POST',
           body: JSON.stringify({ target_company_id: comp.company_id, target_branch_id: branch.id }),
         });
-        if (!res?.access_token) throw new Error("The new default branch could not be activated.");
-        localStorage.setItem("smriti_jwt_token", res.access_token);
+        if (!res) throw new Error("The new default branch could not be activated.");
         localStorage.setItem("smriti_company_id", comp.company_id);
         localStorage.setItem("smriti_company_code", comp.company_code);
         localStorage.setItem("smriti_company_name", comp.company_name);
@@ -158,9 +157,8 @@ export const CompanySelector: React.FC = () => {
         body: JSON.stringify(switchPayload),
       });
 
-      if (res && res.access_token) {
-        // 2. Commit updated token and company/branch context ONLY on verified backend success
-        localStorage.setItem("smriti_jwt_token", res.access_token);
+      if (res) {
+        // Commit company and branch context only after server confirmation.
         localStorage.setItem("smriti_company_id", comp.company_id);
         localStorage.setItem("smriti_company_code", comp.company_code);
         localStorage.setItem("smriti_company_name", comp.company_name);
@@ -171,7 +169,7 @@ export const CompanySelector: React.FC = () => {
         setSelectedCompanyId(comp.company_id);
         setSelectedBranchId(targetBranch.id);
         setIsOpen(false);
-        // Reload to re-initialize layout and workspace subscriptions with the committed company/branch token
+        // Reload to re-initialize layout and workspace subscriptions with the committed company/branch context.
         window.location.reload();
       } else {
         throw new Error("Invalid response received during context switch.");

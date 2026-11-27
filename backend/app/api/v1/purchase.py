@@ -41,6 +41,7 @@ from ...schemas.purchase import (
     SupplierCreate, SupplierUpdate, SupplierResponse,
     PurchaseOrderCreate, PurchaseOrderResponse, PurchaseOrderItemResponse,
     PurchaseOrderCancelRequest, PurchaseOrderAmendRequest, PurchaseOrderConfirmRequest,
+    PurchaseOrderItemBarcodeRequest,
     PurchaseReceiptCreate, PurchaseReceiptUpdate, PurchaseReceiptResponse, PurchaseReceiptItemResponse,
     PurchaseJurisdictionConfigCreate, PurchaseJurisdictionConfigResponse,
     PurchaseConfigJurisdictionRequest, PurchaseReorderConvertRequest,
@@ -173,6 +174,8 @@ async def list_purchase_orders_contract(
             for it in all_items:
                 prod = prod_map.get(it.product_id) or prod_map.get(it.code)
                 if prod:
+                    it.barcode = prod.barcode if prod.barcode and prod.barcode != prod.code else None
+                    it.barcode_pending = not bool(it.barcode)
                     attrs = prod.attributes or {}
                     it.heel_type = getattr(prod, "heel_type", None) or attrs.get("heel_type") or attrs.get("heelType") or attrs.get("heels") or attrs.get("Heel Type")
                     it.upper_material = getattr(prod, "upper_material", None) or attrs.get("upper_material") or attrs.get("upperMaterial") or attrs.get("upper") or attrs.get("Upper Material")
@@ -294,6 +297,8 @@ async def get_purchase_order_contract(
             for it in items:
                 prod = prod_map.get(it.product_id) or prod_map.get(it.code)
                 if prod:
+                    it.barcode = prod.barcode if prod.barcode and prod.barcode != prod.code else None
+                    it.barcode_pending = not bool(it.barcode)
                     attrs = prod.attributes or {}
                     it.heel_type = getattr(prod, "heel_type", None) or attrs.get("heel_type") or attrs.get("heelType") or attrs.get("heels") or attrs.get("Heel Type")
                     it.upper_material = getattr(prod, "upper_material", None) or attrs.get("upper_material") or attrs.get("upperMaterial") or attrs.get("upper") or attrs.get("Upper Material")
@@ -1046,6 +1051,42 @@ async def confirm_purchase_order(
         confirmed_by=confirmed_by,
         notes=notes,
     )
+
+
+@router.post(
+    "/orders/{order_id}/items/{line_id}/barcode",
+    response_model=dict,
+    summary="Assign a supplier or generated internal barcode to a confirmed purchase order line",
+    dependencies=[Depends(require_role(UserRole.MANAGER, UserRole.SYSADMIN))],
+)
+async def assign_purchase_order_item_barcode(
+    order_id: str,
+    line_id: str,
+    req: PurchaseOrderItemBarcodeRequest,
+    db: AsyncSession = Depends(get_company_db),
+    tenant_ctx: TenantContext = Depends(get_tenant_context),
+    current_user=Depends(get_current_user),
+):
+    assigned_by = (
+        getattr(current_user, "username", None)
+        or getattr(current_user, "email", None)
+        or str(getattr(current_user, "id", ""))
+    )
+    barcode = await PurchaseService(db, tenant_ctx).assign_purchase_order_item_barcode(
+        order_id,
+        line_id,
+        req,
+        assigned_by=assigned_by,
+    )
+    return {
+        "id": barcode.id,
+        "barcode": barcode.barcode,
+        "barcode_type": barcode.barcode_type,
+        "item_id": barcode.item_id,
+        "variant_id": barcode.variant_id,
+        "is_primary": barcode.is_primary,
+        "status": barcode.status,
+    }
 
 
 # ─────────────────────────── Phase 4B: Reports ────────────────────────────────

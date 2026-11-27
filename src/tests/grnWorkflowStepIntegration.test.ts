@@ -44,11 +44,11 @@ describe("GRN Studio 5-Step Workflow & Workspace Synchronization Suite", () => {
       "REVIEW_POST",
     ]);
     expect(GRN_WORKFLOW_STEPS.map((s) => s.label)).toEqual([
-      "PO & Details",
-      "Receive & Verify",
-      "Commercials",
-      "Costs & Freight",
-      "Review & Post",
+      "Supplier & Order",
+      "Count & Check Items",
+      "Invoice & Price Check",
+      "Freight & Other Costs",
+      "Review Receipt",
     ]);
   });
 

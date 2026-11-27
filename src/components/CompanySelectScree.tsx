@@ -48,7 +48,6 @@ export interface SelectedContextData {
   companyCode?: string;
   branchId: string;
   branchName: string;
-  token?: string;
 }
 
 interface CompanySelectionScreenProps {
@@ -141,9 +140,7 @@ export const CompanySelectionScreen: React.FC<CompanySelectionScreenProps> = ({
         body: JSON.stringify(switchPayload),
       });
 
-      if (res && res.access_token) {
-        // Store updated company-scoped JWT token and context ONLY upon verified server confirmation
-        localStorage.setItem("smriti_jwt_token", res.access_token);
+      if (res) {
         const normalizedCompanyId = normalizeCompanyId(company.id);
         const normalizedBranchId = normalizeBranchId(targetBranchId);
         const derivedCode = String(company.id || "").replace(/^COMP-/i, "") || "001";
@@ -163,7 +160,6 @@ export const CompanySelectionScreen: React.FC<CompanySelectionScreenProps> = ({
           companyCode: derivedCode,
           branchId: normalizedBranchId,
           branchName: targetBranchName,
-          token: res.access_token,
         });
       } else {
         throw new Error("Unable to establish company context session.");

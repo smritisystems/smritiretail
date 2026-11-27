@@ -100,6 +100,14 @@ bash ./install.sh
 [3] Custom       : Interactive custom port & service configuration
 ```
 
+Production Compose requires an explicit `ENVIRONMENT` and a unique `POSTGRES_PASSWORD`;
+it does not fall back to development mode or the default PostgreSQL credential. The
+API host port binds to loopback by default. Put remote API access behind an approved
+ingress and set `BACKEND_API_BIND_ADDRESS` only when that ingress requires it.
+Development mode uses `docker-compose.dev.yml`. The installer generates a database
+password for a fresh database; for an existing database with a default or missing
+password, rotate the PostgreSQL role password deliberately before rerunning setup.
+
 ### Authoritative Port Standards
 | Service | Production Host Port | Development Host Port | Internal Container Port | Endpoint |
 |---|---|---|---|---|
@@ -125,13 +133,25 @@ pip install -r dev.txt
 ```
 
 ### Run Test Suites:
-```bash
-# Suite 1: Production Contract Suite (158 Tests)
-pytest tests/
+Use a dedicated local PostgreSQL instance. The runner refuses non-loopback hosts,
+creates only the `smritisys` and `smriti_test_*` databases, marks newly-created
+databases as disposable, and refuses to modify an existing unmarked database.
+It migrates the test databases before running pytest and never reads production
+database credentials from `.env`.
 
-# Suite 2: App Async Unit & Integration Suite (178 Tests)
-pytest app/tests/
+```powershell
+$env:SMRITI_TEST_DATABASE_URL = "postgresql+asyncpg://postgres:YOUR_LOCAL_TEST_PASSWORD@127.0.0.1:5432/smritisys"
+python backend\scripts\run_test_suite.py
 ```
+
+For schema setup without running tests:
+
+```powershell
+python backend\scripts\run_test_suite.py --setup-only
+```
+
+CI is defined once in `.github/workflows/ci.yml`; `.github/workflows/ci-cd.yml`
+calls that workflow and runs image/deployment jobs only after its gates succeed.
 
 ### Run API Server:
 ```bash

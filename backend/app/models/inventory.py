@@ -32,7 +32,7 @@ class Product(BaseEntity):
     stock = Column(Integer, nullable=False, default=0)
     category = Column(String(100), nullable=False, index=True)
     is_favorite = Column(Boolean, default=False)
-    barcode = Column(String(100), nullable=False, index=True)
+    barcode = Column(String(100), nullable=True, index=True)
     secondary_barcodes = Column(ARRAY(String), server_default="{}")
     brand = Column(String(100))
     vendor_code = Column(String(100))

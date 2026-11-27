@@ -12,12 +12,16 @@ License      : Proprietary Commercial Software
 """
 
 import asyncio
+import logging
 import os
 import re
 import sys
+from pathlib import Path
 from logging.config import fileConfig
+import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import create_async_engine
 from alembic import context
+from alembic.script import ScriptDirectory
 
 # Ensure backend root is in sys.path
 backend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -38,6 +42,11 @@ except ImportError:
 # Import our settings and base metadata
 from app.core.config import settings
 from app.db.base import Base
+from app.db.migration_scope import (
+    is_table_allowed_for_target,
+    revision_applies_to_target,
+    validate_revision_scope,
+)
 
 # Import all models to ensure they are registered on Base.metadata
 from app.models.crm import (
@@ -129,17 +138,6 @@ def validate_company_database_name(database_name: str) -> bool:
     )
 
 
-try:
-    from app.db.ownership import TENANT_OWNED_TABLES
-    TENANT_ONLY_TABLES = TENANT_OWNED_TABLES
-except ImportError:
-    TENANT_ONLY_TABLES = {
-        "customer_groups", "customers", "customer_gst_registrations", "customer_delivery_locations",
-        "customer_billing_locations", "customer_external_identities", "customer_policies",
-        "customer_relationships", "loyalty_tiers", "loyalty_rules", "loyalty_members",
-        "loyalty_points_ledgers", "customer_credit_ledger_entries",
-    }
-
 def include_object(object, name, type_, reflected, compare_to):
     """
     Filter objects so that Alembic only manages the SMRITI tables,
@@ -147,7 +145,7 @@ def include_object(object, name, type_, reflected, compare_to):
     """
     if type_ == "table":
         target = (context.get_x_argument(as_dictionary=True).get("target") or os.getenv("ALEMBIC_TARGET") or "").lower()
-        if target == "control" and name in TENANT_ONLY_TABLES:
+        if not is_table_allowed_for_target(name, target):
             return False
         return name in [
             "customer_groups",
@@ -318,39 +316,177 @@ def run_migrations_offline() -> None:
         include_object=include_object
     )
 
+    _guard_migration_steps(context.get_context(), None)
     with context.begin_transaction():
         context.run_migrations()
 
+
+def _validate_test_scope_filter(connection, target: str) -> bool:
+    x_args = context.get_x_argument(as_dictionary=True)
+    if (x_args.get("test_scope_filter") or "").strip().lower() != "true":
+        return False
+    if connection is None:
+        raise RuntimeError("The test-only migration scope filter requires an online database connection.")
+    if os.getenv("TESTING") != "1" or os.getenv("ENVIRONMENT", "").lower() != "test":
+        raise RuntimeError("The test-only migration scope filter requires TESTING=1 and ENVIRONMENT=test.")
+
+    from app.test_environment import parse_isolated_test_url, validate_test_tenant_name
+
+    try:
+        test_url = parse_isolated_test_url(os.getenv("SMRITI_TEST_DATABASE_URL", ""))
+    except ValueError as exc:
+        raise RuntimeError("The test-only migration scope filter requires a valid isolated test URL.") from exc
+
+    connection_url = connection.engine.url
+    if (
+        (connection_url.host or "").lower() != (test_url.hostname or "").lower()
+        or (connection_url.port or 5432) != test_url.port
+    ):
+        raise RuntimeError("The migration connection does not match the isolated test PostgreSQL target.")
+
+    current_database = connection.execute(sa.text("SELECT current_database();")).scalar()
+    if target == "control" and current_database != "smritisys":
+        raise RuntimeError("The control test migration target must be smritisys.")
+    if target == "tenant":
+        try:
+            validate_test_tenant_name(current_database or "")
+        except ValueError as exc:
+            raise RuntimeError("The tenant test migration target must be a marked smriti_test database.") from exc
+
+    marker_table = connection.execute(
+        sa.text("SELECT to_regclass('public.smriti_test_database_marker');")
+    ).scalar()
+    if marker_table is None:
+        raise RuntimeError("The test-only migration scope filter requires a marked disposable database.")
+    marker_value = connection.execute(
+        sa.text(
+            "SELECT marker_value FROM public.smriti_test_database_marker "
+            "WHERE marker_name = :marker_name"
+        ),
+        {"marker_name": "environment"},
+    ).scalar()
+    if marker_value != "disposable-local-test-database":
+        raise RuntimeError("The database is not marked as a disposable local test database.")
+    return True
+
+
+def _guard_migration_steps(migration_context, connection, test_scope_filter_enabled=False) -> None:
+    target = (
+        context.get_x_argument(as_dictionary=True).get("target")
+        or os.getenv("ALEMBIC_TARGET")
+        or ""
+    ).strip().lower()
+    test_scope_filter_requested = (
+        context.get_x_argument(as_dictionary=True)
+        .get("test_scope_filter")
+        or ""
+    ).strip().lower() == "true"
+    if test_scope_filter_requested and not test_scope_filter_enabled:
+        raise RuntimeError("The test-only migration scope filter was not validated for this database.")
+
+    script_directory = ScriptDirectory.from_config(config)
+    original_migrations_fn = migration_context._migrations_fn
+    if original_migrations_fn is None:
+        raise RuntimeError("Alembic migration function is unavailable; refusing unguarded migration.")
+
+    def wrapped_migrations_fn(heads, migration_context):
+        for step in original_migrations_fn(heads, migration_context):
+            revision_ids = (
+                step.to_revisions_no_deps
+                if step.is_upgrade
+                else step.from_revisions
+            )
+            original_step_fn = step.migration_fn
+            is_upgrade = step.is_upgrade
+
+            def guarded_step_fn(
+                _original_step_fn=original_step_fn,
+                _revision_ids=tuple(revision_ids),
+                _is_upgrade=is_upgrade,
+                **kwargs,
+            ):
+                mismatched_revisions = []
+                checked_revisions = []
+                for revision_id in _revision_ids:
+                    if not revision_id or revision_id == "base":
+                        continue
+                    script = script_directory.get_revision(revision_id)
+                    if script is None or script.path is None:
+                        raise RuntimeError(
+                            f"Cannot inspect Alembic revision {revision_id}; "
+                            "refusing to run without target validation."
+                        )
+                    source = Path(script.path).read_text(encoding="utf-8")
+                    checked_revisions.append(revision_id)
+                    if not revision_applies_to_target(revision_id, source, target):
+                        if not test_scope_filter_enabled:
+                            validate_revision_scope(revision_id, source, target)
+                        mismatched_revisions.append(revision_id)
+
+                if mismatched_revisions:
+                    if len(mismatched_revisions) != len(checked_revisions):
+                        raise RuntimeError(
+                            "Alembic grouped revisions with incompatible target scopes; "
+                            "refusing to partially skip the migration step."
+                        )
+                    logging.getLogger("alembic.env").warning(
+                        "Skipping non-%s migration(s) %s in the marked disposable test database.",
+                        target,
+                        ", ".join(mismatched_revisions),
+                    )
+                    return None
+
+                if (
+                    _is_upgrade
+                    and connection is not None
+                    and "v1403_so_line_reconcile" in _revision_ids
+                ):
+                    from app.db.bootstrap import (
+                        bootstrap_company_database_prerequisites,
+                        is_company_database_target,
+                    )
+
+                    current_database = connection.execute(
+                        sa.text("SELECT current_database();")
+                    ).scalar()
+                    if is_company_database_target(current_database):
+                        bootstrap_company_database_prerequisites(
+                            connection,
+                            db_name=current_database,
+                        )
+                return _original_step_fn(**kwargs)
+
+            step.migration_fn = guarded_step_fn
+            yield step
+
+    migration_context._migrations_fn = wrapped_migrations_fn
+
+
 def do_run_migrations(connection) -> None:
+    from app.db.alembic_version_table import ensure_version_table_capacity
+
+    with connection.begin():
+        test_scope_filter_enabled = _validate_test_scope_filter(
+            connection,
+            (
+                context.get_x_argument(as_dictionary=True).get("target")
+                or os.getenv("ALEMBIC_TARGET")
+                or ""
+            ).strip().lower(),
+        )
+        ensure_version_table_capacity(connection)
+
     context.configure(
         connection=connection, 
         target_metadata=target_metadata,
         include_object=include_object
     )
 
-    # Candidate #5 Track 1: Fresh-Install Bootstrap Prerequisite Hook
-    # Ensures sales_orders.po_number is present on fresh installs before v1403 executes.
-    mig_ctx = context.get_context()
-    orig_migrations_fn = mig_ctx._migrations_fn
-
-    if orig_migrations_fn is not None:
-        def wrapped_migrations_fn(heads, m_ctx):
-            for step in orig_migrations_fn(heads, m_ctx):
-                if step.is_upgrade and "v1403_so_line_reconcile" in getattr(step, "to_revisions_no_deps", ()):
-                    orig_step_fn = step.migration_fn
-                    def wrapped_step_fn(**kw):
-                        from app.db.bootstrap import (
-                            bootstrap_company_database_prerequisites,
-                            is_company_database_target,
-                        )
-                        import sqlalchemy as sa
-                        curr_db = connection.execute(sa.text("SELECT current_database();")).scalar()
-                        if is_company_database_target(curr_db):
-                            bootstrap_company_database_prerequisites(connection, db_name=curr_db)
-                        return orig_step_fn(**kw)
-                    step.migration_fn = wrapped_step_fn
-                yield step
-        mig_ctx._migrations_fn = wrapped_migrations_fn
+    _guard_migration_steps(
+        context.get_context(),
+        connection,
+        test_scope_filter_enabled=test_scope_filter_enabled,
+    )
 
     with context.begin_transaction():
         context.run_migrations()

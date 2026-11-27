@@ -720,7 +720,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
       setReferencePo("");
       onNotification?.(
         "Multiple POs Found",
-        `Supplier ${sName} has ${matching.length} open purchase orders awaiting inward. Please select one.`,
+        `${sName} has ${matching.length} open purchase orders with items still to receive. Please select one.`,
         "info"
       );
     } else {
@@ -1915,8 +1915,8 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
               <FolderOpen className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-extrabold text-slate-900 dark:text-white">Goods Inward Receiving Hub</h3>
-              <p className="text-xs text-slate-500">Select an open Purchase Order to inward against contract specs, or start Direct Inward without a PO.</p>
+              <h3 className="text-base font-extrabold text-slate-900 dark:text-white">Choose a purchase order</h3>
+              <p className="text-xs text-slate-500">Match this delivery to an open order. If there is no order, choose Direct Inward above.</p>
             </div>
           </div>
 
@@ -1926,7 +1926,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
             className="px-3.5 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 text-xs font-semibold text-indigo-700 dark:text-indigo-300 transition flex items-center gap-1.5 shrink-0 shadow-xs"
           >
             <Sparkles className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-            <span>Inward Latest Open PO</span>
+            <span>Receive latest open order</span>
           </button>
         </div>
 
@@ -1935,7 +1935,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
             <div className="flex items-center gap-2">
               <Building2 className="w-4 h-4 text-indigo-600" />
               <h4 className="font-bold text-xs text-slate-900 dark:text-white uppercase tracking-wider">
-                Open Purchase Orders Awaiting Inward ({eligibleOrders.length})
+                Open purchase orders ready to receive ({eligibleOrders.length})
               </h4>
             </div>
             <button type="button" onClick={() => loadOrders(supplierId || undefined)} className="text-xs text-indigo-600 hover:underline flex items-center gap-1 font-medium">
@@ -1949,22 +1949,22 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
           ) : eligibleOrders.length === 0 ? (
             <div className="p-6 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-center text-xs text-slate-500 space-y-1">
               <p className="font-semibold text-slate-700 dark:text-slate-300">
-                {supplierId
-                  ? "No open purchase orders are currently awaiting inward for this supplier."
-                  : "No open purchase orders are currently awaiting inward."}
+              {supplierId
+                ? "No open purchase orders are ready to receive from this supplier."
+                : "No open purchase orders are ready to receive."}
               </p>
-              <p>You can create a new PO in PO Studio or perform Direct Inward below.</p>
+              <p>You can create a purchase order first or record this delivery without one below.</p>
             </div>
           ) : (
             <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50 dark:bg-slate-800 text-slate-500 font-semibold border-b border-slate-200 dark:border-slate-800">
                   <tr>
-                    <th className="py-2.5 px-3">PO Number</th>
+                    <th className="py-2.5 px-3">Order number</th>
                     <th className="py-2.5 px-3">Supplier</th>
-                    <th className="py-2.5 px-3 text-center">Pending Items</th>
-                    <th className="py-2.5 px-3 text-right">Pending Qty</th>
-                    <th className="py-2.5 px-3 text-right">Pending Value (₹)</th>
+                    <th className="py-2.5 px-3 text-center">Items left</th>
+                    <th className="py-2.5 px-3 text-right">Units left</th>
+                    <th className="py-2.5 px-3 text-right">Remaining value (₹)</th>
                     <th className="py-2.5 px-3 text-center">Status</th>
                     <th className="py-2.5 px-3 text-right">Action</th>
                   </tr>
@@ -1991,7 +1991,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
                           }}
                           className="px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs transition"
                         >
-                          Inward PO →
+                          Receive this order →
                         </button>
                       </td>
                     </tr>
@@ -2005,8 +2005,8 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
         {/* Direct Inward / Ad-Hoc Option */}
         <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <h4 className="font-bold text-xs text-slate-900 dark:text-white">Direct Inward / Ad-Hoc Receiving (Without PO)</h4>
-            <p className="text-xs text-slate-500">Receive goods directly into stock from master inventory catalog without a pre-existing PO.</p>
+            <h4 className="font-bold text-xs text-slate-900 dark:text-white">Receive items without a purchase order</h4>
+            <p className="text-xs text-slate-500">Use this option when the supplier delivery has no purchase order. Choose products from the catalog.</p>
           </div>
           <button
             type="button"
@@ -2033,7 +2033,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden space-y-0">
         <div className="p-3.5 bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <span className="font-bold text-sm text-slate-800 dark:text-slate-200">Inward Items</span>
+            <span className="font-bold text-sm text-slate-800 dark:text-slate-200">Items received</span>
             <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
               {grnLines.length} {grnLines.length === 1 ? "item" : "items"}
             </span>
@@ -2467,11 +2467,11 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
         <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
           <div>
-            <h3 className="text-base font-extrabold text-slate-900 dark:text-white">Commercials &amp; Price Variance</h3>
-            <p className="text-xs text-slate-500">Contract PO rates vs supplier billed invoice rates, purchase price variance (PPV) and trade discounts</p>
+            <h3 className="text-base font-extrabold text-slate-900 dark:text-white">Compare order and invoice prices</h3>
+            <p className="text-xs text-slate-500">Check the item prices on the purchase order against the supplier invoice, including any discounts.</p>
           </div>
           <div className="px-2.5 py-1 rounded-full bg-violet-100 text-violet-700 dark:bg-violet-950/60 dark:text-violet-300 text-[10px] font-bold">
-            ● Commercial Engine
+            ● Price check
           </div>
         </div>
 
@@ -2482,14 +2482,14 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
             <div className="mt-0.5 text-[11px] text-slate-500 font-mono">{supplierId || "No supplier ID selected"}</div>
           </div>
           <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 p-3">
-            <div className="text-[10px] uppercase tracking-wide text-slate-500 font-bold">PO Source</div>
+            <div className="text-[10px] uppercase tracking-wide text-slate-500 font-bold">Purchase order</div>
             <div className="mt-1 font-bold text-slate-900 dark:text-white text-sm">
-              {selectedOrder ? (selectedOrder.order_no || selectedOrder.order_number || selectedOrder.id) : referencePo || "Direct Inward (Ad-hoc)"}
+              {selectedOrder ? (selectedOrder.order_no || selectedOrder.order_number || selectedOrder.id) : referencePo || "Direct receipt (no order)"}
             </div>
-            <div className="mt-0.5 text-[11px] text-slate-500">{selectedOrder ? "Open PO Contract Linked" : "Ad-hoc Receipt Mode"}</div>
+            <div className="mt-0.5 text-[11px] text-slate-500">{selectedOrder ? "Purchase order selected" : "No purchase order selected"}</div>
           </div>
           <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 p-3">
-            <div className="text-[10px] uppercase tracking-wide text-slate-500 font-bold">Vendor Invoice</div>
+            <div className="text-[10px] uppercase tracking-wide text-slate-500 font-bold">Supplier invoice</div>
             <div className="mt-1 font-bold text-slate-900 dark:text-white text-sm font-mono">{invoiceNumber || "-- Not Specified --"}</div>
             <div className="mt-0.5 text-[11px] text-slate-500">Date: {invoiceDate || grnDate}</div>
           </div>
@@ -3574,7 +3574,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
                 </span>
               </div>
               <p className="text-xs text-slate-500">
-                Procurement Inward, Physical Verification, Landed Cost &amp; WMS Batch Staging
+                Record a supplier delivery, check received and damaged items, add freight if needed, then review before adding accepted stock.
               </p>
             </div>
           </div>
@@ -3606,7 +3606,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
               }`}
             >
               <ClipboardList className="w-3.5 h-3.5" />
-              <span>5-Step Wizard</span>
+              <span>Guided receiving</span>
             </button>
             <button
               onClick={() => {
@@ -3713,9 +3713,9 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
                     type="button"
                     onClick={() => setActiveStep("REVIEW_POST")}
                     className="px-3.5 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 font-bold text-xs transition flex items-center gap-1.5 shadow-xs"
-                    title="Jump to Step 5 (Review & Post)"
+                    title="Go to the final receipt review"
                   >
-                    <span>Review &amp; Post →</span>
+                    <span>Review receipt →</span>
                   </button>
                 )}
               </div>
@@ -3724,7 +3724,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
             {/* Form Fields: GRN No, Inward Date, Supplier, PO Source, Vendor Invoice */}
             <div className="grid grid-cols-1 md:grid-cols-6 gap-3 text-xs">
               <div>
-                <label className="block text-slate-500 font-medium mb-1">GRN No.</label>
+                <label className="block text-slate-500 font-medium mb-1">Receipt No. (GRN)</label>
                 <input
                   type="text"
                   placeholder="Auto-Generated"
@@ -3735,7 +3735,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
                 />
               </div>
               <div>
-                <label className="block text-slate-500 font-medium mb-1">Inward Date</label>
+                <label className="block text-slate-500 font-medium mb-1">Date received</label>
                 <input
                   type="date"
                   value={grnDate}
@@ -3746,7 +3746,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
               </div>
               <div>
                 <label className="block text-slate-500 font-medium mb-1">
-                  Supplier / Vendor <span className="text-rose-500">*</span>
+                  Supplier <span className="text-rose-500">*</span>
                 </label>
                 <SupplierSelect
                   id="header-supplier-select"
@@ -3759,7 +3759,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
               </div>
               <div>
                 <label className="block text-slate-500 font-medium mb-1">
-                  Target Godown <span className="text-rose-500">*</span>
+                  Receiving warehouse <span className="text-rose-500">*</span>
                 </label>
                 <select
                   value={selectedWarehouseId}
@@ -3788,7 +3788,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
               </div>
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="block text-slate-500 font-medium">PO Source</label>
+                  <label className="block text-slate-500 font-medium">Purchase order</label>
                   {supplierId && (
                     <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
                       {eligibleOrders.length} {eligibleOrders.length === 1 ? "Order" : "Orders"}
@@ -3804,9 +3804,9 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
                   <option value="">
                     {supplierId
                       ? eligibleOrders.length > 0
-                        ? `-- Select Open PO (${eligibleOrders.length} Available) --`
-                        : "-- Direct Inward / No Open PO --"
-                      : "-- Direct Inward / All Open POs --"}
+                        ? `-- Select open order (${eligibleOrders.length} available) --`
+                          : "-- Direct Inward (no purchase order) --"
+                        : "-- Direct Inward or select an open order --"}
                   </option>
                   {eligibleOrders.map((o) => (
                     <option key={o.order_id} value={o.order_id}>
@@ -3816,7 +3816,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
                 </select>
               </div>
               <div>
-                <label className="block text-slate-500 font-medium mb-1">Vendor Invoice No.</label>
+                <label className="block text-slate-500 font-medium mb-1">Supplier invoice no.</label>
                 <input
                   type="text"
                   placeholder="e.g. INV-2026-99"
@@ -3900,7 +3900,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
                       data-testid="nav-next"
                       className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition flex items-center gap-1.5 shadow-sm"
                     >
-                      <span>Next: Receive &amp; Verify →</span>
+                      <span>Next: Count &amp; Check Items →</span>
                     </button>
                   )}
 
@@ -3912,7 +3912,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
                         data-testid="nav-back"
                         className="px-3.5 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-center gap-1.5 font-semibold"
                       >
-                        <span>← Back: PO &amp; Details</span>
+                        <span>← Back: Supplier &amp; Order</span>
                       </button>
                       <button
                         type="button"
@@ -3920,7 +3920,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
                         data-testid="nav-next"
                         className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition flex items-center gap-1.5 shadow-sm"
                       >
-                        <span>Next: Commercials →</span>
+                        <span>Next: Invoice &amp; Price Check →</span>
                       </button>
                     </>
                   )}
@@ -3933,7 +3933,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
                         data-testid="nav-back"
                         className="px-3.5 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-center gap-1.5 font-semibold"
                       >
-                        <span>← Back: Receive &amp; Verify</span>
+                        <span>← Back: Count &amp; Check Items</span>
                       </button>
                       <button
                         type="button"
@@ -3941,7 +3941,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
                         data-testid="nav-next"
                         className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition flex items-center gap-1.5 shadow-sm"
                       >
-                        <span>Next: Costs &amp; Freight →</span>
+                        <span>Next: Freight &amp; Other Costs →</span>
                       </button>
                     </>
                   )}
@@ -3954,7 +3954,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
                         data-testid="nav-back"
                         className="px-3.5 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-center gap-1.5 font-semibold"
                       >
-                        <span>← Back: Commercials</span>
+                        <span>← Back: Invoice &amp; Price Check</span>
                       </button>
                       <button
                         type="button"
@@ -3962,7 +3962,7 @@ export const GrnReceiptTab: React.FC<GrnReceiptTabProps> = ({
                         data-testid="nav-next"
                         className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition flex items-center gap-1.5 shadow-sm"
                       >
-                        <span>Next: Review &amp; Post →</span>
+                        <span>Next: Review Receipt →</span>
                       </button>
                     </>
                   )}

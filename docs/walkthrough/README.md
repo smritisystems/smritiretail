@@ -24,7 +24,7 @@
   * Email      : support@smritibooks.com
   * Version    : 6.99.1
   * Created    : 2026-07-11
-  * Modified   : 2026-10-24
+  * Modified   : 2026-11-27
   * Copyright  : © SMRITIBooks.com. All Rights Reserved. (also © AITDL.com)
   * License    : Proprietary Commercial Software
   * Classification: Internal
@@ -34,6 +34,8 @@
 
 This directory contains formal walkthroughs documenting major features, bug fixes, refactoring, and optimizations in SMRITI Retail OS.
 
+| 2026-11-27 | v1.0 | Procurement: User manual for size-wise PO entry with optional supplier or internally generated barcodes. | [User Manual](./procurement/Sizewise_PO_Entry_User_Manual.md) | — | Available |
+| 2026-11-27 | v1.0.0 | **Database Governance: Separate Control-Plane and Tenant Migration Heads** — Added branch-specific Alembic heads (`control@head` for `smritisys`, `tenant@head` for tenant databases), runtime migration-scope enforcement, target-aware bootstrap/provisioning/CI callers, and fail-fast repair scripts. CI boundary and migration-governance checks pass; database rollout remains pending. | [Migration Governance Policy](../governance/UPGRADE_MIGRATION_GOVERNANCE_POLICY.md) | — | Code complete; rollout pending |
 | 2026-11-02 | v6.99.19 | **Reports & BI: Reporting Center UX Redesign & Workspace Hub** — Transformed the Reporting Center into an ERP-native BI workspace hub matching the reference layout. Delivers 4 business KPI cards (Net Sales, Stock Value at Cost, Receivables Outstanding, Gross Margin), multi-metric Area trend chart with [Sales][Purchase][Stock][Margin] toggles, Key Insights panel, 6 Quick Reports shortcuts, Recently Run Reports execution tracker, and 4x2 grid of 8 Business Functions with bidirectional navigation. Verified with 8/8 Vitest tests green, full Vite build pass in 1m 12s, and WGP walkthrough. | [Walkthrough](./reports/Reporting_Center_UX_Redesign_And_Workspace_Hub_v6.99.19.md) | [Plan](../implementation/reports/Reporting_Center_UX_Redesign_And_Workspace_Hub_Plan_v6.99.19.md) | Done |
 | 2026-10-30 | v6.50.2 | **Foundation: Document Series & Studio Canonical Reconciliation & Numbering Audit Ledger** — Established bidirectional canonical document type mapping (CANONICAL_DOC_TYPE_MAP, DOC_TYPE_DISPLAY_MAP), cross-dialect alias matching in DocumentsEngine (allocate_next_number_in_transaction and preview_next_number) and NumberingService (resolve_bill_prefix and list_series), and embedded interactive NumberingAuditDrawer in DocumentSeriesTab with search, action filtering, and CSV export. Certified: 49/49 Vitest green, 4/4 Python alias test passed, 0 tsc errors, 11/11 architecture gate checks passed. | [Walkthrough](./foundation/Document_Series_And_Studio_Canonical_Reconciliation_v6.50.2.md) | [Plan](../implementation/foundation/Document_Series_And_Studio_Canonical_Reconciliation_Plan_v6.50.2.md) | Done |
 | 2026-10-30 | v6.50.1 | **Procurement: Purchase Order Prefix & Canonical Serialization Remediation** — Unified get_next_order_number canonical returns, eliminated UI double-prefix rendering defect (PO-PO/26-27/0001), fixed fiscal year hyphen splitting (PO/26 and 27/0001), sanitized CSV export filenames, and mapped Document Series Studio PO series to module PURCHASE and txGroup PROCUREMENT. Certified: 45/45 Vitest green, Python boundary test passed, 0 tsc errors. | [Walkthrough](./procurement/Purchase_Order_Prefix_And_Canonical_Serialization_Remediation_v6.50.1.md) | [Plan](../implementation/procurement/Purchase_Order_Prefix_And_Canonical_Serialization_Remediation_Plan_v6.50.1.md) | Done |
