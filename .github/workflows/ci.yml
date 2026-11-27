@@ -53,7 +53,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 18
+          node-version: 20
           cache: 'npm'
 
       - name: Set up Python
@@ -88,15 +88,25 @@ jobs:
         working-directory: backend
         env:
           DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/smritisys
+          JWT_SECRET_KEY: ci_test_secret_do_not_use_in_prod
+          INTERNAL_SERVICE_KEY: ci_test_internal_service_key_do_not_use_in_prod
+          SGIP_VAULT_MASTER_KEY: ci_vault_master_key_do_not_use_in_prod
         run: alembic upgrade head
 
       - name: Run Alembic Company Business Database Migrations
         working-directory: backend
         env:
           DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/smriti001
+          JWT_SECRET_KEY: ci_test_secret_do_not_use_in_prod
+          INTERNAL_SERVICE_KEY: ci_test_internal_service_key_do_not_use_in_prod
+          SGIP_VAULT_MASTER_KEY: ci_vault_master_key_do_not_use_in_prod
         run: alembic upgrade head
 
       - name: Run Read-Only Schema Drift Audit
+        env:
+          JWT_SECRET_KEY: ci_test_secret_do_not_use_in_prod
+          INTERNAL_SERVICE_KEY: ci_test_internal_service_key_do_not_use_in_prod
+          SGIP_VAULT_MASTER_KEY: ci_vault_master_key_do_not_use_in_prod
         run: python scripts/audit_sqlalchemy_schema_drift.py smriti001 smritisys
 
       - name: Run Python Backend Tests
