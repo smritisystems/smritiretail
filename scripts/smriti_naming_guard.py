@@ -53,9 +53,10 @@ These are caught in any position within the stem.
 import argparse
 import os
 import re
+import subprocess
 import sys
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -182,7 +183,9 @@ def _relative(path: Path, root: Path) -> str:
     return path.relative_to(root).as_posix()
 
 
-def scan(repo_root: Path) -> Tuple[List[Dict], List[Dict]]:
+def scan(
+    repo_root: Path, paths: Optional[Set[str]] = None
+) -> Tuple[List[Dict], List[Dict]]:
     """
     Walk SCAN_DIRS and collect naming violations and advisory warnings.
 
@@ -204,6 +207,9 @@ def scan(repo_root: Path) -> Tuple[List[Dict], List[Dict]]:
             for filename in filenames:
                 file_path = Path(dirpath) / filename
                 rel = _relative(file_path, repo_root)
+
+                if paths is not None and rel not in paths:
+                    continue
 
                 if file_path.suffix.lower() not in SCANNED_EXTENSIONS:
                     continue
@@ -239,6 +245,33 @@ def scan(repo_root: Path) -> Tuple[List[Dict], List[Dict]]:
                     violations.append({"path": rel, "reason": reason})
 
     return violations, warnings
+
+
+def _added_or_renamed_paths(repo_root: Path, base_ref: str) -> Set[str]:
+    result = subprocess.run(
+        [
+            "git",
+            "diff",
+            "--name-only",
+            "--diff-filter=AR",
+            "{0}...HEAD".format(base_ref),
+        ],
+        cwd=str(repo_root),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            "Unable to compare against base ref '{0}': {1}".format(
+                base_ref, result.stderr.strip()
+            )
+        )
+    return {
+        line.strip().replace("\\", "/")
+        for line in result.stdout.splitlines()
+        if line.strip()
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -293,6 +326,13 @@ def main() -> int:
         default=".",
         help="Repository root directory (default: current working directory)",
     )
+    parser.add_argument(
+        "--base-ref",
+        help=(
+            "Only check files added or renamed since this git ref; "
+            "existing filenames remain grandfathered"
+        ),
+    )
     args = parser.parse_args()
 
     repo_root = Path(args.root).resolve()
@@ -308,7 +348,20 @@ def main() -> int:
     print("Scanning             : " + ", ".join(SCAN_DIRS))
     print("Extensions           : " + ", ".join(sorted(SCANNED_EXTENSIONS)))
 
-    violations, warnings = scan(repo_root)
+    paths = None
+    if args.base_ref:
+        try:
+            paths = _added_or_renamed_paths(repo_root, args.base_ref)
+        except RuntimeError as error:
+            print("ERROR: " + str(error), file=sys.stderr)
+            return 1
+        print(
+            "Changed paths        : added/renamed since {0} ({1} path(s))".format(
+                args.base_ref, len(paths)
+            )
+        )
+
+    violations, warnings = scan(repo_root, paths)
     _print_report(violations, warnings)
 
     return 1 if violations else 0
