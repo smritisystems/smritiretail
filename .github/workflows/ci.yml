@@ -162,6 +162,7 @@ jobs:
         run: alembic -x target=control -x db=smritisys upgrade control@head
         env:
           DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/smritisys"
+          PYTHONPATH: ${{ github.workspace }}/backend
 
       - name: Create isolated company test databases
         run: |
@@ -191,11 +192,13 @@ jobs:
         run: alembic -x target=tenant -x db=smriti_test_001 upgrade tenant@head
         env:
           DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/smriti_test_001"
+          PYTHONPATH: ${{ github.workspace }}/backend
 
       - name: Run Alembic Migrations (smriti_test_002 company plane)
         run: alembic -x target=tenant -x db=smriti_test_002 upgrade tenant@head
         env:
           DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/smriti_test_002"
+          PYTHONPATH: ${{ github.workspace }}/backend
 
       - name: Run Naming Guard (NGP-v1.0)
         run: python ../scripts/smriti_naming_guard.py --root ..

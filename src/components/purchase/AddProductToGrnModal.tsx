@@ -169,6 +169,7 @@ export const AddProductToGrnModal: React.FC<AddProductToGrnModalProps> = ({
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
+              data-field-key="product_name"
               placeholder={activeTab === "po" ? "Filter ordered PO lines by SKU, Name, Size..." : "Search master catalog by SKU, Name, Brand, Barcode..."}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -353,6 +354,7 @@ export const AddProductToGrnModal: React.FC<AddProductToGrnModalProps> = ({
                           <span>Color:</span>
                           <input
                             type="text"
+                            data-field-key="color"
                             value={currentColor}
                             onChange={(e) => setItemColorOverrides({ ...itemColorOverrides, [p.id]: e.target.value })}
                             placeholder="Color"
