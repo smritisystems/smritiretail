@@ -21,8 +21,8 @@ from sqlalchemy.orm import selectinload
 from app.core.security import create_access_token
 from app.db.session import async_session, get_company_sessionmaker
 from app.main import app
-from app.models.auth import Branch
 from app.models.sales import SalesOrder
+from app.models.tenant import Branch
 
 
 def _get_auth_headers(branch_id="BR-001"):
