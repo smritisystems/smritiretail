@@ -11,21 +11,17 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
-import re
 import uuid
 from decimal import Decimal
 from typing import Optional
 
 from fastapi import HTTPException
 from sqlalchemy import and_, func, or_
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from ..api.deps import TenantContext
 from ..models.inventory import Product, ProductBatchStock, StockMovement, Warehouse
-from ..models.item_master import Item, ItemBarcode, ItemVariant, LegacyIdMapping
-from ..models.pricing import PriceBook, PriceBookEntry
 from ..schemas.inventory import ProductCreate
 from .attributes import AttributesService
 from .identity.engine import IdentityEngine
@@ -450,7 +446,7 @@ class InventoryService:
         Records StockMovements and emits Transactional Outbox event.
         Dual-key converged: writes product_id, item_id, variant_id.
         """
-        from .stock_synchronizer import INFLOW_MOVEMENT_TYPES, OUTFLOW_MOVEMENT_TYPES, StockSynchronizer
+        from .stock_synchronizer import INFLOW_MOVEMENT_TYPES, OUTFLOW_MOVEMENT_TYPES
 
         stmt = select(Product).filter(
             Product.id == product_id,
@@ -633,7 +629,7 @@ class InventoryService:
                 }
             )
 
-        from .stock_synchronizer import INFLOW_MOVEMENT_TYPES, OUTFLOW_MOVEMENT_TYPES, StockSynchronizer
+        from .stock_synchronizer import INFLOW_MOVEMENT_TYPES, OUTFLOW_MOVEMENT_TYPES
 
         stmt = select(Product).filter(
             Product.id == product_id,
