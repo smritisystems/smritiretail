@@ -351,6 +351,37 @@ class CustomerPOService:
                 )
             ).scalars().first()
 
+        po_customer_id = (
+            await self.db.execute(
+                self._scope(
+                    select(CustomerPurchaseOrder.customer_id).where(CustomerPurchaseOrder.id == po_id),
+                    CustomerPurchaseOrder,
+                )
+            )
+        ).scalars().first()
+        if not po_customer_id:
+            raise HTTPException(status_code=404, detail="Customer PO not found.")
+
+        # Match the customer-before-PO lock order used by canonical invoice posting.
+        branch_id = self.tenant_ctx.branch_id
+        branch_candidates = (
+            {branch_id, "MAIN", "BR-MAIN-001", "BR-001"}
+            if branch_id in ("MAIN", "BR-MAIN-001", "BR-001")
+            else {branch_id}
+        )
+        locked_customer_id = (
+            await self.db.execute(
+                select(Customer.id).where(
+                    Customer.id == po_customer_id,
+                    Customer.company_id == self.tenant_ctx.company_id,
+                    (Customer.branch_id.in_(branch_candidates)) | Customer.branch_id.is_(None),
+                    Customer.is_deleted.is_(False),
+                ).with_for_update()
+            )
+        ).scalars().first()
+        if not locked_customer_id:
+            raise HTTPException(status_code=404, detail="Customer linked to the Customer PO was not found.")
+
         await self.db.execute(
             text("SELECT pg_advisory_xact_lock(hashtextextended(:lock_key, 0))"),
             {"lock_key": f"customer-po-bill:{self.tenant_ctx.company_id}:{po_id}"},
@@ -361,6 +392,8 @@ class CustomerPOService:
             lock=True,
             enforce_policy=replay_candidate is None,
         )
+        if po.customer_id != locked_customer_id:
+            raise HTTPException(status_code=409, detail="Customer PO customer changed while billing was starting.")
         if replay_candidate is None and po.status in {"CANCELLED", "CLOSED"}:
             raise HTTPException(status_code=409, detail=f"Customer PO is {po.status} and cannot be billed.")
 

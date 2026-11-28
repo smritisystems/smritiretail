@@ -293,12 +293,15 @@ async def setup_dispatch_test_master_data():
                 barcode="8901112223344",
                 hsn_code="64041990",
                 price=100.00,
-                mrp=150.00,
+                mrp=2000.00,
                 cost_price=60.00,
                 stock=500,
                 is_active=True,
                 is_deleted=False,
             )
+            session.add(prod)
+        else:
+            prod.mrp = Decimal("2000.00")
             session.add(prod)
 
         from app.models.inventory import ProductBatchStock
