@@ -198,11 +198,32 @@ async def setup_dispatch_test_master_data():
             )
             session.add(cust_assam)
 
+        discount_group = (
+            await session.execute(select(CustomerGroup).where(CustomerGroup.id == "cg-dispatch-tg"))
+        ).scalar_one_or_none()
+        if not discount_group:
+            discount_group = CustomerGroup(
+                id="cg-dispatch-tg",
+                company_id="COMP-001",
+                branch_id="MAIN",
+                code="CG-DISPATCH-TG",
+                name="Dispatch Test Discount Group",
+                max_discount_percent=Decimal("10.00"),
+                can_receive_discount=True,
+            )
+            session.add(discount_group)
+        else:
+            discount_group.max_discount_percent = Decimal("10.00")
+            discount_group.can_receive_discount = True
+            session.add(discount_group)
+        await session.flush()
+
         cust_tg = (await session.execute(select(Customer).where(Customer.id == "cust-tg-001"))).scalar_one_or_none()
         if not cust_tg:
             cust_tg = Customer(
                 id="cust-tg-001",
                 company_id="COMP-001",
+                customer_group_id=discount_group.id,
                 code="CUST-TG",
                 name="Reliance Retail Limited (Hyderabad)",
                 mobile="9820022222",
@@ -211,6 +232,9 @@ async def setup_dispatch_test_master_data():
                 is_active=True,
                 is_deleted=False,
             )
+            session.add(cust_tg)
+        else:
+            cust_tg.customer_group_id = discount_group.id
             session.add(cust_tg)
 
         # 4. Cashier User & Shift

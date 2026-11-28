@@ -266,11 +266,9 @@ async def test_tc_async_004_worm_audit_log_on_completion(db_session: AsyncSessio
     uid = uuid.uuid4().hex[:6].upper()
     rows = [
         {
+            **_VALID_ITEM_DIMENSIONS,
             "item_code": f"ASYNC-WORM-{uid}",
             "item_name": f"WORM Item {uid}",
-            "brand": "SMRITI",
-            "category": "Footwear",
-            "primary_uom": "Pair",
         }
     ]
 
@@ -422,20 +420,16 @@ async def test_tc_async_007_rest_endpoints_e2e_lifecycle(db_session: AsyncSessio
             "entity_type": "ITEM",
             "rows": [
                 {
+                    **_VALID_ITEM_DIMENSIONS,
                     "item_code": f"E2E-ASYNC-{uid}-1",
                     "item_name": f"E2E Async Item {uid} 1",
-                    "brand": "SMRITI",
-                    "category": "Footwear",
-                    "primary_uom": "Pair",
                     "mrp": 1500.0,
                     "selling_price": 1200.0,
                 },
                 {
+                    **_VALID_ITEM_DIMENSIONS,
                     "item_code": f"E2E-ASYNC-{uid}-2",
                     "item_name": f"E2E Async Item {uid} 2",
-                    "brand": "SMRITI",
-                    "category": "Footwear",
-                    "primary_uom": "Pair",
                     "mrp": 1800.0,
                     "selling_price": 1400.0,
                 },
