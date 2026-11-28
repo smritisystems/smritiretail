@@ -21,7 +21,7 @@ from typing import Optional, List, Dict, Any
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import text, func
+from sqlalchemy import func, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 
@@ -1485,10 +1485,44 @@ class CanonicalSalesPostingWriter:
                     # Under ALLOW_WITH_AUTHORIZATION the excess is captured in allocation_metadata
                     # for audit; the CPO line itself stores no more than the ceiling.
                     line_qty_ceiling = po_line.quantity_ordered + po_line.quantity_cancelled
-                    new_line_billed = min(po_line.quantity_billed + item_qty, line_qty_ceiling)
-                    line_overrun_qty = max(Decimal("0"), (po_line.quantity_billed + item_qty) - line_qty_ceiling)
-                    po_line.quantity_billed = new_line_billed
-                    po_line.quantity_remaining = max(Decimal("0"), line_qty_ceiling - po_line.quantity_billed)
+                    if po_policy == "BLOCK":
+                        reserved_line = (
+                            await session.execute(
+                                update(CustomerPurchaseOrderLine)
+                                .where(
+                                    CustomerPurchaseOrderLine.id == po_line.id,
+                                    CustomerPurchaseOrderLine.company_id == company_id,
+                                    CustomerPurchaseOrderLine.is_deleted.is_(False),
+                                    CustomerPurchaseOrderLine.quantity_remaining >= item_qty,
+                                )
+                                .values(
+                                    quantity_billed=CustomerPurchaseOrderLine.quantity_billed + item_qty,
+                                    quantity_remaining=CustomerPurchaseOrderLine.quantity_remaining - item_qty,
+                                )
+                                .returning(
+                                    CustomerPurchaseOrderLine.quantity_billed,
+                                    CustomerPurchaseOrderLine.quantity_remaining,
+                                )
+                                .execution_options(synchronize_session=False)
+                            )
+                        ).first()
+                        if not reserved_line:
+                            raise HTTPException(
+                                status_code=409,
+                                detail=(
+                                    f"Over-billing blocked: Item {po_line.code} ordered "
+                                    f"{po_line.quantity_ordered} remaining {po_line.quantity_remaining}."
+                                ),
+                            )
+                        new_line_billed = reserved_line.quantity_billed
+                        line_overrun_qty = Decimal("0")
+                        po_line.quantity_billed = reserved_line.quantity_billed
+                        po_line.quantity_remaining = reserved_line.quantity_remaining
+                    else:
+                        new_line_billed = min(po_line.quantity_billed + item_qty, line_qty_ceiling)
+                        line_overrun_qty = max(Decimal("0"), (po_line.quantity_billed + item_qty) - line_qty_ceiling)
+                        po_line.quantity_billed = new_line_billed
+                        po_line.quantity_remaining = max(Decimal("0"), line_qty_ceiling - po_line.quantity_billed)
                     po_line.billed_value += item_val
                     po_line.remaining_value = max(Decimal("0"), po_line.ordered_value - po_line.billed_value)
                     po_line.line_status = "FULLY_BILLED" if po_line.quantity_remaining <= Decimal("0") else "PARTIALLY_BILLED"
