@@ -15,9 +15,11 @@ Classification: Internal
 import json
 import os
 
+import psycopg2
 import pytest
+from conftest import COMPANY_001_DB_URL
 
-from scripts.reconcile_historical_stock import _pg_connect, run_historical_stock_reconciliation
+from scripts.reconcile_historical_stock import run_historical_stock_reconciliation
 
 
 def test_dry_run_historical_stock_reconciliation(tmp_path):
@@ -29,7 +31,7 @@ def test_dry_run_historical_stock_reconciliation(tmp_path):
     """
     output_file = str(tmp_path / "test_reconciliation.json")
 
-    conn = _pg_connect("smriti_test_001")
+    conn = psycopg2.connect(COMPANY_001_DB_URL)
     try:
         cur = conn.cursor()
         scope_params = ("COMP-001", "MAIN")
@@ -50,6 +52,7 @@ def test_dry_run_historical_stock_reconciliation(tmp_path):
         conn.close()
     result = run_historical_stock_reconciliation(
         database="smriti_test_001",
+        db_url=COMPANY_001_DB_URL,
         mode="dry-run",
         output_file=output_file,
         company_id="COMP-001",
