@@ -22,6 +22,7 @@ from sqlalchemy.future import select
 
 from ..api.deps import TenantContext
 from ..models.inventory import Product, ProductBatchStock, StockMovement, Warehouse
+from ..models.pricing import PriceBookEntry  # noqa: F401
 from ..schemas.inventory import ProductCreate
 from .attributes import AttributesService
 from .identity.engine import IdentityEngine

@@ -17,18 +17,20 @@ Test suite for Unified IM-001 Catalog Governance across:
 3. UniversalItemMasterService.create_item
 """
 
+import asyncio
 import uuid
 
 import openpyxl
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import delete
+from sqlalchemy import delete, or_, select
 
 from app.core.security import create_access_token
 from app.db.session import get_company_sessionmaker
 from app.main import app
 from app.models.inventory import Product
-from app.models.item_master import Item
+from app.models.item_master import Item, ItemBarcode, ItemVariant, ItemWarehouseLocation, LegacyIdMapping
+from app.models.pricing import PriceBookEntry
 from app.services.catalog_validation import IM001ControlledFieldValidator
 
 
@@ -159,6 +161,7 @@ def test_03_positive_test_onboarded_dimensions_pass(client, auth_headers):
     """
     test_code = f"PROD-TEST-PASS-{uuid.uuid4().hex[:6]}".upper()
     test_barcode = f"890{uuid.uuid4().int % 1000000000:09d}"
+    test_style_code = f"IM001-{uuid.uuid4().hex[:8]}".upper()
 
     payload = {
         "name": "Positive Test Onboarded Product",
@@ -172,7 +175,7 @@ def test_03_positive_test_onboarded_dimensions_pass(client, auth_headers):
         "buying_price": 1200.0,
         "gst_percentage": 12.0,
         "hsn_code": "6403",
-        "style_code": "CH-01-A",
+        "style_code": test_style_code,
         "color": "BRONZE",
         "size": "38",
         "heel_type": "CUBE HEEL",
@@ -184,9 +187,9 @@ def test_03_positive_test_onboarded_dimensions_pass(client, auth_headers):
             "heel_type": "CUBE HEEL",
             "upper_material": "LYCRA",
             "product_type": "HALF SHOE",
-            "style": "CH-01-A",
-            "article_no": "CH-01-A",
-            "style_code": "CH-01-A",
+            "style": test_style_code,
+            "article_no": test_style_code,
+            "style_code": test_style_code,
             "category": "Footwear",
             "size": "38",
             "size_group": "FOOTWEAR_EU",
@@ -196,14 +199,66 @@ def test_03_positive_test_onboarded_dimensions_pass(client, auth_headers):
         },
     }
 
-    res = client.post("/api/v1/inventory/", json=payload, headers=auth_headers)
-    print("\n--- LITERAL POSITIVE TEST RESPONSE (CUBE HEEL + LYCRA + HALF SHOE) ---")
-    print(f"Status Code: {res.status_code}")
-    print(f"Response Body: {res.text}")
+    try:
+        res = client.post("/api/v1/inventory/", json=payload, headers=auth_headers)
+        print("\n--- LITERAL POSITIVE TEST RESPONSE (CUBE HEEL + LYCRA + HALF SHOE) ---")
+        print(f"Status Code: {res.status_code}")
+        print(f"Response Body: {res.text}")
 
-    assert res.status_code == 201, f"Expected HTTP 201, got {res.status_code}: {res.text}"
-    data = res.json()
-    assert data.get("code") == test_code or data.get("name") == "Positive Test Onboarded Product"
+        assert res.status_code == 201, f"Expected HTTP 201, got {res.status_code}: {res.text}"
+        data = res.json()
+        assert data.get("code") == test_code or data.get("name") == "Positive Test Onboarded Product"
+    finally:
+        async def cleanup_created_product():
+            session_factory = get_company_sessionmaker("smriti001")
+            async with session_factory() as session:
+                item_ids = select(Item.id).where(Item.item_code == test_style_code)
+                variant_ids = select(ItemVariant.id).where(
+                    or_(
+                        ItemVariant.variant_sku == test_code,
+                        ItemVariant.item_id.in_(item_ids),
+                    )
+                )
+                await session.execute(
+                    delete(PriceBookEntry).where(
+                        or_(
+                            PriceBookEntry.item_id.in_(item_ids),
+                            PriceBookEntry.variant_id.in_(variant_ids),
+                        )
+                    )
+                )
+                await session.execute(
+                    delete(ItemWarehouseLocation).where(ItemWarehouseLocation.item_id.in_(item_ids))
+                )
+                await session.execute(
+                    delete(ItemBarcode).where(
+                        or_(
+                            ItemBarcode.barcode == test_barcode,
+                            ItemBarcode.item_id.in_(item_ids),
+                            ItemBarcode.variant_id.in_(variant_ids),
+                        )
+                    )
+                )
+                await session.execute(
+                    delete(LegacyIdMapping).where(
+                        LegacyIdMapping.legacy_id.in_(
+                            select(Product.id).where(Product.code == test_code)
+                        )
+                    )
+                )
+                await session.execute(
+                    delete(ItemVariant).where(
+                        or_(
+                            ItemVariant.variant_sku == test_code,
+                            ItemVariant.item_id.in_(item_ids),
+                        )
+                    )
+                )
+                await session.execute(delete(Item).where(Item.id.in_(item_ids)))
+                await session.execute(delete(Product).where(Product.code == test_code))
+                await session.commit()
+
+        asyncio.run(cleanup_created_product())
 
 
 def test_04_system_master_lookup_registry_loaded_dynamically():

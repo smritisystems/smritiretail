@@ -148,7 +148,7 @@ async def test_completed_invoice_creates_outward_sale_movement():
         )
         sales_svc = SalesService(session, tenant_ctx)
 
-        _, prod = await _ensure_test_warehouse_and_product(session, "COMP-001", "MAIN")
+        canonical_wh, prod = await _ensure_test_warehouse_and_product(session, "COMP-001", "MAIN")
         prod.stock = Decimal("100.00")
         prod.mrp = Decimal("500.00")
         await session.flush()
@@ -166,7 +166,7 @@ async def test_completed_invoice_creates_outward_sale_movement():
                     code=prod.code,
                     name=prod.name,
                     quantity=Decimal("1.00"),
-                    price=Decimal("100.00"),
+                    price=prod.mrp,
                     gst_rate=Decimal("18.00"),
                 )
             ]
@@ -198,6 +198,7 @@ async def test_completed_invoice_creates_outward_sale_movement():
                 await session.execute(text("DELETE FROM sales_invoice_items WHERE invoice_id = :inv_id"), {"inv_id": db_inv.id})
                 await session.execute(text("DELETE FROM sales_invoices WHERE id = :inv_id"), {"inv_id": db_inv.id})
                 await session.commit()
+            await _cleanup_test_warehouse_and_product(session, canonical_wh, prod)
 
 
 @pytest.mark.asyncio
@@ -232,7 +233,7 @@ async def test_draft_invoice_creates_no_movement():
                     code=prod.code,
                     name=prod.name,
                     quantity=Decimal("2.00"),
-                    price=Decimal("150.00"),
+                    price=prod.mrp,
                     gst_rate=Decimal("18.00"),
                 )
             ]
@@ -256,6 +257,7 @@ async def test_draft_invoice_creates_no_movement():
                 await session.execute(text("DELETE FROM sales_invoice_items WHERE invoice_id = :inv_id"), {"inv_id": db_inv.id})
                 await session.execute(text("DELETE FROM sales_invoices WHERE id = :inv_id"), {"inv_id": db_inv.id})
                 await session.commit()
+            await _cleanup_test_warehouse_and_product(session, canonical_wh, prod)
 
 
 @pytest.mark.asyncio
@@ -276,7 +278,7 @@ async def test_sales_return_creates_return_inward_movement():
         sales_svc = SalesService(session, tenant_ctx)
         orig_inv = None
 
-        _, prod = await _ensure_test_warehouse_and_product(
+        canonical_wh, prod = await _ensure_test_warehouse_and_product(
             session, "COMP-001", "MAIN"
         )
         prod.mrp = Decimal("500.00")
@@ -297,7 +299,7 @@ async def test_sales_return_creates_return_inward_movement():
                         code=prod.code,
                         name=prod.name,
                         quantity=Decimal("1.00"),
-                        price=Decimal("100.00"),
+                        price=prod.mrp,
                         gst_rate=Decimal("18.00"),
                     )
                 ],
@@ -312,6 +314,18 @@ async def test_sales_return_creates_return_inward_movement():
         )
         inv_item = item_res.scalars().first()
         if not inv_item:
+            await utmih_delete_stock_movements(
+                session,
+                "reference_doc_id = :inv_id OR reference_doc_id = :inv_no",
+                {"inv_id": orig_inv.id, "inv_no": source_invoice_no},
+            )
+            await session.execute(
+                text("DELETE FROM sales_invoice_items WHERE invoice_id = :inv_id"),
+                {"inv_id": orig_inv.id},
+            )
+            await session.execute(text("DELETE FROM sales_invoices WHERE id = :inv_id"), {"inv_id": orig_inv.id})
+            await session.commit()
+            await _cleanup_test_warehouse_and_product(session, canonical_wh, prod)
             pytest.skip("No line item found on invoice")
 
         res = await session.execute(
@@ -320,8 +334,20 @@ async def test_sales_return_creates_return_inward_movement():
                 Product.is_deleted == False
             )
         )
-        prod = res.scalars().first()
-        if not prod:
+        invoice_product = res.scalars().first()
+        if not invoice_product:
+            await utmih_delete_stock_movements(
+                session,
+                "reference_doc_id = :inv_id OR reference_doc_id = :inv_no",
+                {"inv_id": orig_inv.id, "inv_no": source_invoice_no},
+            )
+            await session.execute(
+                text("DELETE FROM sales_invoice_items WHERE invoice_id = :inv_id"),
+                {"inv_id": orig_inv.id},
+            )
+            await session.execute(text("DELETE FROM sales_invoices WHERE id = :inv_id"), {"inv_id": orig_inv.id})
+            await session.commit()
+            await _cleanup_test_warehouse_and_product(session, canonical_wh, prod)
             pytest.skip("Product on invoice not found")
 
         return_qty = min(Decimal("1.00"), inv_item.quantity)
@@ -340,9 +366,9 @@ async def test_sales_return_creates_return_inward_movement():
             status="Completed",
             items=[
                 SalesReturnItemCreate(
-                    product_id=prod.id,
-                    code=prod.code,
-                    name=prod.name,
+                    product_id=invoice_product.id,
+                    code=invoice_product.code,
+                    name=invoice_product.name,
                     quantity=return_qty,
                     price=return_price,
                     gst_rate=return_gst,
@@ -391,6 +417,7 @@ async def test_sales_return_creates_return_inward_movement():
                     {"inv_id": orig_inv.id},
                 )
             await session.commit()
+            await _cleanup_test_warehouse_and_product(session, canonical_wh, prod)
 
 
 @pytest.mark.asyncio
@@ -467,93 +494,66 @@ async def test_no_stock_product_creates_no_movement():
 
 async def _ensure_test_warehouse_and_product(session, company_id="COMP-001", branch_id="MAIN"):
     """
-    Ensures that an active Warehouse and a stock-tracked Product with an opening batch
-    exist for testing, self-provisioning them if the test DB is unseeded.
+    Creates an isolated Warehouse and stock-tracked Product with an opening batch.
     """
     from app.models.inventory import Product, ProductBatchStock, Warehouse
 
-    wh_res = await session.execute(
-        select(Warehouse).where(
-            Warehouse.company_id == company_id,
-            Warehouse.is_deleted == False,
-            Warehouse.is_active == True,
-        ).order_by(Warehouse.created_at.asc())
+    suffix = uuid.uuid4().hex[:12].upper()
+    canonical_wh = Warehouse(
+        id=f"wh-test-{suffix}",
+        uuid=str(uuid.uuid4()),
+        company_id=company_id,
+        branch_id=branch_id,
+        code=f"WH-TEST-{suffix}",
+        name="CI Test Warehouse",
+        is_active=True,
+        is_deleted=False,
     )
-    canonical_wh = wh_res.scalars().first()
-    if not canonical_wh:
-        canonical_wh = Warehouse(
-            id=f"wh-test-{uuid.uuid4().hex[:8]}",
-            uuid=str(uuid.uuid4()),
-            company_id=company_id,
-            branch_id=branch_id,
-            code=f"WH-TEST-{uuid.uuid4().hex[:4]}",
-            name="CI Test Warehouse",
-            is_active=True,
-            is_deleted=False,
-        )
-        session.add(canonical_wh)
-        await session.flush()
-
-    res = await session.execute(
-        select(Product).filter(
-            Product.tracking_mode != "No-stock",
-            Product.is_deleted == False,
-            Product.company_id == company_id
-        ).limit(1)
+    prod = Product(
+        id=f"prod-test-{suffix}",
+        uuid=str(uuid.uuid4()),
+        company_id=company_id,
+        branch_id=branch_id,
+        code=f"PRD-TEST-{suffix}",
+        name="CI Test Product",
+        category="General",
+        barcode=f"BC-TEST-{suffix}",
+        tracking_mode="Batch",
+        price=Decimal("500.00"),
+        mrp=Decimal("500.00"),
+        stock=Decimal("100.00"),
+        is_active=True,
+        is_deleted=False,
     )
-    prod = res.scalars().first()
-    if not prod:
-        prod = Product(
-            id=f"prod-test-{uuid.uuid4().hex[:8]}",
-            uuid=str(uuid.uuid4()),
-            company_id=company_id,
-            branch_id=branch_id,
-            code=f"PRD-TEST-{uuid.uuid4().hex[:4]}",
-            name="CI Test Product",
-            category="General",
-            barcode=f"BC-TEST-{uuid.uuid4().hex[:6]}",
-            tracking_mode="Batch",
-            price=Decimal("100.00"),
-            stock=Decimal("100.00"),
-            is_active=True,
-            is_deleted=False,
-        )
-        session.add(prod)
-        await session.flush()
-    else:
-        prod.stock = Decimal("100.00")
-    if prod.mrp is None or prod.mrp < Decimal("250.00"):
-        prod.mrp = Decimal("500.00")
+    session.add_all([canonical_wh, prod])
     await session.flush()
 
-    q_batch = select(ProductBatchStock).where(
-        ProductBatchStock.company_id == company_id,
-        ProductBatchStock.product_id == prod.id,
-        ProductBatchStock.warehouse_id == canonical_wh.id,
-        ProductBatchStock.batch_no == "BATCH-OPENING",
-        ProductBatchStock.is_deleted == False,
+    opening_batch = ProductBatchStock(
+        id=f"pbs-test-{suffix}",
+        uuid=str(uuid.uuid4()),
+        company_id=company_id,
+        branch_id=branch_id,
+        product_id=prod.id,
+        warehouse_id=canonical_wh.id,
+        batch_no="BATCH-OPENING",
+        quantity=Decimal("100.00"),
+        reserved_quantity=Decimal("0.00"),
+        damaged_quantity=Decimal("0.00"),
     )
-    res_batch = await session.execute(q_batch)
-    opening_batch = res_batch.scalars().first()
-    if not opening_batch:
-        opening_batch = ProductBatchStock(
-            id=f"pbs-test-{uuid.uuid4().hex[:12]}",
-            uuid=str(uuid.uuid4()),
-            company_id=company_id,
-            branch_id=branch_id,
-            product_id=prod.id,
-            warehouse_id=canonical_wh.id,
-            batch_no="BATCH-OPENING",
-            quantity=Decimal("100.00"),
-            reserved_quantity=Decimal("0.00"),
-            damaged_quantity=Decimal("0.00"),
-        )
-        session.add(opening_batch)
-    else:
-        opening_batch.quantity = Decimal("100.00")
+    session.add(opening_batch)
     await session.flush()
 
     return canonical_wh, prod
+
+
+async def _cleanup_test_warehouse_and_product(session, warehouse, product):
+    await session.execute(
+        text("DELETE FROM product_batch_stocks WHERE product_id = :product_id"),
+        {"product_id": product.id},
+    )
+    await session.execute(text("DELETE FROM products WHERE id = :product_id"), {"product_id": product.id})
+    await session.execute(text("DELETE FROM warehouses WHERE id = :warehouse_id"), {"warehouse_id": warehouse.id})
+    await session.commit()
 
 
 @pytest.mark.asyncio
@@ -587,7 +587,7 @@ async def test_repeated_processing_does_not_create_duplicates():
                     code=prod.code,
                     name=prod.name,
                     quantity=Decimal("1.00"),
-                    price=Decimal("100.00"),
+                    price=prod.mrp,
                     gst_rate=Decimal("18.00"),
                 )
             ]
@@ -617,6 +617,7 @@ async def test_repeated_processing_does_not_create_duplicates():
                 await session.execute(text("DELETE FROM sales_invoice_items WHERE invoice_id = :inv_id"), {"inv_id": db_inv1.id})
                 await session.execute(text("DELETE FROM sales_invoices WHERE id = :inv_id"), {"inv_id": db_inv1.id})
                 await session.commit()
+            await _cleanup_test_warehouse_and_product(session, canonical_wh, prod)
 
 
 
@@ -659,7 +660,7 @@ async def test_stock_movement_ledger_live_api_runtime_response():
                     code=prod.code,
                     name=prod.name,
                     quantity=Decimal("2.00"),
-                    price=Decimal("250.00"),
+                    price=prod.mrp,
                     gst_rate=Decimal("18.00"),
                 )
             ]
@@ -696,6 +697,7 @@ async def test_stock_movement_ledger_live_api_runtime_response():
                 await session.execute(text("DELETE FROM sales_invoice_items WHERE invoice_id = :inv_id"), {"inv_id": db_inv.id})
                 await session.execute(text("DELETE FROM sales_invoices WHERE id = :inv_id"), {"inv_id": db_inv.id})
                 await session.commit()
+            await _cleanup_test_warehouse_and_product(session, canonical_wh, prod)
 
 
 

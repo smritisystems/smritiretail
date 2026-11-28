@@ -539,6 +539,7 @@ async def test_commit_existing_match_modes():
                     target="ITEM_MASTER",
                     idempotency_key=f"idem-{uuid.uuid4().hex[:12]}",
                     existing_match_mode="FAIL_ON_EXISTING",
+                    import_strategy="STRICT",
                     rows=[
                         {
                             "rowNumber": 1,

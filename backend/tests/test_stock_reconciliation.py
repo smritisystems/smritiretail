@@ -12,16 +12,12 @@ License      : Proprietary Commercial Software
 Classification: Internal
 """
 
-import asyncio
 import json
 import os
 
 import pytest
-from sqlalchemy import func, select
 
-from app.db.session import get_company_sessionmaker
-from app.models.sales import SalesInvoice, SalesInvoiceItem
-from scripts.reconcile_historical_stock import run_historical_stock_reconciliation
+from scripts.reconcile_historical_stock import _pg_connect, run_historical_stock_reconciliation
 
 
 def test_dry_run_historical_stock_reconciliation(tmp_path):
@@ -33,27 +29,25 @@ def test_dry_run_historical_stock_reconciliation(tmp_path):
     """
     output_file = str(tmp_path / "test_reconciliation.json")
 
-    session_factory = get_company_sessionmaker("smriti001")
-
-    async def get_expected_counts():
-        async with session_factory() as session:
-            scope = (
-                SalesInvoice.is_deleted.is_(False),
-                SalesInvoice.company_id == "COMP-001",
-                SalesInvoice.branch_id == "MAIN",
-            )
-            invoices = await session.scalar(
-                select(func.count()).select_from(SalesInvoice).where(*scope)
-            )
-            lines = await session.scalar(
-                select(func.count())
-                .select_from(SalesInvoiceItem)
-                .join(SalesInvoice, SalesInvoice.id == SalesInvoiceItem.invoice_id)
-                .where(*scope)
-            )
-            return invoices, lines
-
-    expected_invoices, expected_lines = asyncio.run(get_expected_counts())
+    conn = _pg_connect("smriti_test_001")
+    try:
+        cur = conn.cursor()
+        scope_params = ("COMP-001", "MAIN")
+        cur.execute(
+            "SELECT COUNT(*) FROM sales_invoices si "
+            "WHERE si.is_deleted = false AND si.company_id = %s AND si.branch_id = %s",
+            scope_params,
+        )
+        expected_invoices = cur.fetchone()[0]
+        cur.execute(
+            "SELECT COUNT(*) FROM sales_invoice_items sii "
+            "JOIN sales_invoices si ON si.id = sii.invoice_id "
+            "WHERE si.is_deleted = false AND si.company_id = %s AND si.branch_id = %s",
+            scope_params,
+        )
+        expected_lines = cur.fetchone()[0]
+    finally:
+        conn.close()
     result = run_historical_stock_reconciliation(
         database="smriti_test_001",
         mode="dry-run",

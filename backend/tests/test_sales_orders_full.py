@@ -19,7 +19,7 @@ from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 
 from app.core.security import create_access_token
-from app.db.session import async_session, get_company_sessionmaker
+from app.db.session import async_session, get_company_sessionmaker, resolve_company_database_name
 from app.main import app
 from app.models.sales import SalesOrder
 from app.models.tenant import Branch
@@ -59,7 +59,8 @@ async def test_sales_order_full_suite():
         default_branch_id = branch_result.scalar_one()
 
     # 1. Select a live order visible to the default branch.
-    sm = get_company_sessionmaker("smriti001")
+    target_db_name = await resolve_company_database_name("COMP-001")
+    sm = get_company_sessionmaker(target_db_name)
     async with sm() as db:
         res = await db.execute(
             select(SalesOrder)
