@@ -67,6 +67,8 @@ from app.services.inventory import InventoryService
 from app.services.item_master_svc import UniversalItemMasterService
 from app.services.canonical_sales_writer import CanonicalSalesPostingWriter
 from app.services.pos import POSService
+from app.services.inventory_warehouse_resolver import InventoryWarehouseResolver
+from app.services.stock_ledger import StockLedger
 
 
 @pytest.fixture(scope="module")
@@ -624,7 +626,7 @@ async def test_pos_checkout_with_tax_inclusive_catalog_item(tenant_ctx):
     async with session_factory() as session:
         uid = uuid.uuid4().hex[:6].upper()
 
-        # Create product with stock (no is_tax_inclusive on Product — it was dropped by v1456)
+        # Product creation does not synthesize stock; seed its authoritative opening balance below.
         inv_svc = InventoryService(session, tenant_ctx)
         prod = await inv_svc.create_product(ProductCreate(
             code=f"POS-PROD-{uid}",
@@ -669,6 +671,21 @@ async def test_pos_checkout_with_tax_inclusive_catalog_item(tenant_ctx):
             branch_id="BR-001",
         )
         session.add(reg)
+        await session.commit()
+
+        warehouse = await InventoryWarehouseResolver(session).resolve(
+            company_id="COMP-001",
+            branch_id="BR-001",
+            register_id=reg.id,
+        )
+        await StockLedger.post_admin_opening_stock(
+            session=session,
+            company_id="COMP-001",
+            product_id=prod.id,
+            quantity=Decimal("10"),
+            reason="Seed stock for tax-inclusive POS checkout test",
+            warehouse_id=warehouse.id,
+        )
         await session.commit()
 
         # Fetch valid cashier user

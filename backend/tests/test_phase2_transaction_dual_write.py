@@ -74,6 +74,7 @@ async def _seed_opening_stock(
     product_id: str,
     quantity: int,
     warehouse_id: str | None = None,
+    batch_no: str | None = None,
 ) -> None:
     await StockLedger.post_admin_opening_stock(
         session=db_session,
@@ -82,6 +83,7 @@ async def _seed_opening_stock(
         quantity=Decimal(quantity),
         reason="Test fixture opening balance",
         warehouse_id=warehouse_id,
+        batch_no=batch_no,
     )
 
 
@@ -708,7 +710,7 @@ async def test_17_stock_audit_discrepancy_reconciliation_dual_keys(db_session: A
     db_session.add(prod)
     warehouse = await _seed_warehouse(db_session, f"wh-audit-{suffix}")
     await db_session.flush()
-    await _seed_opening_stock(db_session, prod.id, 50, warehouse.id)
+    await _seed_opening_stock(db_session, prod.id, 50, warehouse.id, "BATCH-001")
     await db_session.commit()
 
     audit_svc = StockAuditService(db_session, tenant_ctx)
@@ -830,7 +832,7 @@ async def test_19_sales_invoice_cancellation_restores_stock_with_dual_keys(db_se
 
     inv = SalesInvoice(
         id=f"inv_{suffix}", invoice_no=f"INV-{suffix}", company_id=comp_id, branch_id="MAIN",
-        warehouse_id=warehouse.id, grand_total=Decimal("100.00"), status="PAID", is_deleted=False
+        warehouse_id=warehouse.id, grand_total=Decimal("100.00"), status="POSTED", is_deleted=False
     )
     db_session.add(inv)
     await db_session.flush()

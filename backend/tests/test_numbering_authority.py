@@ -20,6 +20,7 @@ from sqlalchemy import select, text
 from app.main import app
 from app.db.session import get_company_sessionmaker, resolve_company_database_name
 from app.core.security import create_access_token
+from app.models.tenant import Branch, Company
 from app.models.numbering import DocumentSeries
 from app.services.documents_engine import DocumentsEngine
 from app.services.item_master_svc import UniversalItemMasterService
@@ -105,6 +106,20 @@ async def test_b_backend_article_creation_uses_same_tenant_series():
     series_id = f"SER-TENANT-{unique_suffix}"
 
     async with sessionmaker() as session:
+        branch = await session.get(Branch, "BR-001")
+        if branch is None:
+            session.add(
+                Branch(
+                    id="BR-001",
+                    company_id="COMP-001",
+                    name="Numbering Test Branch",
+                    code="NUMBERING-BR-001",
+                    is_active=True,
+                    is_deleted=False,
+                )
+            )
+            await session.flush()
+
         existing_series = (
             await session.execute(
                 select(DocumentSeries).where(
@@ -414,6 +429,7 @@ async def test_f_article_creation_increments_counter_exactly_once():
 async def test_g_two_tenants_remain_isolated():
     """Test G — Two tenants remain isolated: COMP-001 series not visible to or consumed by COMP-002."""
     sessionmaker_001 = await _company_sessionmaker("COMP-001")
+    sessionmaker_002 = await _company_sessionmaker("COMP-002")
     series_id = f"SER-COMP001-ONLY-{uuid.uuid4().hex[:6].upper()}"
 
     async with sessionmaker_001() as session:
@@ -434,6 +450,36 @@ async def test_g_two_tenants_remain_isolated():
             is_deleted=False,
         )
         session.add(series)
+        await session.commit()
+
+    async with sessionmaker_002() as session:
+        company = await session.get(Company, "COMP-002")
+        if company is None:
+            session.add(Company(id="COMP-002", name="Numbering Isolation Test Company"))
+            await session.flush()
+
+        default_branch = (
+            await session.execute(
+                select(Branch).where(
+                    Branch.company_id == "COMP-002",
+                    Branch.is_default.is_(True),
+                    Branch.is_active.is_(True),
+                    Branch.is_deleted.is_(False),
+                )
+            )
+        ).scalars().first()
+        if default_branch is None:
+            session.add(
+                Branch(
+                    id="BR-COMP-002-TEST",
+                    company_id="COMP-002",
+                    name="Numbering Isolation Test Branch",
+                    code="NUMBERING-COMP-002-TEST",
+                    is_active=True,
+                    is_deleted=False,
+                    is_default=True,
+                )
+            )
         await session.commit()
 
     try:

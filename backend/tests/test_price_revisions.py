@@ -26,6 +26,7 @@ from app.api.deps import get_company_db
 from app.core.security import create_access_token
 from unittest.mock import patch
 from app.models.item_master import Item, ItemVariant, ItemBarcode
+from app.models.tenant import Branch, Company
 from app.models.pricing import ItemPriceRevision, PriceBook, PriceBookEntry, CustomerPriceTier, CustomerPriceAssignment
 from app.models.crm import Customer
 from app.models.sales import SalesInvoice, SalesInvoiceItem
@@ -84,6 +85,41 @@ async def enforce_test_db_isolation():
     """P0 Test Isolation: Route all API company database sessions to dedicated test DB."""
     assert TEST_DB_NAME not in ("smriti001", "smritisys"), "Must never target shared database"
     session_factory = get_company_sessionmaker(TEST_DB_NAME)
+    async with session_factory() as session:
+        company = await session.get(Company, "COMP-001")
+        if company is None:
+            session.add(Company(id="COMP-001", name="Price Revision Test Company"))
+            await session.flush()
+
+        default_branch = (
+            await session.execute(
+                select(Branch).where(
+                    Branch.company_id == "COMP-001",
+                    Branch.is_active.is_(True),
+                    Branch.is_deleted.is_(False),
+                    Branch.is_default.is_(True),
+                )
+            )
+        ).scalars().first()
+        if default_branch is None:
+            branch = await session.get(Branch, "BR-001")
+            if branch is not None and branch.company_id == "COMP-001":
+                branch.is_active = True
+                branch.is_deleted = False
+                branch.is_default = True
+            else:
+                session.add(
+                    Branch(
+                        id="BR-001" if branch is None else "BR-PRICE-DEFAULT",
+                        company_id="COMP-001",
+                        name="Price Revision Test Branch",
+                        code="PRICE-REVISION-BR-001",
+                        is_active=True,
+                        is_deleted=False,
+                        is_default=True,
+                    )
+                )
+        await session.commit()
 
     async def _override_get_company_db():
         async with session_factory() as session:

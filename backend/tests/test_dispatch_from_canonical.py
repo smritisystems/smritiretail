@@ -66,13 +66,13 @@ async def setup_dispatch_test_master_data():
                 name="Tattly Threads",
                 company_code="001",
                 gst_number="27AAXFT2508H1ZR",
-                address="Office No. 81, Ibrahim Rehmatullah Road, Beside Jio Gallery, near HP Petrol Pump, Mumbai, Maharashtra - 400003",
+                address_line1="Office No. 81, Ibrahim Rehmatullah Road, Beside Jio Gallery, near HP Petrol Pump, Mumbai, Maharashtra - 400003",
             )
             session.add(comp)
         else:
             comp.name = "Tattly Threads"
             comp.gst_number = "27AAXFT2508H1ZR"
-            comp.address = "Office No. 81, Ibrahim Rehmatullah Road, Beside Jio Gallery, near HP Petrol Pump, Mumbai, Maharashtra - 400003"
+            comp.address_line1 = "Office No. 81, Ibrahim Rehmatullah Road, Beside Jio Gallery, near HP Petrol Pump, Mumbai, Maharashtra - 400003"
             session.add(comp)
 
         branch = (await session.execute(select(Branch).where(Branch.id == "MAIN"))).scalar_one_or_none()

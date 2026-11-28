@@ -101,14 +101,16 @@ async def test_dual_write_canonical_sync_and_tenant_isolation():
         
         # Verify Canonical Dual-Sync in item_variants, items, item_barcodes, legacy_id_mappings
         res_var = await session.execute(text("""
-            SELECT v.variant_sku, i.item_code, b.barcode, b.barcode_type, m.legacy_id, pbe.selling_price, pbe.mrp
+            SELECT v.variant_sku, i.item_code, b.barcode, b.barcode_type,
+                   m.legacy_id, m.canonical_id, pbe.selling_price, pbe.mrp
             FROM item_variants v
             JOIN items i ON v.item_id = i.id
             LEFT JOIN item_barcodes b ON b.variant_id = v.id
-            LEFT JOIN legacy_id_mappings m ON m.canonical_id = v.id
+            LEFT JOIN legacy_id_mappings m
+              ON m.legacy_table = 'products' AND m.legacy_id = :product_id
             LEFT JOIN price_book_entries pbe ON pbe.variant_id = v.id
             WHERE v.variant_sku = :sku
-        """), {'sku': test_code})
+        """), {'sku': test_code, 'product_id': created.id})
         
         row = res_var.fetchone()
         assert row is not None, f"Canonical variant {test_code} was not created."
@@ -116,8 +118,13 @@ async def test_dual_write_canonical_sync_and_tenant_isolation():
         assert row[1] == 'CH-01-A'
         assert row[2] == test_bc, f"Expected canonical barcode {test_bc}; got {row[2]!r}."
         assert row[4] == created.id
-        assert row[5] == Decimal('1299.00'), f"Canonical selling price entry missing or incorrect: {row[5]!r}."
-        assert row[6] == Decimal('1499.00'), f"Canonical MRP entry missing or incorrect: {row[6]!r}."
+        assert row[5] is not None, "Legacy product mapping must identify its canonical variant."
+        assert row[5] == (await session.execute(
+            text("SELECT id FROM item_variants WHERE variant_sku = :sku"),
+            {'sku': test_code},
+        )).scalar_one()
+        assert row[6] == Decimal('1299.00'), f"Canonical selling price entry missing or incorrect: {row[6]!r}."
+        assert row[7] == Decimal('1499.00'), f"Canonical MRP entry missing or incorrect: {row[7]!r}."
         
         # Cleanup test row
         await session.execute(text("DELETE FROM price_book_entries WHERE variant_id IN (SELECT id FROM item_variants WHERE variant_sku = :sku)"), {'sku': test_code})

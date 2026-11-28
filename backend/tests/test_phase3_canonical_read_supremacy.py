@@ -523,6 +523,18 @@ async def test_08_purchase_default_rate_prioritizes_canonical_variant(db_session
     supplier = Supplier(id=supplier_id, company_id=comp_id, code=f"SUP-R-{suffix}", name=f"Rate Supplier {suffix}", is_active=True)
     db_session.add(supplier)
 
+    warehouse = Warehouse(
+        id=f"wh-rate-{suffix}",
+        uuid=str(uuid.uuid4()),
+        company_id=comp_id,
+        branch_id="MAIN",
+        code=f"WH-RATE-{suffix}",
+        name=f"Rate Test Warehouse {suffix}",
+        is_active=True,
+        is_deleted=False,
+    )
+    db_session.add(warehouse)
+
     item = Item(id=f"itm_{suffix}", company_id=comp_id, item_code=f"R-ITM-{suffix}", item_name=f"Rate Item {suffix}", is_active=True)
     db_session.add(item)
     await db_session.flush()
@@ -546,7 +558,7 @@ async def test_08_purchase_default_rate_prioritizes_canonical_variant(db_session
 
     receipt = PurchaseReceipt(
         id=f"rcpt_{suffix}", company_id=comp_id, receipt_no=f"RCPT-{suffix}",
-        supplier_id=supplier_id, status="RECEIVED", is_deleted=False
+        supplier_id=supplier_id, warehouse_id=warehouse.id, status="RECEIVED", is_deleted=False
     )
     db_session.add(receipt)
     await db_session.flush()
