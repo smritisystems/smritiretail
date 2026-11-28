@@ -39,6 +39,7 @@ describe("WavePickingOptimiser — Warehouse Wave Picking Optimiser", () => {
     expect(wave.totalTasks).toBe(5);
     expect(wave.status).toBe("OPEN");
     expect(wave.tasks).toHaveLength(5);
+    expect(new Set(wave.tasks.map((task) => task.taskId)).size).toBe(wave.tasks.length);
 
     // All tasks start as PENDING
     expect(wave.tasks.every((t) => t.status === "PENDING")).toBe(true);

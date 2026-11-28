@@ -40,6 +40,7 @@ from app.services.databridge.models import (
 )
 
 from db_test_config import COMPANY_001_ASYNC_URL
+from db_test_items import seed_catalog_items
 
 TEST_DB_URL = COMPANY_001_ASYNC_URL
 CANONICAL_COMP_ID = "COMP-001"
@@ -115,6 +116,7 @@ async def test_tc_sales_001_sales_invoice_preview_and_commit(db_session: AsyncSe
             "gst_rate": 18.0,
         },
     ]
+    await seed_catalog_items(db_session, rows)
 
     # 1. Preview
     prev_req = DataBridgePreviewRequest(
@@ -201,6 +203,7 @@ async def test_tc_sales_002_sales_invoice_duplicate_conflict(db_session: AsyncSe
             "gst_rate": 18.0,
         }
     ]
+    await seed_catalog_items(db_session, rows)
 
     # Initial preview & commit
     prev = await DataBridgeService.execute_preview(
@@ -313,6 +316,7 @@ async def test_tc_sales_004_sales_order_preview_and_commit(db_session: AsyncSess
             "gst_rate": 18.0,
         },
     ]
+    await seed_catalog_items(db_session, rows)
 
     # 1. Preview
     prev = await DataBridgeService.execute_preview(
@@ -388,6 +392,7 @@ async def test_tc_sales_005_sales_order_duplicate_conflict(db_session: AsyncSess
             "gst_rate": 18.0,
         }
     ]
+    await seed_catalog_items(db_session, rows)
 
     prev = await DataBridgeService.execute_preview(
         company_db=db_session,
@@ -451,6 +456,7 @@ async def test_tc_sales_006_sales_return_preview_and_commit(db_session: AsyncSes
             "gst_rate": 18.0,
         }
     ]
+    await seed_catalog_items(db_session, rows)
 
     # 1. Preview
     prev = await DataBridgeService.execute_preview(
@@ -524,6 +530,7 @@ async def test_tc_sales_007_sales_return_duplicate_conflict(db_session: AsyncSes
             "gst_rate": 18.0,
         }
     ]
+    await seed_catalog_items(db_session, rows)
 
     prev = await DataBridgeService.execute_preview(
         company_db=db_session,
@@ -585,6 +592,7 @@ async def test_tc_sales_008_rest_endpoints_e2e_preview_and_commit(db_session: As
             "gst_rate": 18.0,
         }
     ]
+    await seed_catalog_items(db_session, rows)
 
     async def override_get_company_db():
         yield db_session

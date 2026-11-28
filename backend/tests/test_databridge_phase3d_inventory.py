@@ -38,6 +38,7 @@ from app.services.databridge.models import (
 )
 
 from db_test_config import COMPANY_001_ASYNC_URL
+from db_test_items import seed_catalog_items
 
 TEST_DB_URL = COMPANY_001_ASYNC_URL
 CANONICAL_COMP_ID = "COMP-001"
@@ -113,6 +114,7 @@ async def test_tc_inv_001_stock_transfer_preview_and_commit(db_session: AsyncSes
             "batch_no": "BATCH-02",
         },
     ]
+    await seed_catalog_items(db_session, rows)
 
     # 1. Preview
     req_prev = DataBridgePreviewRequest(
@@ -237,6 +239,7 @@ async def test_tc_inv_003_stock_transfer_duplicate_conflict(db_session: AsyncSes
             "unit_cost": 100.0,
         }
     ]
+    await seed_catalog_items(db_session, rows)
 
     # Commit initial transfer
     prev1 = await DataBridgeService.execute_preview(
@@ -354,6 +357,7 @@ async def test_tc_inv_005_stock_audit_preview_and_commit(db_session: AsyncSessio
             "batch_no": "B2",
         },
     ]
+    await seed_catalog_items(db_session, rows)
 
     # 1. Preview
     req_prev = DataBridgePreviewRequest(
@@ -435,6 +439,7 @@ async def test_tc_inv_006_stock_audit_duplicate_conflict(db_session: AsyncSessio
             "unit_cost": 50.0,
         }
     ]
+    await seed_catalog_items(db_session, rows)
 
     prev1 = await DataBridgeService.execute_preview(
         company_db=db_session,
@@ -508,6 +513,7 @@ async def test_tc_inv_007_rest_endpoints_e2e_preview_and_commit(db_session: Asyn
             "unit_cost": 100.0,
         }
     ]
+    await seed_catalog_items(db_session, transfer_rows + audit_rows)
 
     async def override_get_company_db():
         yield db_session

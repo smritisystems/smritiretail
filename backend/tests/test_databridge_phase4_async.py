@@ -43,6 +43,24 @@ from db_test_config import COMPANY_001_ASYNC_URL
 TEST_DB_URL = COMPANY_001_ASYNC_URL
 CANONICAL_COMP_ID = "COMP-001"
 
+_VALID_ITEM_DIMENSIONS = {
+    "brand": "SMRITI",
+    "category": "Footwear",
+    "department": "FOOTWEAR",
+    "primary_uom": "Pair",
+    "tax_rate": 18.0,
+    "color": "BLACK",
+    "size": "40",
+    "size_group": "FOOTWEAR_EU",
+    "gender": "WOMEN",
+    "product_type": "SHOE",
+    "heel_type": "WEDGE",
+    "upper_material": "FABRIC",
+    "design_attribute": "COMFORT",
+    "tax_category": "STANDARD",
+    "hsn_code": "6403",
+}
+
 
 @pytest_asyncio.fixture
 async def db_session():
@@ -195,11 +213,9 @@ async def test_tc_async_003_process_chunks_to_completion(db_session: AsyncSessio
     codes = [f"ASYNC-PROC-{uid}-{i}" for i in range(4)]
     rows = [
         {
+            **_VALID_ITEM_DIMENSIONS,
             "item_code": code,
             "item_name": f"Async Proc Item {uid} #{i}",
-            "brand": "SMRITI",
-            "category": "Footwear",
-            "primary_uom": "Pair",
             "mrp": 1200.0,
             "selling_price": 950.0,
         }

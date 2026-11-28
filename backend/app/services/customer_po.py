@@ -351,6 +351,10 @@ class CustomerPOService:
                 )
             ).scalars().first()
 
+        await self.db.execute(
+            text("SELECT pg_advisory_xact_lock(hashtextextended(:lock_key, 0))"),
+            {"lock_key": f"customer-po-bill:{self.tenant_ctx.company_id}:{po_id}"},
+        )
         po, po_lines = await self.validate_billing(
             po_id,
             request,

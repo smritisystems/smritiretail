@@ -98,7 +98,11 @@ function serpentineKey(loc: PickLocation): number {
 
 export class WavePickingOptimiser {
   private static waveCounter = 1;
-  private static taskId = () => `TASK-${Date.now()}-${Math.floor(Math.random() * 999).toString().padStart(3, "0")}`;
+  private static taskCounter = 1;
+
+  private static createTaskId(): string {
+    return `TASK-${Date.now()}-${String(this.taskCounter++).padStart(6, "0")}`;
+  }
 
   /** Create a new pick wave from open order lines */
   public static createWave(params: {
@@ -117,7 +121,7 @@ export class WavePickingOptimiser {
 
     // Build tasks with serpentine sort keys
     const tasks: PickTask[] = params.orderLines.map((ol) => ({
-      taskId: this.taskId(),
+      taskId: this.createTaskId(),
       orderId: ol.orderId,
       orderLine: ol.lineNo,
       sku: ol.sku,

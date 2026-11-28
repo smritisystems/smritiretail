@@ -39,6 +39,7 @@ from app.services.databridge.models import (
 )
 
 from db_test_config import COMPANY_001_ASYNC_URL
+from db_test_items import seed_catalog_items
 
 TEST_DB_URL = COMPANY_001_ASYNC_URL
 CANONICAL_COMP_ID = "COMP-001"
@@ -133,6 +134,7 @@ async def test_tc_proc_001_po_create_with_lines(db_session: AsyncSession):
             "gst_rate": 18.0,
         },
     ]
+    await seed_catalog_items(db_session, rows)
 
     preview_req = DataBridgePreviewRequest(
         entity_type=DataBridgeEntityType.PURCHASE_ORDER,
@@ -321,6 +323,7 @@ async def test_tc_proc_003_po_supplier_auto_provisioning(db_session: AsyncSessio
             "cost_price": 150.0,
         }
     ]
+    await seed_catalog_items(db_session, rows)
 
     preview_req = DataBridgePreviewRequest(
         entity_type=DataBridgeEntityType.PURCHASE_ORDER,
@@ -442,6 +445,7 @@ async def test_tc_proc_005_grn_create_and_match(db_session: AsyncSession):
             "gst_rate": 18.0,
         }
     ]
+    await seed_catalog_items(db_session, rows)
 
     preview_req = DataBridgePreviewRequest(
         entity_type=DataBridgeEntityType.GOODS_RECEIPT_NOTE,
@@ -699,6 +703,7 @@ async def test_tc_proc_008_api_procurement_endpoints(db_session: AsyncSession):
                     "cost_price": 100.0,
                 }
             ]
+            await seed_catalog_items(db_session, po_rows)
             po_prev_res = await client.post(
                 "/api/v1/databridge/purchase-order/preview",
                 json={"rows": po_rows},

@@ -354,6 +354,8 @@ class DataBridgeItemAdapter(BaseDataBridgeAdapter):
                     cost_price=norm.get("cost_price", 0.0),
                     hsn_code=norm.get("hsn_code"),
                     primary_barcode=norm.get("barcode"),
+                    color=norm.get("color"),
+                    size=norm.get("size"),
                     collection_type=norm.get("collection_type"),
                     gender=norm.get("gender"),
                     product_type=norm.get("product_type"),

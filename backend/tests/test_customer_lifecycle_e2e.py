@@ -46,6 +46,7 @@ from app.services.billing_catalog_service import BillingCatalogService
 from app.services.canonical_sales_writer import CanonicalSalesPostingWriter
 from app.services.crm import CrmService
 from app.services.psv_projection import PSVProjectionService
+from app.services.stock_ledger import StockLedger
 
 # Ensure isolated test database routing
 TEST_DB = "smriti_test_phase2c"
@@ -618,6 +619,15 @@ async def test_phase6_sales_invoice_creation_child_guard_and_retrieval(tenant_ct
             is_deleted=False,
         )
         session.add(product)
+        await session.commit()
+        await StockLedger.post_admin_opening_stock(
+            session=session,
+            company_id=TEST_COMPANY_ID,
+            product_id=product.id,
+            quantity=Decimal("10"),
+            reason="Seed inventory for customer lifecycle billing test",
+            warehouse_id="WH-MAIN",
+        )
         await session.commit()
 
         crm_service = CrmService(session, tenant_ctx)

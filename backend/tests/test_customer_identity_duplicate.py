@@ -339,7 +339,7 @@ async def test_04_same_customer_code_different_tenant_allowed(tenant_ctx, other_
             name=f"Tenant B Customer {uid}",
             status="Active"
         ))
-        assert cust_b.code == code
+        assert cust_b.code == code.upper()
 
 
 # ===========================================================================
