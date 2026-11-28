@@ -434,6 +434,7 @@ async def test_tc_proc_005_grn_create_and_match(db_session: AsyncSession):
 
     warehouse = Warehouse(
         id=f"WH-GRN-{suffix}",
+        uuid=str(uuid.uuid4()),
         company_id=CANONICAL_COMP_ID,
         branch_id="BR-MAIN-001",
         code=f"WH-GRN-{suffix}",

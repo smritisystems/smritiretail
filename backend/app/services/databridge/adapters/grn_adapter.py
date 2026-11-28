@@ -521,9 +521,15 @@ class DataBridgeGrnAdapter(BaseDataBridgeAdapter):
                         },
                     )
 
-                if canon_res.product_id:
-                    p_id = canon_res.product_id
-                else:
+                if p_id is None and canon_res.product_id:
+                    bridge_stmt = select(Product.id).where(
+                        Product.id == canon_res.product_id,
+                        Product.company_id == company_id,
+                        Product.is_deleted.is_(False),
+                    )
+                    p_id = (await session.execute(bridge_stmt)).scalars().first()
+
+                if p_id is None:
                     # Canonical Item exists but lacks legacy Product bridge; create transitional shadow Product bridge
                     p_tech_id, p_id_code = await IdentityEngine.allocate_internal(
                         session=session,

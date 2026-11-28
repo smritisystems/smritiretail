@@ -138,8 +138,8 @@ class InventoryService:
             )
 
         post_res = await StockLedger.post(
-            session=self.db,
-            request=MovementRequest(
+            self.db,
+            MovementRequest(
                 company_id=self.tenant_ctx.company_id,
                 branch_id=self.tenant_ctx.branch_id,
                 product_id=product.id,
@@ -705,16 +705,17 @@ class InventoryService:
 
         delta = qty_dec - Decimal(str(ledger_stock))
 
+        movement_ref = f"ADJ-{uuid.uuid4().hex[:12]}"
         adj_result = await StockLedger.post(
-            session=self.db,
-            request=MovementRequest(
+            self.db,
+            MovementRequest(
                 company_id=self.tenant_ctx.company_id,
                 branch_id=self.tenant_ctx.branch_id,
                 product_id=product.id,
                 movement_type="ADJUSTMENT",
                 quantity=delta,
                 reference_doc_type="Stock Adjustment",
-                reference_doc_id=movement_id,
+                reference_doc_id=movement_ref,
                 remarks=reason or "Physical audit inventory adjustment",
                 source_module="Inventory",
             ),
@@ -735,7 +736,7 @@ class InventoryService:
                 "reason": reason,
                 "company_code": self.tenant_ctx.company_id
             },
-            causation_id=movement_id
+            causation_id=movement.id
         )
 
         saved_mov_id = movement.id

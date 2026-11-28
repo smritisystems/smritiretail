@@ -646,10 +646,10 @@ async def test_pos_checkout_with_tax_inclusive_catalog_item(tenant_ctx):
             heel_type="WEDGE",
             upper_material="FABRIC",
             design_attribute="COMFORT",
-            style_code=None,
+            style_code="CH-01-A",
             attributes={
-                "style_no": "CH-08-J",
-                "article_no": f"POS-ART-{uid}",
+                "style_no": "CH-01-A",
+                "article_no": "CH-01-A",
                 "department": "FOOTWEAR",
                 "size_group": "FOOTWEAR_EU",
                 "tax_category": "STANDARD",

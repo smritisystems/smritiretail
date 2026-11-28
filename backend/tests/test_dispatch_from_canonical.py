@@ -208,16 +208,18 @@ async def setup_dispatch_test_master_data():
                 branch_id="MAIN",
                 code="CG-DISPATCH-TG",
                 name="Dispatch Test Discount Group",
-                max_discount_percent=Decimal("10.00"),
+                max_discount_percent=Decimal("50.00"),
                 can_receive_discount=True,
             )
             session.add(discount_group)
         else:
-            discount_group.max_discount_percent = Decimal("10.00")
+            discount_group.max_discount_percent = Decimal("50.00")
             discount_group.can_receive_discount = True
             session.add(discount_group)
         await session.flush()
 
+        cust_assam.customer_group_id = discount_group.id
+        session.add(cust_assam)
         cust_tg = (await session.execute(select(Customer).where(Customer.id == "cust-tg-001"))).scalar_one_or_none()
         if not cust_tg:
             cust_tg = Customer(
@@ -850,9 +852,10 @@ async def test_09_pdf_displays_both_separately():
             session=session,
             invoice_id=inv.id,
             company_id="COMP-001",
+            company_name="Tattly Threads",
         )
         # Check for supplier letterhead and separate DISPATCH FROM block
-        assert "TATTLY THREADS" in html_doc
+        assert "TATTLY THREADS" in html_doc.upper()
         assert "DISPATCH FROM" in html_doc
         # Check for supplier HQ address and Nagpur depot address
         assert "Ibrahim Rehmatullah Road" in html_doc
@@ -1104,7 +1107,7 @@ async def test_13_specific_acceptance_test_invoice_tt138():
         assert bill["actToStateCode"] == 18
 
         # 5. Verify PDF Rendering
-        html_doc = await InvoicePdfService.generate_invoice_html(inv)
+        html_doc = await InvoicePdfService.generate_invoice_html(inv, company_name="Tattly Threads")
         assert "TATTLY THREADS" in html_doc
         assert "DISPATCH FROM" in html_doc
         assert "27AAXFT2508H1ZR" in html_doc

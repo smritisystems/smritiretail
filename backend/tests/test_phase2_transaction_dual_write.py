@@ -22,9 +22,9 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, Asyn
 from fastapi import HTTPException
 
 from app.models.item_master import Item, ItemVariant, ItemBarcode, LegacyIdMapping
-from app.models.inventory import Product, StockMovement, StockAudit, StockAuditItem
+from app.models.inventory import Product, StockMovement, StockAudit, StockAuditItem, Warehouse
 from app.models.sales import SalesInvoice, SalesInvoiceItem, SalesReturn, SalesReturnItem
-from app.models.purchase import PurchaseOrder, PurchaseOrderItem, PurchaseReceipt, PurchaseReceiptItem
+from app.models.purchase import Supplier
 from app.services.product_resolution_service import ProductResolutionService
 from app.schemas.product_resolution import TransactionLineItemInput
 from app.services.inventory import InventoryService
@@ -35,6 +35,7 @@ from app.services.sales import SalesService
 from app.schemas.sales import SalesReturnCreate, SalesReturnItemCreate
 from app.services.stock_audit_service import StockAuditService
 from app.services.sales_stock_authority import SalesStockAuthority
+from app.services.stock_ledger import StockLedger
 from app.api.deps import TenantContext
 
 
@@ -50,6 +51,38 @@ async def db_session():
     async with session_factory() as session:
         yield session
     await engine.dispose()
+
+
+async def _seed_warehouse(db_session: AsyncSession, warehouse_id: str, company_id: str = "COMP-001") -> Warehouse:
+    warehouse = Warehouse(
+        id=warehouse_id,
+        uuid=str(uuid.uuid4()),
+        company_id=company_id,
+        branch_id="MAIN",
+        code=warehouse_id.upper(),
+        name=f"Test Warehouse {warehouse_id}",
+        is_active=True,
+        is_deleted=False,
+    )
+    db_session.add(warehouse)
+    await db_session.flush()
+    return warehouse
+
+
+async def _seed_opening_stock(
+    db_session: AsyncSession,
+    product_id: str,
+    quantity: int,
+    warehouse_id: str | None = None,
+) -> None:
+    await StockLedger.post_admin_opening_stock(
+        session=db_session,
+        company_id="COMP-001",
+        product_id=product_id,
+        quantity=Decimal(quantity),
+        reason="Test fixture opening balance",
+        warehouse_id=warehouse_id,
+    )
 
 
 @pytest.mark.asyncio
@@ -297,6 +330,8 @@ async def test_08_valid_legacy_product_with_canonical_bridge(db_session: AsyncSe
         code=variant.variant_sku, barcode=f"BC_{suffix}", name=f"Bridged Product {suffix}", category="General", stock=50, is_active=True
     )
     db_session.add(prod)
+    await db_session.flush()
+    await _seed_opening_stock(db_session, prod.id, 50)
     await db_session.commit()
 
     tenant_ctx = TenantContext(company_id=comp_id, branch_id="MAIN")
@@ -342,6 +377,7 @@ async def test_10_stock_movement_ledger_dual_key_population(db_session: AsyncSes
         code=variant.variant_sku, barcode=f"BC_{suffix}", name=f"Ledger Product {suffix}", category="General", stock=10, is_active=True
     )
     db_session.add(prod)
+    await db_session.flush()
     await db_session.commit()
 
     req = StockMovementRecordRequest(
@@ -479,18 +515,31 @@ async def test_13_grn_valid_item_succeeds_and_populates_movement_keys(db_session
     db_session.add(variant)
     await db_session.flush()
 
+    supplier = Supplier(
+        id=f"sup_{suffix}",
+        code=f"SUP-{suffix}",
+        name=f"GRN Supplier {suffix}",
+        company_id=comp_id,
+        branch_id="MAIN",
+        is_active=True,
+        is_deleted=False,
+    )
+    warehouse = await _seed_warehouse(db_session, f"wh-grn-{suffix}")
+    db_session.add(supplier)
+
     prod = Product(
         id=f"prd_{suffix}", company_id=comp_id, item_id=item.id, item_variant_id=variant.id,
         code=variant.variant_sku, barcode=f"BC_{suffix}", name=f"GRN Product {suffix}", category="General", stock=0, is_active=True
     )
     db_session.add(prod)
+    await db_session.flush()
     await db_session.commit()
 
     purch_svc = PurchaseService(db_session, tenant_ctx)
     grn_req = PurchaseReceiptCreate(
         receipt_no=f"GRN-{suffix}",
-        supplier_id="sup_a928a21b04",
-        warehouse_id="wh-central-001",
+        supplier_id=supplier.id,
+        warehouse_id=warehouse.id,
         items=[
             PurchaseReceiptItemCreate(
                 product_id=prod.id,
@@ -578,6 +627,8 @@ async def test_15_stock_adjustment_populates_dual_keys(db_session: AsyncSession)
         code=variant.variant_sku, barcode=f"BC_{suffix}", name=f"Adj Product {suffix}", category="General", stock=10, is_active=True
     )
     db_session.add(prod)
+    await db_session.flush()
+    await _seed_opening_stock(db_session, prod.id, 10)
     await db_session.commit()
 
     inv_svc = InventoryService(db_session, tenant_ctx)
@@ -614,13 +665,17 @@ async def test_16_stock_transfer_populates_dual_keys(db_session: AsyncSession):
         code=variant.variant_sku, barcode=f"BC_{suffix}", name=f"Trans Product {suffix}", category="General", stock=20, is_active=True
     )
     db_session.add(prod)
+    from_warehouse = await _seed_warehouse(db_session, f"wh-from-{suffix}")
+    to_warehouse = await _seed_warehouse(db_session, f"wh-to-{suffix}")
+    await db_session.flush()
+    await _seed_opening_stock(db_session, prod.id, 20, from_warehouse.id)
     await db_session.commit()
 
     inv_svc = InventoryService(db_session, tenant_ctx)
     mov = await inv_svc.transfer_stock(
         product_id=prod.id,
-        from_warehouse="wh-central-001",
-        to_warehouse="wh-branch-001",
+        from_warehouse=from_warehouse.id,
+        to_warehouse=to_warehouse.id,
         quantity=5,
     )
     assert mov.product_id == prod.id
@@ -651,6 +706,9 @@ async def test_17_stock_audit_discrepancy_reconciliation_dual_keys(db_session: A
         code=variant.variant_sku, barcode=f"BC_{suffix}", name=f"Audit Product {suffix}", category="General", stock=50, is_active=True
     )
     db_session.add(prod)
+    warehouse = await _seed_warehouse(db_session, f"wh-audit-{suffix}")
+    await db_session.flush()
+    await _seed_opening_stock(db_session, prod.id, 50, warehouse.id)
     await db_session.commit()
 
     audit_svc = StockAuditService(db_session, tenant_ctx)
@@ -660,7 +718,7 @@ async def test_17_stock_audit_discrepancy_reconciliation_dual_keys(db_session: A
         company_id=comp_id,
         branch_id="MAIN",
         audit_no=f"AUD-{suffix}",
-        warehouse_id="wh-central-001",
+        warehouse_id=warehouse.id,
         audit_date=datetime.now(timezone.utc),
         status="IN_PROGRESS",
     )
@@ -726,6 +784,8 @@ async def test_18_sales_stock_deduction_dual_keys(db_session: AsyncSession):
         code=variant.variant_sku, barcode=f"BC_{suffix}", name=f"Sale Product {suffix}", category="General", stock=20, is_active=True
     )
     db_session.add(prod)
+    await db_session.flush()
+    await _seed_opening_stock(db_session, prod.id, 20)
     await db_session.commit()
 
     inv_svc = InventoryService(db_session, tenant_ctx)
@@ -765,10 +825,12 @@ async def test_19_sales_invoice_cancellation_restores_stock_with_dual_keys(db_se
     )
     db_session.add(prod)
     await db_session.flush()
+    warehouse = await _seed_warehouse(db_session, f"wh-cancel-{suffix}")
+    await _seed_opening_stock(db_session, prod.id, 20, warehouse.id)
 
     inv = SalesInvoice(
         id=f"inv_{suffix}", invoice_no=f"INV-{suffix}", company_id=comp_id, branch_id="MAIN",
-        warehouse_id="wh-central-001", grand_total=Decimal("100.00"), status="PAID", is_deleted=False
+        warehouse_id=warehouse.id, grand_total=Decimal("100.00"), status="PAID", is_deleted=False
     )
     db_session.add(inv)
     await db_session.flush()

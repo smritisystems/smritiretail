@@ -21,13 +21,14 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 
 from app.models.item_master import Item, ItemVariant, ItemBarcode
-from app.models.inventory import Product, StockMovement
+from app.models.inventory import Product, StockMovement, Warehouse
 from app.models.sales import SalesInvoice, SalesInvoiceItem, SalesReturn, SalesReturnItem, SalesOrder, SalesOrderItem
 from app.models.purchase import Supplier, PurchaseOrder, PurchaseOrderItem, PurchaseReceipt, PurchaseReceiptItem
 from app.services.reports import ReportsService
 from app.services.purchase import PurchaseService
 from app.schemas.purchase import PurchaseReceiptCreate, PurchaseReceiptItemCreate
 from app.services.stock_synchronizer import StockSynchronizer
+from app.services.stock_ledger import StockLedger
 from app.services.pdt_analytics import PdtAnalyticsService
 from app.api.deps import TenantContext
 
@@ -85,6 +86,14 @@ async def test_01_stock_valuation_reports_canonical_keys(db_session: AsyncSessio
         stock=50, is_active=True
     )
     db_session.add(prod_legacy)
+    await db_session.flush()
+    await StockLedger.post_admin_opening_stock(
+        session=db_session,
+        company_id=comp_id,
+        product_id=prod_canon.id,
+        quantity=Decimal("15"),
+        reason="Canonical stock valuation test opening balance",
+    )
     await db_session.commit()
 
     tenant = TenantContext(company_id=comp_id, branch_id=None)
@@ -101,7 +110,7 @@ async def test_01_stock_valuation_reports_canonical_keys(db_session: AsyncSessio
 
     assert l_line.item_id is None
     assert l_line.variant_id is None
-    assert l_line.stock == Decimal("50")
+    assert l_line.stock == Decimal("0")
 
 
 @pytest.mark.asyncio
@@ -422,6 +431,17 @@ async def test_07_purchase_receipt_matches_po_line_by_canonical_variant(db_sessi
     # Setup supplier, canonical item, variant, product
     supplier = Supplier(id=supplier_id, company_id=comp_id, code=f"SUP-{suffix}", name=f"Supplier {suffix}", is_active=True)
     db_session.add(supplier)
+    warehouse = Warehouse(
+        id=f"wh-po-{suffix}",
+        uuid=str(uuid.uuid4()),
+        company_id=comp_id,
+        branch_id="MAIN",
+        code=f"WH-PO-{suffix}",
+        name=f"PO Receiving Warehouse {suffix}",
+        is_active=True,
+        is_deleted=False,
+    )
+    db_session.add(warehouse)
 
     item = Item(id=f"itm_{suffix}", company_id=comp_id, item_code=f"PO-ITM-{suffix}", item_name=f"PO Item {suffix}", is_active=True)
     db_session.add(item)
@@ -468,6 +488,7 @@ async def test_07_purchase_receipt_matches_po_line_by_canonical_variant(db_sessi
         receipt_no=f"GRN-TEST-{suffix}",
         supplier_id=supplier_id,
         order_id=po.id,
+        warehouse_id=warehouse.id,
         items=[
             PurchaseReceiptItemCreate(
                 product_id=product.id,

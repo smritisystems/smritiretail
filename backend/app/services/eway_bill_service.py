@@ -524,6 +524,7 @@ class EWayBillService:
         disp_addr1 = (disp_snap.get("address_line1") or company_address or "")[:120]
         disp_addr2 = (disp_snap.get("address_line2") or disp_snap.get("location_name") or "")[:120]
         disp_place = (disp_snap.get("city") or getattr(company, "city", None) or "")[:50]
+        comp_place = (getattr(company, "city", None) or "").strip().lower()
         if is_strict and not disp_place:
             raise HTTPException(status_code=422, detail="E-Way Bill requires a dispatch place.")
         
@@ -547,7 +548,11 @@ class EWayBillService:
         act_to_state = int(deliv_gstin[:2]) if (deliv_gstin and len(deliv_gstin) >= 2 and deliv_gstin[:2].isdigit()) else customer_state_code
         
         # Determine Statutory NIC Transaction Type (transType: 1=Regular, 2=BillTo-ShipTo, 3=BillFrom-DispatchFrom, 4=Combination)
-        is_dispatch_diff = has_disp and (disp_pin != comp_pin or act_from_state != company_state_code or disp_place.strip().lower() != comp_place.strip().lower())
+        is_dispatch_diff = has_disp and (
+            disp_pin != comp_pin
+            or act_from_state != company_state_code
+            or (comp_place and disp_place.strip().lower() != comp_place)
+        )
         is_ship_diff = (act_to_state != customer_state_code)
         
         if is_dispatch_diff and is_ship_diff:

@@ -15,10 +15,10 @@ Classification: Numbering Authority & Database Boundary Verification Suite
 import uuid
 import pytest
 from httpx import AsyncClient, ASGITransport
-from sqlalchemy import text
+from sqlalchemy import select, text
 
 from app.main import app
-from app.db.session import get_company_sessionmaker
+from app.db.session import get_company_sessionmaker, resolve_company_database_name
 from app.core.security import create_access_token
 from app.models.numbering import DocumentSeries
 from app.services.documents_engine import DocumentsEngine
@@ -46,10 +46,15 @@ def _get_auth_headers(company_id: str = "COMP-001", role: str = "SYSADMIN") -> d
     }
 
 
+async def _company_sessionmaker(company_id: str):
+    database_name = await resolve_company_database_name(company_id)
+    return get_company_sessionmaker(database_name)
+
+
 @pytest.mark.asyncio
 async def test_a_ui_preview_uses_tenant_article_series():
     """Test A — UI preview: GET /api/v1/numbering/series reads tenant Article series from smriti001."""
-    sessionmaker = get_company_sessionmaker("smriti001")
+    sessionmaker = await _company_sessionmaker("COMP-001")
     unique_suffix = uuid.uuid4().hex[:6].upper()
     series_id = f"SER-TENANT-{unique_suffix}"
 
@@ -95,19 +100,34 @@ async def test_a_ui_preview_uses_tenant_article_series():
 @pytest.mark.asyncio
 async def test_b_backend_article_creation_uses_same_tenant_series():
     """Test B — Backend Article creation uses the same tenant Article series in smriti001."""
-    sessionmaker = get_company_sessionmaker("smriti001")
+    sessionmaker = await _company_sessionmaker("COMP-001")
     unique_suffix = uuid.uuid4().hex[:6].upper()
     series_id = f"SER-TENANT-{unique_suffix}"
 
     async with sessionmaker() as session:
-        await session.execute(text("UPDATE document_series SET is_active = FALSE WHERE company_id = 'COMP-001' AND document_type = 'ARTICLE' AND category = 'SANDAL'"))
+        existing_series = (
+            await session.execute(
+                select(DocumentSeries).where(
+                    DocumentSeries.company_id == "COMP-001",
+                    DocumentSeries.document_type == "ARTICLE",
+                    DocumentSeries.category == "Footwear",
+                )
+            )
+        ).scalars().all()
+        prior_active_states = {series.id: series.is_active for series in existing_series}
+        await session.execute(
+            text(
+                "UPDATE document_series SET is_active = FALSE "
+                "WHERE company_id = 'COMP-001' AND document_type = 'ARTICLE' AND category = 'Footwear'"
+            )
+        )
         series = DocumentSeries(
             id=series_id,
             uuid=str(uuid.uuid4()),
             company_id="COMP-001",
             name=f"Tenant Creation Series {unique_suffix}",
             document_type="ARTICLE",
-            category="SANDAL",
+            category="Footwear",
             prefix="SND-",
             suffix="-A",
             start_number=10000,
@@ -124,7 +144,7 @@ async def test_b_backend_article_creation_uses_same_tenant_series():
         async with sessionmaker() as session:
             item_req = ItemCreateRequest(
                 item_name=f"Authority Test Sandal {unique_suffix}",
-                category="SANDAL",
+                category="Footwear",
                 department="FOOTWEAR",
                 brand="SMRITI",
                 color="BLACK",
@@ -170,14 +190,18 @@ async def test_b_backend_article_creation_uses_same_tenant_series():
             await session.execute(text("DELETE FROM items WHERE item_code = 'SND-10000-A'"))
             await session.execute(text("DELETE FROM numbering_audit_logs WHERE series_id = :sid"), {"sid": series_id})
             await session.execute(text("DELETE FROM document_series WHERE id = :sid"), {"sid": series_id})
-            await session.execute(text("UPDATE document_series SET is_active = TRUE WHERE company_id = 'COMP-001' AND document_type = 'ARTICLE' AND category = 'SANDAL' AND id != :sid"), {"sid": series_id})
+            for existing_id, was_active in prior_active_states.items():
+                await session.execute(
+                    text("UPDATE document_series SET is_active = :is_active WHERE id = :sid"),
+                    {"is_active": was_active, "sid": existing_id},
+                )
             await session.commit()
 
 
 @pytest.mark.asyncio
 async def test_c_sandal_preview_and_allocation_same_series():
     """Test C — SANDAL preview and allocation use the same series."""
-    sessionmaker = get_company_sessionmaker("smriti001")
+    sessionmaker = await _company_sessionmaker("COMP-001")
     series_id = f"SER-SANDAL-{uuid.uuid4().hex[:6].upper()}"
 
     async with sessionmaker() as session:
@@ -237,7 +261,7 @@ async def test_c_sandal_preview_and_allocation_same_series():
 @pytest.mark.asyncio
 async def test_d_shoes_preview_and_allocation_same_series():
     """Test D — SHOES preview and allocation use the same series."""
-    sessionmaker = get_company_sessionmaker("smriti001")
+    sessionmaker = await _company_sessionmaker("COMP-001")
     series_id = f"SER-SHOES-{uuid.uuid4().hex[:6].upper()}"
 
     async with sessionmaker() as session:
@@ -296,7 +320,7 @@ async def test_d_shoes_preview_and_allocation_same_series():
 @pytest.mark.asyncio
 async def test_e_preview_does_not_increment_counter():
     """Test E — Preview (calling GET /api/v1/numbering/series multiple times) does not increment current_number."""
-    sessionmaker = get_company_sessionmaker("smriti001")
+    sessionmaker = await _company_sessionmaker("COMP-001")
     series_id = f"SER-RO-{uuid.uuid4().hex[:6].upper()}"
 
     async with sessionmaker() as session:
@@ -339,7 +363,7 @@ async def test_e_preview_does_not_increment_counter():
 @pytest.mark.asyncio
 async def test_f_article_creation_increments_counter_exactly_once():
     """Test F — Article creation increments current_number exactly once."""
-    sessionmaker = get_company_sessionmaker("smriti001")
+    sessionmaker = await _company_sessionmaker("COMP-001")
     series_id = f"SER-INC-{uuid.uuid4().hex[:6].upper()}"
 
     async with sessionmaker() as session:
@@ -389,7 +413,7 @@ async def test_f_article_creation_increments_counter_exactly_once():
 @pytest.mark.asyncio
 async def test_g_two_tenants_remain_isolated():
     """Test G — Two tenants remain isolated: COMP-001 series not visible to or consumed by COMP-002."""
-    sessionmaker_001 = get_company_sessionmaker("smriti001")
+    sessionmaker_001 = await _company_sessionmaker("COMP-001")
     series_id = f"SER-COMP001-ONLY-{uuid.uuid4().hex[:6].upper()}"
 
     async with sessionmaker_001() as session:
@@ -434,7 +458,7 @@ async def test_g_two_tenants_remain_isolated():
 @pytest.mark.asyncio
 async def test_h_existing_non_article_numbering_still_works():
     """Test H — Existing non-Article numbering still works sequentially."""
-    sessionmaker = get_company_sessionmaker("smriti001")
+    sessionmaker = await _company_sessionmaker("COMP-001")
     unique_doc = f"SALES_INV_{uuid.uuid4().hex[:6].upper()}"
 
     async with sessionmaker() as session:
