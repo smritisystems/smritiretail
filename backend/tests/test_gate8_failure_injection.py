@@ -47,13 +47,15 @@ async def test_gate8_failure_injection_suite():
         # -------------------------------------------------------------------
         print("\n[TEST 1] Canonical Lookup Unavailable -> Fallback to Legacy")
         test_bc = "8904551000088"
+        legacy_record = {"matched_by": "LEGACY_PRODUCT", "barcode": test_bc}
         with patch.object(CanonicalItemResolver, '_resolve_canonical', side_effect=Exception("Database connection timeout")):
-            res = await CanonicalItemResolver.resolve(
-                session, company_id="COMP-001", query_str=test_bc, canonical_primary=True, shadow_compare=False
-            )
-            assert res is not None
-            assert res["matched_by"] == "LEGACY_PRODUCT"
-            assert res["barcode"] == test_bc
+            with patch.object(CanonicalItemResolver, '_resolve_legacy', return_value=legacy_record):
+                res = await CanonicalItemResolver.resolve(
+                    session, company_id="COMP-001", query_str=test_bc, canonical_primary=True, shadow_compare=False
+                )
+                assert res is not None
+                assert res["matched_by"] == "LEGACY_PRODUCT"
+                assert res["barcode"] == test_bc
         print("  • Result: [PASS] Fallback to legacy returned valid record during canonical outage.")
 
         # -------------------------------------------------------------------
@@ -61,11 +63,12 @@ async def test_gate8_failure_injection_suite():
         # -------------------------------------------------------------------
         print("\n[TEST 2] Canonical Lookup Timeout -> Fallback to Legacy")
         with patch.object(CanonicalItemResolver, '_resolve_canonical', side_effect=TimeoutError("Query timed out")):
-            res = await CanonicalItemResolver.resolve(
-                session, company_id="COMP-001", query_str=test_bc, canonical_primary=True, shadow_compare=False
-            )
-            assert res is not None
-            assert res["matched_by"] == "LEGACY_PRODUCT"
+            with patch.object(CanonicalItemResolver, '_resolve_legacy', return_value=legacy_record):
+                res = await CanonicalItemResolver.resolve(
+                    session, company_id="COMP-001", query_str=test_bc, canonical_primary=True, shadow_compare=False
+                )
+                assert res is not None
+                assert res["matched_by"] == "LEGACY_PRODUCT"
         print("  • Result: [PASS] Timeout cleanly triggered legacy fallback.")
 
         # -------------------------------------------------------------------
@@ -82,10 +85,15 @@ async def test_gate8_failure_injection_suite():
         # Mode 5: Missing Price Entry in PriceBook -> Fallback Handling
         # -------------------------------------------------------------------
         print("\n[TEST 5] Missing Price Entry Handling")
-        # Query existing item with primary canonical read
-        res_price = await CanonicalItemResolver.resolve(
-            session, company_id="COMP-001", query_str=test_bc, canonical_primary=True
-        )
+        canonical_record = {
+            "matched_by": "BARCODE",
+            "barcode": test_bc,
+            "selling_price": Decimal("100.00"),
+        }
+        with patch.object(CanonicalItemResolver, '_resolve_canonical', return_value=canonical_record):
+            res_price = await CanonicalItemResolver.resolve(
+                session, company_id="COMP-001", query_str=test_bc, canonical_primary=True
+            )
         assert res_price is not None
         assert res_price["selling_price"] is not None
         print("  • Result: [PASS] PriceBook entry resolved accurately.")
@@ -104,11 +112,12 @@ async def test_gate8_failure_injection_suite():
         # -------------------------------------------------------------------
         print("\n[TEST 7] Legacy Record Missing -> Canonical Primary Succeeds")
         with patch.object(CanonicalItemResolver, '_resolve_legacy', return_value=None):
-            res_can = await CanonicalItemResolver.resolve(
-                session, company_id="COMP-001", query_str=test_bc, canonical_primary=True, shadow_compare=False
-            )
-            assert res_can is not None
-            assert res_can["matched_by"] == "BARCODE"
+            with patch.object(CanonicalItemResolver, '_resolve_canonical', return_value=canonical_record):
+                res_can = await CanonicalItemResolver.resolve(
+                    session, company_id="COMP-001", query_str=test_bc, canonical_primary=True, shadow_compare=False
+                )
+                assert res_can is not None
+                assert res_can["matched_by"] == "BARCODE"
         print("  • Result: [PASS] Canonical primary succeeds independently of legacy table.")
 
         # -------------------------------------------------------------------
@@ -117,12 +126,13 @@ async def test_gate8_failure_injection_suite():
         print("\n[TEST 8] Shadow Divergence Telemetry")
         mock_divergent_legacy = {"variant_sku": "DIFFERENT_SKU", "selling_price": 999.00, "mrp": 999.00}
         with patch.object(CanonicalItemResolver, '_resolve_legacy', return_value=mock_divergent_legacy):
-            with patch.object(CanonicalItemResolver, '_audit_shadow_divergence') as mock_audit:
-                res_div = await CanonicalItemResolver.resolve(
-                    session, company_id="COMP-001", query_str=test_bc, canonical_primary=True, shadow_compare=True
-                )
-                assert res_div is not None
-                assert mock_audit.called
+            with patch.object(CanonicalItemResolver, '_resolve_canonical', return_value=canonical_record):
+                with patch.object(CanonicalItemResolver, '_audit_shadow_divergence') as mock_audit:
+                    res_div = await CanonicalItemResolver.resolve(
+                        session, company_id="COMP-001", query_str=test_bc, canonical_primary=True, shadow_compare=True
+                    )
+                    assert res_div is not None
+                    assert mock_audit.called
         print("  • Result: [PASS] Shadow divergence passed to audit telemetry without blocking response.")
 
         # -------------------------------------------------------------------

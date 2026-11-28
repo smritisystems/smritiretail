@@ -567,13 +567,13 @@ async def test_04_bill_from_and_dispatch_from_same_location():
                     name="Tattly Footwear Classic",
                     hsn_code="64041990",
                     quantity=Decimal("1.00"),
-                    unit_price=Decimal("500.00"),
+                    unit_price=Decimal("100.00"),
                     gst_rate=Decimal("5.00"),
                     is_tax_inclusive=False,
                 )
             ],
             tenders=[
-                CanonicalTenderItem(tender_type="CASH", amount=Decimal("525.00"))
+                CanonicalTenderItem(tender_type="CASH", amount=Decimal("105.00"))
             ],
         )
 
@@ -796,13 +796,13 @@ async def test_08_eway_bill_payload_receives_correct_bill_from_and_dispatch_from
                     name="Tattly Footwear Classic",
                     hsn_code="64041990",
                     quantity=Decimal("1.00"),
-                    unit_price=Decimal("400.00"),
+                    unit_price=Decimal("100.00"),
                     gst_rate=Decimal("5.00"),
                     is_tax_inclusive=False,
                 )
             ],
             tenders=[
-                CanonicalTenderItem(tender_type="CASH", amount=Decimal("420.00"))
+                CanonicalTenderItem(tender_type="CASH", amount=Decimal("105.00"))
             ],
         )
 
@@ -846,7 +846,11 @@ async def test_09_pdf_displays_both_separately():
         )).scalars().first()
         assert inv is not None
 
-        html_doc = await InvoicePdfService.generate_invoice_html(inv)
+        html_doc = await InvoicePdfService.generate_invoice_html(
+            session=session,
+            invoice_id=inv.id,
+            company_id="COMP-001",
+        )
         # Check for supplier letterhead and separate DISPATCH FROM block
         assert "TATTLY THREADS" in html_doc
         assert "DISPATCH FROM" in html_doc
@@ -873,7 +877,7 @@ async def test_10_existing_tax_calculations_remain_exactly_unchanged():
     """
     session_factory = get_company_sessionmaker("smriti001")
     async with session_factory() as session:
-        # Case: Rate = 1000, 43.76% discount -> Taxable = 562.40, IGST 5% = 28.12, Total = 590.52
+        # Case: Rate = 100, 43.76% discount -> Taxable = 56.24, IGST 5% = 2.81, Total = 59.05
         req = CanonicalPostingRequest(
             context=CanonicalPostingContext(
                 company_id="COMP-001",
@@ -898,21 +902,21 @@ async def test_10_existing_tax_calculations_remain_exactly_unchanged():
                     name="Tattly Footwear Classic",
                     hsn_code="64041990",
                     quantity=Decimal("1.00"),
-                    unit_price=Decimal("1000.00"),
+                    unit_price=Decimal("100.00"),
                     disc_pct=Decimal("43.76"),
                     gst_rate=Decimal("5.00"),
                     is_tax_inclusive=False,
                 )
             ],
-            tenders=[CanonicalTenderItem(tender_type="CASH", amount=Decimal("590.52"))],
+            tenders=[CanonicalTenderItem(tender_type="CASH", amount=Decimal("59.05"))],
         )
 
         res = await CanonicalSalesPostingWriter.post_sales_transaction(session, req, commit=True)
         assert res.success is True
-        assert res.taxable_amount == Decimal("562.40")
-        assert res.igst_amount == Decimal("28.12")
+        assert res.taxable_amount == Decimal("56.24")
+        assert res.igst_amount == Decimal("2.81")
         assert res.round_off == Decimal("0.00")
-        assert res.net_amount == Decimal("590.52")
+        assert res.net_amount == Decimal("59.05")
 
 
 @pytest.mark.asyncio

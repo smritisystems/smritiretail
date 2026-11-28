@@ -26,6 +26,7 @@ from app.models.inventory import Product
 from app.models.sync import POSOfflineSyncQueue
 from app.schemas.sync import SyncBatchRequest, SyncOperationItem
 from app.services.conflict_engine import OfflineConflictResolutionEngine
+from app.services.stock_ledger import StockLedger
 from conftest import utmih_delete_stock_movements
 
 
@@ -208,13 +209,21 @@ async def test_04_concurrent_offline_batch_ingestion_throughput():
             buying_price=Decimal("300.00"),
             cost_price=Decimal("300.00"),
             hsn_code="6404.11",
-            stock=1000,
+            stock=0,
             category="Apparel",
             sku=f"SKU-BENCH-{uuid.uuid4().hex[:6]}",
             is_active=True,
             is_deleted=False
         )
         db.add(prod)
+        await db.flush()
+        await StockLedger.post_admin_opening_stock(
+            session=db,
+            company_id=company_id,
+            product_id=prod_id,
+            quantity=Decimal("1000"),
+            reason="Initial stock for offline batch throughput test",
+        )
         await db.commit()
 
     async def submit_batch(terminal_idx: int):
@@ -254,7 +263,16 @@ async def test_04_concurrent_offline_batch_ingestion_throughput():
         total_time_ms = (time.perf_counter() - start_all) * 1000
 
         total_accepted = sum(r[0].accepted_count for r in batch_results)
-        assert total_accepted == 100
+        nonaccepted = [
+            f"{batch.batch_id}: {result.status} ({result.error or 'no error detail'})"
+            for batch, _ in batch_results
+            for result in batch.results
+            if result.status.value not in {"ACCEPTED", "ACCEPTED_WARN"}
+        ]
+        assert total_accepted == 100, (
+            f"Expected 100 accepted transactions, got {total_accepted}. "
+            f"Non-accepted sample: {nonaccepted[:10]}"
+        )
 
         latencies = [r[1] for r in batch_results]
         avg_batch_latency_ms = sum(latencies) / len(latencies)

@@ -208,6 +208,10 @@ class InventoryService:
             "vendor_code": product_in.vendor_code,
             "hsn_code": product_in.hsn_code,
             "gst_rate_percent": float(product_in.gst_percentage) if product_in.gst_percentage is not None else None,
+            "department": attrs.get("department") or attrs.get("merchandise_department"),
+            "size_group": attrs.get("size_group") or attrs.get("sizeGroup"),
+            "tax_category": attrs.get("tax_category") or attrs.get("taxCategory"),
+            "uom": attrs.get("uom") or attrs.get("primary_uom") or attrs.get("unit_of_measure"),
             "gender": getattr(product_in, "gender", None) or attrs.get("gender"),
             "product_type": getattr(product_in, "product_type", None) or attrs.get("product_type") or attrs.get("productType"),
             "heel_type": getattr(product_in, "heel_type", None) or attrs.get("heel_type") or attrs.get("heelType") or attrs.get("heels"),
@@ -332,13 +336,20 @@ class InventoryService:
             category=getattr(product_in, "category", None) or "Footwear",
             category_code=getattr(product_in, "category_code", None),
             brand=getattr(product_in, "brand", None),
+            department=attrs.get("department") or attrs.get("merchandise_department"),
             style_code=style or (None if auto_gen else article_code),
             color=getattr(product_in, "color", None),
             size=getattr(product_in, "size", None),
             vendor_code=getattr(product_in, "vendor_code", None),
             hsn_code=getattr(product_in, "hsn_code", None),
             tax_rate=float(getattr(product_in, "gst_percentage", None)) if getattr(product_in, "gst_percentage", None) is not None else None,
-            primary_uom=getattr(product_in, "uom", None) or "PCS",
+            primary_uom=(
+                getattr(product_in, "uom", None)
+                or attrs.get("uom")
+                or attrs.get("primary_uom")
+                or attrs.get("unit_of_measure")
+                or "PCS"
+            ),
             mrp=float(getattr(product_in, "mrp", None) or 0.0),
             selling_price=float(getattr(product_in, "price", None) or 0.0),
             cost_price=float(getattr(product_in, "cost_price", None) or 0.0),

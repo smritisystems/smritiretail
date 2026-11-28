@@ -28,7 +28,7 @@ from app.models.capability_template import TenantCapabilityBinding
 from app.api.deps import get_company_db, get_current_user
 from app.api.v1.databridge import require_databridge_entitlement
 from app.models.purchase import PurchaseOrder, PurchaseOrderItem, PurchaseReceipt, PurchaseBill, Supplier
-from app.models.inventory import Product
+from app.models.inventory import Product, Warehouse
 from app.models.tenant import Branch
 from app.services.databridge.service import DataBridgeService
 from app.services.databridge.models import (
@@ -432,10 +432,23 @@ async def test_tc_proc_005_grn_create_and_match(db_session: AsyncSession):
     db_session.add(supp)
     await db_session.flush()
 
+    warehouse = Warehouse(
+        id=f"WH-GRN-{suffix}",
+        company_id=CANONICAL_COMP_ID,
+        branch_id="BR-MAIN-001",
+        code=f"WH-GRN-{suffix}",
+        name=f"GRN Warehouse {suffix}",
+        is_active=True,
+        is_deleted=False,
+    )
+    db_session.add(warehouse)
+    await db_session.flush()
+
     rows = [
         {
             "receipt_no": receipt_no,
             "supplier_code": supp_code,
+            "warehouse_id": warehouse.id,
             "notes": "Direct factory shipment",
             "item_code": f"SKU-GRN-{suffix}",
             "item_name": "Silk Scarf",

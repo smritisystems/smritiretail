@@ -215,6 +215,9 @@ jobs:
           DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/smriti_test_002"
           PYTHONPATH: ${{ github.workspace }}/backend
 
+      - name: Verify GST remediation before test fixtures
+        run: pytest tests/test_gst_2_slab_validation.py -v --tb=short
+
       - name: Run Naming Guard (NGP-v1.0)
         run: python ../scripts/smriti_naming_guard.py --root ..
         continue-on-error: true
@@ -257,6 +260,7 @@ jobs:
       - name: Run Backend Tests
         run: >
           pytest tests/ app/tests/ app/compliance/tests/
+          --ignore=tests/test_gst_2_slab_validation.py
           -v --tb=short --timeout=120 --maxfail=20
         # Includes all unit, compliance, and stock movement ledger tests (self-provisioned)
 

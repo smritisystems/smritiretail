@@ -629,6 +629,7 @@ class PurchaseService:
                     p_stmt = p_stmt.where((Product.company_id == self.tenant.company_id) | (Product.company_id.is_(None)))
                 product = (await self.db.execute(p_stmt)).scalars().first()
 
+            linked_product_variant_id = getattr(product, "item_variant_id", None) if product else None
             if not product and res.item_id:
                 # Synchronize legacy Product bridge record linked directly to canonical item_id
                 bc_val = (res.barcode or "").strip() or None
@@ -674,8 +675,7 @@ class PurchaseService:
             # Resolve variant_id with strict ambiguity guard (ADR-001 / R-01)
             po_variant_id = (
                 getattr(item, "variant_id", None)
-                or getattr(product, "item_variant_id", None)
-                or res.variant_id
+                or linked_product_variant_id
             )
             canonical_item_id = getattr(product, "item_id", None) or res.item_id
             if not po_variant_id and canonical_item_id:
@@ -687,10 +687,7 @@ class PurchaseService:
                 )
                 active_vars = (await self.db.execute(var_q)).scalars().all()
                 matched_var = next(
-                    (v for v in active_vars if v.variant_sku and (
-                        v.variant_sku == clean_item_code
-                        or (product and v.variant_sku == product.code)
-                    )),
+                    (v for v in active_vars if clean_item_code and v.variant_sku == clean_item_code),
                     None,
                 )
                 if matched_var:
@@ -712,6 +709,10 @@ class PurchaseService:
                             "available_variants": [{"id": v.id, "sku": v.variant_sku} for v in active_vars],
                         },
                     )
+                else:
+                    po_variant_id = res.variant_id
+            elif not po_variant_id:
+                po_variant_id = res.variant_id
 
             item_rows.append(PurchaseOrderItem(
                 id=IdentityEngine.generate_technical_id(),

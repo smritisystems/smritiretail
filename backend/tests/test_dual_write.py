@@ -68,16 +68,30 @@ async def test_dual_write_canonical_sync_and_tenant_isolation():
         
         p_in = ProductCreate(
             code=test_code,
-            name='Test Dual Write Linen Shirt V2',
+            name='Test Dual Write Footwear V2',
             price=Decimal('1299.00'),
             mrp=Decimal('1499.00'),
-            category='Apparel',
-            brand='Tattly Threads',
+            category='Footwear',
+            brand='SMRITI',
+            color='BLACK',
+            size='40',
             style_code='CH-01-A',
-            attributes={'style_no': 'CH-01-A', 'article_no': 'ART-LINEN-02'},
+            gender='WOMEN',
+            product_type='SHOE',
+            heel_type='WEDGE',
+            upper_material='FABRIC',
+            design_attribute='COMFORT',
+            attributes={
+                'style_no': 'CH-01-A',
+                'article_no': 'ART-FOOTWEAR-02',
+                'department': 'FOOTWEAR',
+                'size_group': 'FOOTWEAR_EU',
+                'tax_category': 'STANDARD',
+                'uom': 'Pair',
+            },
             barcode=test_bc,
-            gst_percentage=Decimal('12.00'),
-            hsn_code='6205',
+            gst_percentage=Decimal('18.00'),
+            hsn_code='6403',
             stock=100
         )
         

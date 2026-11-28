@@ -861,11 +861,20 @@ async def test_16_grn_variant_propagation_from_po():
             name=f"Supplier GRN {suffix}",
             is_active=True,
         )
-        db.add(supplier)
+        warehouse = Warehouse(
+            id=f"wh_grn_{uuid.uuid4().hex[:8]}",
+            code=f"WH-GRN-{suffix}",
+            company_id=company_id,
+            branch_id="BR-MAIN-001",
+            name=f"Warehouse GRN {suffix}",
+            is_active=True,
+        )
+        db.add_all([supplier, warehouse])
         await db.flush()
 
         po_in = PurchaseOrderCreate(
             supplier_id=supplier.id,
+            warehouse_id=warehouse.id,
             lines=[
                 PurchaseOrderItemCreate(
                     product_id=item.id,
@@ -882,6 +891,7 @@ async def test_16_grn_variant_propagation_from_po():
         grn_in = PurchaseReceiptCreate(
             supplier_id=supplier.id,
             order_id=po.id,
+            warehouse_id=warehouse.id,
             items=[
                 PurchaseReceiptItemCreate(
                     product_id=po_item.product_id,

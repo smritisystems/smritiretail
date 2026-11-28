@@ -15,7 +15,7 @@ Classification: Numbering Authority & Database Boundary Verification Suite
 import uuid
 import pytest
 from httpx import AsyncClient, ASGITransport
-from sqlalchemy import select, text
+from sqlalchemy import text
 
 from app.main import app
 from app.db.session import get_company_sessionmaker
@@ -29,8 +29,8 @@ from app.schemas.item_master import ItemCreateRequest, ItemVariantItem
 def _get_auth_headers(company_id: str = "COMP-001", role: str = "SYSADMIN") -> dict:
     token = create_access_token(
         data={
-            "sub": "usr-admin",
-            "username": "admin",
+            "sub": "usr-super",
+            "username": "usr_super",
             "role": role,
             "company_id": company_id,
             "branch_id": "BR-001",
@@ -125,6 +125,21 @@ async def test_b_backend_article_creation_uses_same_tenant_series():
             item_req = ItemCreateRequest(
                 item_name=f"Authority Test Sandal {unique_suffix}",
                 category="SANDAL",
+                department="FOOTWEAR",
+                brand="SMRITI",
+                color="BLACK",
+                size="40",
+                gender="WOMEN",
+                product_type="SHOE",
+                design_attribute="COMFORT",
+                heel_type="WEDGE",
+                upper_material="FABRIC",
+                primary_uom="Pair",
+                hsn_code="6403",
+                attributes_json={
+                    "size_group": "FOOTWEAR_EU",
+                    "tax_category": "STANDARD",
+                },
                 auto_generate_article_number=True,
                 variants=[
                     ItemVariantItem(
