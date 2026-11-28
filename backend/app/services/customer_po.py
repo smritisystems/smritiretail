@@ -398,44 +398,6 @@ class CustomerPOService:
             raise HTTPException(status_code=409, detail=f"Customer PO is {po.status} and cannot be billed.")
 
         policy, policy_snapshot = await self._policy()
-        if replay_candidate is None:
-            for requested_line in request.lines:
-                line = po_lines[requested_line.customer_po_line_id]
-                reservation = update(CustomerPurchaseOrderLine).where(
-                    CustomerPurchaseOrderLine.id == line.id,
-                    CustomerPurchaseOrderLine.customer_po_id == po.id,
-                    CustomerPurchaseOrderLine.company_id == self.tenant_ctx.company_id,
-                    CustomerPurchaseOrderLine.branch_id == self.tenant_ctx.branch_id,
-                    CustomerPurchaseOrderLine.is_deleted.is_(False),
-                )
-                if policy == "BLOCK":
-                    reservation = reservation.where(
-                        CustomerPurchaseOrderLine.quantity_remaining >= requested_line.quantity
-                    )
-                reserved_line_id = (
-                    await self.db.execute(
-                        reservation.values(
-                            quantity_billed=CustomerPurchaseOrderLine.quantity_billed + requested_line.quantity,
-                            quantity_remaining=func.greatest(
-                                0,
-                                CustomerPurchaseOrderLine.quantity_remaining - requested_line.quantity,
-                            ),
-                        )
-                        .returning(CustomerPurchaseOrderLine.id)
-                        .execution_options(synchronize_session=False)
-                    )
-                ).scalars().first()
-                if not reserved_line_id:
-                    raise HTTPException(
-                        status_code=409,
-                        detail=f"Over-billing blocked for PO line {line.line_number}; remaining quantity is {line.quantity_remaining}.",
-                    )
-                line.quantity_billed += requested_line.quantity
-                line.quantity_remaining = max(
-                    Decimal("0"),
-                    line.quantity_remaining - requested_line.quantity,
-                )
-
         invoice_payload = dict(request.invoice)
         invoice_payload.update({
             "customer_id": po.customer_id,
@@ -490,6 +452,43 @@ class CustomerPOService:
                 )
             )).scalars().first()
             if not alloc_check:
+                for requested_line in request.lines:
+                    line = po_lines[requested_line.customer_po_line_id]
+                    reservation = update(CustomerPurchaseOrderLine).where(
+                        CustomerPurchaseOrderLine.id == line.id,
+                        CustomerPurchaseOrderLine.customer_po_id == po.id,
+                        CustomerPurchaseOrderLine.company_id == self.tenant_ctx.company_id,
+                        CustomerPurchaseOrderLine.branch_id == self.tenant_ctx.branch_id,
+                        CustomerPurchaseOrderLine.is_deleted.is_(False),
+                    )
+                    if policy == "BLOCK":
+                        reservation = reservation.where(
+                            CustomerPurchaseOrderLine.quantity_remaining >= requested_line.quantity
+                        )
+                    reserved_line_id = (
+                        await self.db.execute(
+                            reservation.values(
+                                quantity_billed=CustomerPurchaseOrderLine.quantity_billed + requested_line.quantity,
+                                quantity_remaining=func.greatest(
+                                    0,
+                                    CustomerPurchaseOrderLine.quantity_remaining - requested_line.quantity,
+                                ),
+                            )
+                            .returning(CustomerPurchaseOrderLine.id)
+                            .execution_options(synchronize_session=False)
+                        )
+                    ).scalars().first()
+                    if not reserved_line_id:
+                        raise HTTPException(
+                            status_code=409,
+                            detail=f"Over-billing blocked for PO line {line.line_number}; remaining quantity is {line.quantity_remaining}.",
+                        )
+                    line.quantity_billed += requested_line.quantity
+                    line.quantity_remaining = max(
+                        Decimal("0"),
+                        line.quantity_remaining - requested_line.quantity,
+                    )
+
                 total_qty = Decimal("0")
                 total_value = Decimal("0")
                 for source_item, requested_qty in zip(source_items, request.lines):
