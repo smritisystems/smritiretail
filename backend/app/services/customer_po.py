@@ -5,7 +5,7 @@ from decimal import Decimal
 from typing import Any, Optional
 
 from fastapi import HTTPException
-from sqlalchemy import select, or_, func, String, text
+from sqlalchemy import select, or_, func, String, text, update
 from sqlalchemy.orm import selectinload
 
 from ..models.company_policy import CompanyPolicySetting
@@ -398,6 +398,44 @@ class CustomerPOService:
             raise HTTPException(status_code=409, detail=f"Customer PO is {po.status} and cannot be billed.")
 
         policy, policy_snapshot = await self._policy()
+        if replay_candidate is None:
+            for requested_line in request.lines:
+                line = po_lines[requested_line.customer_po_line_id]
+                reservation = update(CustomerPurchaseOrderLine).where(
+                    CustomerPurchaseOrderLine.id == line.id,
+                    CustomerPurchaseOrderLine.customer_po_id == po.id,
+                    CustomerPurchaseOrderLine.company_id == self.tenant_ctx.company_id,
+                    CustomerPurchaseOrderLine.branch_id == self.tenant_ctx.branch_id,
+                    CustomerPurchaseOrderLine.is_deleted.is_(False),
+                )
+                if policy == "BLOCK":
+                    reservation = reservation.where(
+                        CustomerPurchaseOrderLine.quantity_remaining >= requested_line.quantity
+                    )
+                reserved_line_id = (
+                    await self.db.execute(
+                        reservation.values(
+                            quantity_billed=CustomerPurchaseOrderLine.quantity_billed + requested_line.quantity,
+                            quantity_remaining=func.greatest(
+                                0,
+                                CustomerPurchaseOrderLine.quantity_remaining - requested_line.quantity,
+                            ),
+                        )
+                        .returning(CustomerPurchaseOrderLine.id)
+                        .execution_options(synchronize_session=False)
+                    )
+                ).scalars().first()
+                if not reserved_line_id:
+                    raise HTTPException(
+                        status_code=409,
+                        detail=f"Over-billing blocked for PO line {line.line_number}; remaining quantity is {line.quantity_remaining}.",
+                    )
+                line.quantity_billed += requested_line.quantity
+                line.quantity_remaining = max(
+                    Decimal("0"),
+                    line.quantity_remaining - requested_line.quantity,
+                )
+
         invoice_payload = dict(request.invoice)
         invoice_payload.update({
             "customer_id": po.customer_id,
@@ -458,8 +496,6 @@ class CustomerPOService:
                     line = po_lines[requested_qty.customer_po_line_id]
                     invoice_item = next(item for item in invoice.items if item.customer_po_line_id == line.id)
                     value = (Decimal(str(invoice_item.total_amount)) or Decimal("0"))
-                    line.quantity_billed += requested_qty.quantity
-                    line.quantity_remaining = max(Decimal("0"), line.quantity_ordered - line.quantity_cancelled - line.quantity_billed)
                     line.billed_value += value
                     line.remaining_value = max(Decimal("0"), line.ordered_value - line.billed_value)
                     line.line_status = "FULLY_BILLED" if line.quantity_remaining <= 0 else "PARTIALLY_BILLED"
