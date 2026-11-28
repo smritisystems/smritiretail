@@ -525,6 +525,17 @@ class CanonicalSalesPostingWriter:
             logger.info("Idempotent replay detected for invoice %s (key %s)", existing_inv.invoice_no, idempotency_key)
             return cls._build_replayed_result(existing_inv)
 
+        po_obj = None
+        if getattr(req, "customer_po_id", None):
+            po_res = await session.execute(
+                select(CustomerPurchaseOrder).where(
+                    CustomerPurchaseOrder.id == req.customer_po_id,
+                    CustomerPurchaseOrder.company_id == company_id,
+                    CustomerPurchaseOrder.is_deleted == False,
+                ).with_for_update()
+            )
+            po_obj = po_res.scalars().first()
+
         # 3. Customer & Credit Validation
         branch_candidates = {branch_id, "MAIN", "BR-MAIN-001", "BR-001"} if branch_id in ("MAIN", "BR-MAIN-001", "BR-001") else {branch_id}
         db_customer: Optional[Customer] = None
@@ -915,17 +926,9 @@ class CanonicalSalesPostingWriter:
                 )
 
         # 3.7 Customer PO Ingress Validation & Row Locking
-        po_obj = None
         po_lines_map = {}
         po_policy = "BLOCK"
         if getattr(req, "customer_po_id", None):
-            q_po = select(CustomerPurchaseOrder).where(
-                CustomerPurchaseOrder.id == req.customer_po_id,
-                CustomerPurchaseOrder.company_id == company_id,
-                CustomerPurchaseOrder.is_deleted == False,
-            ).with_for_update()
-            res_po = await session.execute(q_po)
-            po_obj = res_po.scalars().first()
             if not po_obj:
                 raise HTTPException(status_code=404, detail="Customer PO not found.")
             if po_obj.status in {"CANCELLED", "CLOSED", "FULLY_BILLED"}:

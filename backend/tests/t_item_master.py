@@ -85,7 +85,7 @@ def test_generated_placeholder_barcode_prohibited_at_runtime():
     Updated behavior: Runtime synthetic barcode generation is strictly prohibited.
     Invoking generate_placeholder_barcode must raise RuntimeError.
     """
-    with pytest.raises(RuntimeError, match="Synthetic barcode generation is prohibited"):
+    with pytest.raises(RuntimeError, match="Placeholder generation is prohibited in Item Master"):
         UniversalItemMasterService.generate_placeholder_barcode()
 
 

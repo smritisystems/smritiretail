@@ -52,6 +52,24 @@ from db_test_config import COMPANY_001_ASYNC_URL
 
 TEST_DB_URL = COMPANY_001_ASYNC_URL
 
+_VALID_ITEM_DIMENSIONS = {
+    "brand": "SMRITI",
+    "category": "Footwear",
+    "department": "FOOTWEAR",
+    "primary_uom": "Pair",
+    "tax_rate": 18.0,
+    "color": "BLACK",
+    "size": "40",
+    "size_group": "FOOTWEAR_EU",
+    "gender": "WOMEN",
+    "product_type": "SHOE",
+    "heel_type": "WEDGE",
+    "upper_material": "FABRIC",
+    "design_attribute": "COMFORT",
+    "tax_category": "STANDARD",
+    "hsn_code": "6403",
+}
+
 
 @pytest_asyncio.fixture
 async def db_session():
@@ -101,13 +119,9 @@ async def test_tc_cat_001_new_item_master(db_session: AsyncSession):
     item_code = f"ART-NEW-{suffix}"
     rows = [
         {
+            **_VALID_ITEM_DIMENSIONS,
             "item_code": item_code,
             "item_name": f"New Style {suffix}",
-            "brand": "SMRITI",
-            "category": "Footwear",
-            "department": "FOOTWEAR",
-            "primary_uom": "Pair",
-            "tax_rate": 18.0,
             "mrp": 2999.00,
             "selling_price": 2499.00,
             "cost_price": 1200.00,
@@ -174,7 +188,18 @@ async def test_tc_cat_002_existing_item_no_op(db_session: AsyncSession):
         brand="SMRITI",
         category="Footwear",
         department="FOOTWEAR",
+        style_code=item_code,
+        color="BLACK",
+        size="40",
+        hsn_code="6403",
+        tax_rate=18.0,
         primary_uom="Pair",
+        gender="WOMEN",
+        product_type="SHOE",
+        design_attribute="COMFORT",
+        heel_type="WEDGE",
+        upper_material="FABRIC",
+        attributes_json={"size_group": "FOOTWEAR_EU", "tax_category": "STANDARD"},
         is_active=True,
     )
     db_session.add(item)
@@ -182,12 +207,9 @@ async def test_tc_cat_002_existing_item_no_op(db_session: AsyncSession):
 
     rows = [
         {
+            **_VALID_ITEM_DIMENSIONS,
             "item_code": item_code,
             "item_name": f"Existing Style {suffix}",
-            "brand": "SMRITI",
-            "category": "Footwear",
-            "department": "FOOTWEAR",
-            "primary_uom": "Pair",
         }
     ]
 
@@ -222,10 +244,21 @@ async def test_tc_cat_003_existing_item_metadata_update(db_session: AsyncSession
         company_id=comp_id,
         item_code=item_code,
         item_name=f"Style Old Name {suffix}",
-        brand="GENERIC",
-        category="Apparel",
-        department="APPAREL",
-        primary_uom="Pcs",
+        brand="SMRITI",
+        category="Footwear",
+        department="FOOTWEAR",
+        style_code=item_code,
+        color="BLACK",
+        size="40",
+        hsn_code="6403",
+        tax_rate=18.0,
+        primary_uom="Pair",
+        gender="WOMEN",
+        product_type="SHOE",
+        design_attribute="COMFORT",
+        heel_type="WEDGE",
+        upper_material="FABRIC",
+        attributes_json={"size_group": "FOOTWEAR_EU", "tax_category": "STANDARD"},
         collection_type="BASIC",
         is_active=True,
     )
@@ -234,12 +267,9 @@ async def test_tc_cat_003_existing_item_metadata_update(db_session: AsyncSession
 
     rows = [
         {
+            **_VALID_ITEM_DIMENSIONS,
             "item_code": item_code,
             "item_name": f"Style New Name {suffix}",
-            "brand": "GENERIC",
-            "category": "Apparel",
-            "department": "APPAREL",
-            "primary_uom": "Pcs",
             "collection_type": "CASUAL",
         }
     ]
@@ -297,11 +327,12 @@ async def test_tc_cat_004_new_variant_expansion(db_session: AsyncSession):
         company_id=comp_id,
         item_code=parent_code,
         item_name=f"Parent Style {suffix}",
-        brand="SMRITI",
-        category="Footwear",
-        department="FOOTWEAR",
-        primary_uom="Pair",
-        tax_rate=Decimal("18.00"),
+        **{
+            key: value
+            for key, value in _VALID_ITEM_DIMENSIONS.items()
+            if key not in {"size_group", "tax_category"}
+        },
+        attributes_json={"size_group": "FOOTWEAR_EU", "tax_category": "STANDARD"},
         is_active=True,
     )
     db_session.add(parent)
@@ -310,11 +341,9 @@ async def test_tc_cat_004_new_variant_expansion(db_session: AsyncSession):
     variant_sku = f"{parent_code}-BLK-38"
     rows = [
         {
+            **{**_VALID_ITEM_DIMENSIONS, "size": "38"},
             "item_code": parent_code,
             "variant_sku": variant_sku,
-            "color": "BLACK",
-            "size": "38",
-            "primary_uom": "Pair",
             "mrp": 1999.00,
             "selling_price": 1699.00,
             "cost_price": 800.00,

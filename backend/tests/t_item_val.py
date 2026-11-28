@@ -75,21 +75,20 @@ def test_product_create_rejects_blank_code(blank_code):
 
 
 @pytest.mark.parametrize("blank_barcode", ["", "   ", None])
-def test_product_create_rejects_blank_barcode(blank_barcode):
-    """Verify that Barcode cannot be blank or whitespace-only."""
-    with pytest.raises(ValidationError) as exc_info:
-        ProductCreate(
-            code="SKU-TEST-002",
-            barcode=blank_barcode,
-            name="Test Product",
-            buying_price=Decimal("1000.00"),
-            cost_price=Decimal("800.00"),
-            mrp=Decimal("1999.00"),
-            price=Decimal("1499.00"),
-            gst_percentage=Decimal("18.00"),
-            hsn_code="64041990"
-        )
-    assert "barcode" in str(exc_info.value)
+def test_product_create_allows_missing_barcode(blank_barcode):
+    """A missing supplier barcode remains valid; internal codes are assigned through the PO workflow."""
+    prod = ProductCreate(
+        code="SKU-TEST-002",
+        barcode=blank_barcode,
+        name="Test Product",
+        buying_price=Decimal("1000.00"),
+        cost_price=Decimal("800.00"),
+        mrp=Decimal("1999.00"),
+        price=Decimal("1499.00"),
+        gst_percentage=Decimal("18.00"),
+        hsn_code="64041990"
+    )
+    assert prod.barcode is None
 
 
 @pytest.mark.parametrize("blank_name", ["", "   ", None])

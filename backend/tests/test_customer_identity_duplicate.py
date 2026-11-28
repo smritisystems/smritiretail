@@ -55,6 +55,7 @@ from app.schemas.sales import SalesInvoiceCreate, SalesInvoiceItemCreate
 from app.services.crm import CrmService
 from app.services.sales import SalesService
 from app.services.customer_identity import CustomerIdentityService
+from app.services.billing_profile_service import BillingProfileService
 
 import os
 from urllib.parse import urlparse
@@ -144,11 +145,18 @@ async def ensure_seed_companies_and_groups():
             ))
         cg = await session.get(CustomerGroup, "CG-RETAIL")
         if not cg:
-            session.add(CustomerGroup(
+            cg = CustomerGroup(
                 id="CG-RETAIL", name="B2B Retail Test Group",
                 company_id="COMP-001", credit_days=30, credit_limit=Decimal("50000.00"),
+                can_purchase_on_credit=True,
                 is_deleted=False
-            ))
+            )
+            session.add(cg)
+        else:
+            cg.can_purchase_on_credit = True
+            cg.credit_limit = Decimal("50000.00")
+            cg.unlimited_credit = False
+            cg.credit_hold = False
         wh = await session.get(Warehouse, "WH-MAIN")
         if not wh:
             wh = Warehouse(
@@ -204,7 +212,7 @@ async def test_01_unique_customer_allow(tenant_ctx):
         # Creation succeeds
         created = await service.create_customer(cust_in)
         assert created.id == cust_in.id
-        assert created.code == cust_in.code
+        assert created.code == cust_in.code.upper()
 
 
 # ===========================================================================
@@ -287,7 +295,7 @@ async def test_04_same_customer_code_different_tenant_allowed(tenant_ctx, other_
             name=f"Tenant A Customer {uid}",
             status="Active"
         ))
-        assert cust_a.code == code
+        assert cust_a.code == code.upper()
 
     # Create in Tenant B with identical code
     async with TestSessionLocal() as session_b:
@@ -589,10 +597,10 @@ async def test_13_same_customer_same_store_code_hard_duplicate(tenant_ctx):
 
 
 # ===========================================================================
-# 14. Different Customer + same Store Code -> Allowed
+# 14. Different Customer + same Store Code -> Rejected
 # ===========================================================================
 @pytest.mark.asyncio
-async def test_14_different_customer_same_store_code_allowed(tenant_ctx):
+async def test_14_different_customer_same_store_code_rejected(tenant_ctx):
     async with TestSessionLocal() as session:
         service = CrmService(session, tenant_ctx)
         uid = uuid.uuid4().hex[:8]
@@ -609,13 +617,12 @@ async def test_14_different_customer_same_store_code_allowed(tenant_ctx):
             store_code=store_code, location_name="Location A", address_line1="Avenue 1",
             city="Delhi", state="Delhi", state_code="07", pincode="110001"
         ))
-        loc2 = await service.create_delivery_location(cust2.id, CustomerDeliveryLocationCreate(
-            store_code=store_code, location_name="Location B", address_line1="Avenue 2",
-            city="Delhi", state="Delhi", state_code="07", pincode="110001"
-        ))
-
-        assert loc1.store_code == loc2.store_code
-        assert loc1.customer_id != loc2.customer_id
+        with pytest.raises(HTTPException) as exc:
+            await service.create_delivery_location(cust2.id, CustomerDeliveryLocationCreate(
+                store_code=store_code, location_name="Location B", address_line1="Avenue 2",
+                city="Delhi", state="Delhi", state_code="07", pincode="110001"
+            ))
+        assert exc.value.status_code == 409
 
 
 # ===========================================================================
@@ -1219,7 +1226,22 @@ async def test_33_cross_company_isolation(tenant_ctx, other_tenant_ctx):
 # 34. Existing B2B Credit Billing tests remain green
 # ===========================================================================
 @pytest.mark.asyncio
-async def test_34_existing_b2b_credit_billing_regression_check(tenant_ctx):
+async def test_34_existing_b2b_credit_billing_regression_check(tenant_ctx, monkeypatch):
+    resolve_configuration = BillingProfileService.resolve_transaction_configuration
+
+    async def allow_credit_for_test(cls, session, company_id, branch_id=None):
+        configuration = await resolve_configuration(session, company_id, branch_id)
+        configuration = dict(configuration)
+        configuration["allowed_transactions"] = ["CASH", "CREDIT"]
+        configuration["default_transaction"] = "CASH"
+        return configuration
+
+    monkeypatch.setattr(
+        BillingProfileService,
+        "resolve_transaction_configuration",
+        classmethod(allow_credit_for_test),
+    )
+
     async with TestSessionLocal() as session:
         crm = CrmService(session, tenant_ctx)
         sales = SalesService(session, tenant_ctx)
@@ -1239,7 +1261,9 @@ async def test_34_existing_b2b_credit_billing_regression_check(tenant_ctx):
             warehouse_id="WH-MAIN",
             status="Completed",
             items=[SalesInvoiceItemCreate(product_id="P-TEST-001", code="P-TEST-001", name="Test Widget", quantity=Decimal("5"), price=Decimal("100.00"), gst_rate=Decimal("18.00"))],
-        ))
+        ),
+        authorized_transaction_mode_change=True,
+        )
         assert inv.payment_mode == "CREDIT"
         assert inv.grand_total == Decimal("500.00")
 

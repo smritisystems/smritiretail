@@ -492,7 +492,7 @@ async def test_phase5_billing_pos_customer_selection_and_parent_child_visibility
                 name=f"Child Branch {unique_suffix}",
                 code=child_code,
                 mobile=f"94{uuid.uuid4().int % 100000000:08d}",
-                is_dependant=True,
+                parent_customer_id=parent.id,
             ),
             current_user=admin_user,
         )
@@ -507,18 +507,6 @@ async def test_phase5_billing_pos_customer_selection_and_parent_child_visibility
             current_user=admin_user,
         )
 
-        # 3. Create Parent-Child Relationship link
-        rel = CustomerRelationship(
-            id=f"rel-{uuid.uuid4().hex[:12]}",
-            parent_customer_id=parent.id,
-            dependant_customer_id=child.id,
-            relation="Branch",
-            company_id=TEST_COMPANY_ID,
-            is_active=True,
-            is_deleted=False,
-        )
-        session.add(rel)
-        await session.commit()
         parent_id = parent.id
         child_id = child.id
         standalone_id = standalone.id
@@ -651,7 +639,7 @@ async def test_phase6_sales_invoice_creation_child_guard_and_retrieval(tenant_ct
                 name=f"Child Enterprise {unique_suffix}",
                 code=child_code,
                 mobile=f"92{uuid.uuid4().int % 100000000:08d}",
-                is_dependant=True,
+                parent_customer_id=parent.id,
             ),
             current_user=admin_user,
         )
@@ -667,19 +655,6 @@ async def test_phase6_sales_invoice_creation_child_guard_and_retrieval(tenant_ct
             ),
             current_user=admin_user,
         )
-
-        # Link Child to Parent
-        rel = CustomerRelationship(
-            id=f"rel-{uuid.uuid4().hex[:12]}",
-            parent_customer_id=parent.id,
-            dependant_customer_id=child.id,
-            relation="Branch",
-            company_id=TEST_COMPANY_ID,
-            is_active=True,
-            is_deleted=False,
-        )
-        session.add(rel)
-        await session.commit()
 
         child_id = child.id
         standalone_id = standalone.id

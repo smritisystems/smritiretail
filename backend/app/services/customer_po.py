@@ -5,7 +5,7 @@ from decimal import Decimal
 from typing import Any, Optional
 
 from fastapi import HTTPException
-from sqlalchemy import select, or_, func, String
+from sqlalchemy import select, or_, func, String, text
 from sqlalchemy.orm import selectinload
 
 from ..models.company_policy import CompanyPolicySetting
@@ -338,20 +338,25 @@ class CustomerPOService:
     ):
         """Create invoice plus allocations in one transaction, with row locks and idempotency."""
         effective_key = idempotency_key or getattr(request, "idempotency_key", None)
+        replay_candidate = None
         if effective_key:
-            existing = (await self.db.execute(
-                self._scope(
-                    select(SalesInvoice)
-                    .options(selectinload(SalesInvoice.items))
-                    .where(SalesInvoice.id == effective_key),
-                    SalesInvoice,
+            replay_candidate = (
+                await self.db.execute(
+                    select(SalesInvoice.id).where(
+                        SalesInvoice.company_id == self.tenant_ctx.company_id,
+                        SalesInvoice.is_deleted.is_(False),
+                        text("rule_snapshots->>'idempotency_key' = :ikey").params(ikey=effective_key),
+                    )
                 )
-            )).scalars().first()
-            if existing:
-                return existing
+            ).scalars().first()
 
-        po, po_lines = await self.validate_billing(po_id, request, lock=True, enforce_policy=True)
-        if po.status in {"CANCELLED", "CLOSED"}:
+        po, po_lines = await self.validate_billing(
+            po_id,
+            request,
+            lock=True,
+            enforce_policy=replay_candidate is None,
+        )
+        if replay_candidate is None and po.status in {"CANCELLED", "CLOSED"}:
             raise HTTPException(status_code=409, detail=f"Customer PO is {po.status} and cannot be billed.")
 
         policy, policy_snapshot = await self._policy()

@@ -51,6 +51,26 @@ async def test_corporate_customer_creation_and_response_mapping():
     tenant_ctx = _get_tenant_context()
 
     async with session_factory() as session:
+        group = await session.get(CustomerGroup, "CG-Corporate")
+        if group is None:
+            group = CustomerGroup(
+                id="CG-Corporate",
+                company_id="COMP-001",
+                name="Corporate Test Group",
+                credit_limit=Decimal("500000.00"),
+                credit_days=60,
+                unlimited_credit=False,
+                credit_hold=False,
+                can_purchase_on_credit=True,
+                is_active=True,
+                is_deleted=False,
+            )
+            session.add(group)
+            await session.flush()
+        else:
+            group.company_id = "COMP-001"
+            group.credit_days = 60
+
         service = CrmService(session, tenant_ctx)
         test_digits = str(int(suffix, 16))[:4].zfill(4)
         payload = CustomerCreate(
