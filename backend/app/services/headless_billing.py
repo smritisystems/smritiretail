@@ -585,6 +585,11 @@ class HeadlessBillingCore:
 
                 auth_mrp = Decimal(str(resolved_price_info["base_mrp"]))
                 auth_sp = Decimal(str(resolved_price_info["effective_unit_price"]))
+                comparison_rate = rate
+                if item.is_tax_inclusive and Decimal(str(item.gst_rate or 0)) > 0:
+                    comparison_rate = round_currency(
+                        rate / (Decimal("1") + Decimal(str(item.gst_rate)) / Decimal("100"))
+                    )
 
                 # 1. Statutory MRP ceiling check: Rate cannot exceed authoritative MRP
                 if rate > auth_mrp:
@@ -599,7 +604,13 @@ class HeadlessBillingCore:
                     and getattr(item, "source_line_type", None) in {"SALES_ORDER", "PACKING_SLIP"}
                     and bool(getattr(item, "source_line_id", None))
                 )
-                if rate != auth_sp and rate != auth_mrp and not price_override_allowed and not is_verified_source_line:
+                if (
+                    rate != auth_sp
+                    and comparison_rate != auth_sp
+                    and rate != auth_mrp
+                    and not price_override_allowed
+                    and not is_verified_source_line
+                ):
                     raise HTTPException(
                         status_code=400,
                         detail={

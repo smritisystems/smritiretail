@@ -50,6 +50,9 @@ class TestDplFootwearLabelRenderer:
             color=color,
             style=style,
             mrp=mrp,
+            brand="Tattly Threads",
+            company_address="81,Umerkhadi,Mumbai,400003",
+            company_email="care@tattlythreads.com",
         )
 
         # 1. Assert structural DPL headers, start/end framing, and density
