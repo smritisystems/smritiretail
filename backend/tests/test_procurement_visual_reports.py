@@ -14,76 +14,184 @@ Classification: Procurement Visual Reports Backend Test Suite
 
 import sys
 import os
+import uuid
 import pytest
-from datetime import datetime, timezone
+import pytest_asyncio
+from decimal import Decimal
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from app.db.session import async_session
+from app.models.inventory import Product, Warehouse
+from app.models.purchase import (
+    PurchaseBill,
+    PurchaseOrder,
+    PurchaseOrderItem,
+    PurchaseReceipt,
+    PurchaseReceiptItem,
+    Supplier,
+)
+from app.models.tenant import Company
 from app.services.procurement_visual_reports_service import ProcurementVisualReportsService
 
 
 @pytest.mark.asyncio
-async def test_procurement_dashboard_summary_real_database():
-    """Verify ProcurementVisualReportsService derives 100% of data from COMP-001 PostgreSQL database."""
+async def test_procurement_dashboard_summary_real_database(procurement_data):
+    """Verify dashboard KPIs and stream rows are derived from persisted procurement records."""
+    company_id, supplier_name, _ = procurement_data
     async with async_session() as db:
-        res = await ProcurementVisualReportsService.get_dashboard_summary(db, company_id="COMP-001")
+        res = await ProcurementVisualReportsService.get_dashboard_summary(db, company_id=company_id)
         
-        # Verify 6 KPIs exist and match real statutory database numbers
         assert len(res.kpi_cards) == 6
         kpis = {k.id: k for k in res.kpi_cards}
         
-        # 1. Purchase Orders: 28 real statutory orders in COMP-001
-        assert kpis["purchase_orders"].numeric_value == 28
-        assert "28" in kpis["purchase_orders"].value
-        
-        # 2. Purchase Spend: ₹ 9,888,228 committed expenditure
-        assert kpis["purchase_spend"].numeric_value == 9888228
-        assert "9,888,228" in kpis["purchase_spend"].value
-        
-        # 3. Pending Approvals: 0 pending
+        assert kpis["purchase_orders"].numeric_value == 1
+        assert kpis["purchase_spend"].numeric_value == 10000
         assert kpis["pending_approvals"].numeric_value == 0
-        
-        # 4. Pending Receipts: 0 pairs pending (all 23,064 pairs inward received)
         assert kpis["pending_receipts"].numeric_value == 0
-        
-        # 5. Received vs Ordered: 100% fulfillment
         assert kpis["received_vs_ordered"].numeric_value == 100
-        assert "23,064 / 23,064" in kpis["received_vs_ordered"].subtext
-        
-        # 6. Supplier Outstanding: ₹ 9,888,228 commercial unpaid liability across 9 suppliers
-        assert kpis["supplier_outstanding"].numeric_value == 9888228
-        assert "Suppliers: 9" in kpis["supplier_outstanding"].subtext
-        
-        # Verify Top Suppliers: 9 real footwear vendors ranked by spend
-        assert len(res.top_suppliers) == 9
-        top_supplier_names = [s.supplier_name for s in res.top_suppliers]
-        assert "AS FOOTWEAR" in top_supplier_names
-        assert "AK FOOTWEAR" in top_supplier_names
-        assert "LAJOS FOOTWEAR" in top_supplier_names
-        assert "MK FOOTWEAR" in top_supplier_names
-        # Ensure mock vendors are NOT present
-        assert "Metro Footwear Ltd." not in top_supplier_names
-        assert "Bharat Traders" not in top_supplier_names
-        
-        # Verify Supplier Performance: calculated lead time in days, no fake on-time delivery
-        assert len(res.supplier_performance) == 9
+        assert kpis["supplier_outstanding"].numeric_value == 10000
+        assert "Suppliers: 1" in kpis["supplier_outstanding"].subtext
+
+        assert [supplier.supplier_name for supplier in res.top_suppliers] == [supplier_name]
+        assert len(res.supplier_performance) == 1
         for perf in res.supplier_performance:
             assert perf.lead_time_days >= 0
-            # on_time_delivery_pct is None because historical POs do not have delivery dates
             assert perf.on_time_delivery_pct is None
-            
-        # Verify Active Procurement Stream: 84 real persisted documents (28 POs, 28 GRNs, 28 Bills)
-        assert res.stream_counts["all"] == 84
-        assert res.stream_counts["po"] == 28
-        assert res.stream_counts["gr"] == 28
-        assert res.stream_counts["pi"] == 28
-        assert len(res.fulfillment_stream) == 84
-        
-        # Verify doc numbers originate from real database (e.g. PO-C-849, GRN-D-522, etc.)
+
+        assert res.stream_counts == {"all": 3, "po": 1, "gr": 1, "pi": 1}
+        assert len(res.fulfillment_stream) == 3
         doc_nos = [doc.doc_no for doc in res.fulfillment_stream]
         assert any(d.startswith("PO-") for d in doc_nos)
         assert any("GRN" in d for d in doc_nos)
+        assert any(d.startswith("PI-") for d in doc_nos)
+
+
+@pytest_asyncio.fixture
+async def procurement_data():
+    suffix = uuid.uuid4().hex[:8].upper()
+    company_id = f"PROC-{suffix}"
+    supplier_id = f"supplier_{suffix}"
+    supplier_name = f"Report Supplier {suffix}"
+    product_id = f"product_{suffix}"
+    po_id = f"po_{suffix}"
+    po_item_id = f"poi_{suffix}"
+    warehouse_id = f"warehouse_{suffix}"
+    receipt_id = f"receipt_{suffix}"
+    bill_id = f"bill_{suffix}"
+
+    async with async_session() as db:
+        db.add(Company(id=company_id, name=f"Procurement Report Test {suffix}"))
+        await db.flush()
+
+        supplier = Supplier(
+            id=supplier_id,
+            company_id=company_id,
+            name=supplier_name,
+            code=f"SUP-{suffix}",
+        )
+        warehouse = Warehouse(
+            id=warehouse_id,
+            company_id=company_id,
+            code=f"WH-{suffix}",
+            name=f"Report Warehouse {suffix}",
+        )
+        product = Product(
+            id=product_id,
+            company_id=company_id,
+            code=f"SKU-{suffix}",
+            sku=f"SKU-{suffix}",
+            name=f"Report Product {suffix}",
+            category="Footwear",
+            brand="Report Brand",
+            style_code=f"STYLE-{suffix}",
+            color="BLACK",
+            size="40",
+            price=Decimal("1000.00"),
+            mrp=Decimal("1000.00"),
+            stock=10,
+        )
+        db.add_all([supplier, warehouse, product])
+        await db.flush()
+
+        po = PurchaseOrder(
+            id=po_id,
+            company_id=company_id,
+            order_no=f"PO-{suffix}",
+            supplier_id=supplier_id,
+            status="CONFIRMED",
+            subtotal=Decimal("10000.00"),
+            tax_total=Decimal("0.00"),
+            grand_total=Decimal("10000.00"),
+        )
+        db.add(po)
+        await db.flush()
+
+        db.add(
+            PurchaseOrderItem(
+                id=po_item_id,
+                company_id=company_id,
+                order_id=po_id,
+                product_id=product_id,
+                code=product.code,
+                name=product.name,
+                quantity=Decimal("10.00"),
+                cost_price=Decimal("1000.00"),
+                gst_rate=Decimal("0.00"),
+                tax_amount=Decimal("0.00"),
+                line_total=Decimal("10000.00"),
+            )
+        )
+        receipt = PurchaseReceipt(
+            id=receipt_id,
+            company_id=company_id,
+            receipt_no=f"GRN-{suffix}",
+            supplier_id=supplier_id,
+            order_id=po_id,
+            warehouse_id=warehouse_id,
+            status="RECEIVED",
+            grand_total=Decimal("10000.00"),
+        )
+        db.add(receipt)
+        await db.flush()
+
+        db.add_all(
+            [
+                PurchaseReceiptItem(
+                    id=f"pri_{suffix}",
+                    company_id=company_id,
+                    receipt_id=receipt_id,
+                    product_id=product_id,
+                    purchase_order_id=po_id,
+                    purchase_order_no=po.order_no,
+                    code=product.code,
+                    name=product.name,
+                    quantity_ordered=Decimal("10.00"),
+                    quantity_received=Decimal("10.00"),
+                    quantity_damaged=Decimal("0.00"),
+                    cost_price=Decimal("1000.00"),
+                    gst_rate=Decimal("0.00"),
+                    tax_amount=Decimal("0.00"),
+                    line_total=Decimal("10000.00"),
+                ),
+                PurchaseBill(
+                    id=bill_id,
+                    company_id=company_id,
+                    bill_no=f"PI-{suffix}",
+                    supplier_id=supplier_id,
+                    receipt_id=receipt_id,
+                    order_id=po_id,
+                    status="POSTED",
+                    taxable_amount=Decimal("10000.00"),
+                    tax_amount=Decimal("0.00"),
+                    total_amount=Decimal("10000.00"),
+                    paid_amount=Decimal("0.00"),
+                ),
+            ]
+        )
+        await db.commit()
+
+    return company_id, supplier_name, f"STYLE-{suffix}"
 
 
 @pytest.mark.asyncio
@@ -108,15 +216,16 @@ async def test_procurement_dashboard_summary_empty_company():
 
 
 @pytest.mark.asyncio
-async def test_procurement_dashboard_summary_attribute_filters():
+async def test_procurement_dashboard_summary_attribute_filters(procurement_data):
     """Verify attribute filtering (articles, colors, sizes) and dynamic filter options."""
+    company_id, _, style_code = procurement_data
     async with async_session() as db:
         res = await ProcurementVisualReportsService.get_dashboard_summary(
             db,
-            company_id="COMP-001",
-            articles=["SH-02-I", "CH-13-C"],
-            colors=["BLACK", "BROWN"],
-            sizes=["40", "41"],
+            company_id=company_id,
+            articles=[style_code],
+            colors=["BLACK"],
+            sizes=["40"],
             top_n=5,
         )
 
@@ -150,12 +259,13 @@ async def test_procurement_dashboard_summary_attribute_filters():
 
 
 @pytest.mark.asyncio
-async def test_procurement_dashboard_heatmap_and_scatter():
+async def test_procurement_dashboard_heatmap_and_scatter(procurement_data):
     """Verify 2D Article-Color Heatmap matrix and Supplier Lead Time vs Order Value scatter plot."""
+    company_id, _, _ = procurement_data
     async with async_session() as db:
         res = await ProcurementVisualReportsService.get_dashboard_summary(
             db,
-            company_id="COMP-001",
+            company_id=company_id,
             top_n=10,
         )
 

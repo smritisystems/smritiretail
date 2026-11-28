@@ -13,6 +13,7 @@ Classification: Unit & Integration Test Suite
 """
 
 import pytest
+import uuid
 from decimal import Decimal
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
@@ -57,6 +58,7 @@ async def test_dual_write_canonical_sync_and_tenant_isolation():
         
         test_code = 'TEST-SKU-99002'
         test_bc = '8904559900025'
+        test_style = f"CH-01-A-{uuid.uuid4().hex[:8].upper()}"
         
         # Clean up prior test row if any
         await session.execute(text("DELETE FROM price_book_entries WHERE variant_id IN (SELECT id FROM item_variants WHERE variant_sku = :sku)"), {'sku': test_code})
@@ -75,14 +77,14 @@ async def test_dual_write_canonical_sync_and_tenant_isolation():
             brand='SMRITI',
             color='BLACK',
             size='40',
-            style_code='CH-01-A',
+            style_code=test_style,
             gender='WOMEN',
             product_type='SHOE',
             heel_type='WEDGE',
             upper_material='FABRIC',
             design_attribute='COMFORT',
             attributes={
-                'style_no': 'CH-01-A',
+                'style_no': test_style,
                 'article_no': 'ART-FOOTWEAR-02',
                 'department': 'FOOTWEAR',
                 'size_group': 'FOOTWEAR_EU',
@@ -115,7 +117,7 @@ async def test_dual_write_canonical_sync_and_tenant_isolation():
         row = res_var.fetchone()
         assert row is not None, f"Canonical variant {test_code} was not created."
         assert row[0] == test_code
-        assert row[1] == 'CH-01-A'
+        assert row[1] == test_style
         assert row[2] == test_bc, f"Expected canonical barcode {test_bc}; got {row[2]!r}."
         assert row[4] == created.id
         assert row[5] is not None, "Legacy product mapping must identify its canonical variant."

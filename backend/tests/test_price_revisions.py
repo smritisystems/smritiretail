@@ -88,8 +88,15 @@ async def enforce_test_db_isolation():
     async with session_factory() as session:
         company = await session.get(Company, "COMP-001")
         if company is None:
-            session.add(Company(id="COMP-001", name="Price Revision Test Company"))
+            company = Company(
+                id="COMP-001",
+                name="Price Revision Test Company",
+                state_code="27",
+            )
+            session.add(company)
             await session.flush()
+        else:
+            company.state_code = "27"
 
         default_branch = (
             await session.execute(
@@ -107,6 +114,7 @@ async def enforce_test_db_isolation():
                 branch.is_active = True
                 branch.is_deleted = False
                 branch.is_default = True
+                branch.state_code = "27"
             else:
                 session.add(
                     Branch(
@@ -117,6 +125,7 @@ async def enforce_test_db_isolation():
                         is_active=True,
                         is_deleted=False,
                         is_default=True,
+                        state_code="27",
                     )
                 )
         await session.commit()

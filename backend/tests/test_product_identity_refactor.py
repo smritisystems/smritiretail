@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, Asyn
 
 from app.models.item_master import Item, ItemVariant, ItemBarcode
 from app.models.customer_article_mapping import CustomerArticleMapping
+from app.models.crm import Customer
 from app.models.psv import PSVParty, PSVStockEvent, PSVStockBalance
 from app.models.inventory import Product
 from app.services.item_master_svc import UniversalItemMasterService
@@ -159,12 +160,22 @@ async def test_02_customer_article_mapping_resolution(db_session: AsyncSession):
     await db_session.flush()
 
     # Create Customer Article Mapping
+    customer_id = f"cust_cam_{suffix}"
+    db_session.add(
+        Customer(
+            id=customer_id,
+            company_id=comp_id,
+            name=f"Buyer {suffix}",
+        )
+    )
+    await db_session.flush()
+
     buyer_code = f"BUYER-ART-{suffix}"
     buyer_bc = f"890455{suffix}9"
     cam = CustomerArticleMapping(
         id=f"cam_test_{suffix}",
         company_id=comp_id,
-        customer_id="CUST-001",
+        customer_id=customer_id,
         item_id=item.id,
         variant_id=variant.id,
         customer_article=buyer_code,
@@ -184,7 +195,7 @@ async def test_02_customer_article_mapping_resolution(db_session: AsyncSession):
     res = await UniversalItemMasterService.resolve_item_by_barcode_or_sku(
         session=db_session,
         query_str=buyer_code,
-        customer_id="CUST-001",
+        customer_id=customer_id,
     )
     assert res is not None
     assert res.item_id == item.id
@@ -375,6 +386,14 @@ async def test_07_mapped_partner_sku_projection_resolves_product(db_session: Asy
     # Create party
     party = PSVParty(id=party_id, company_id=comp_id, name=f"Mapped Outlet {suffix}", location="Delhi", status="Healthy")
     db_session.add(party)
+    customer_id = f"cust_map_{suffix}"
+    db_session.add(
+        Customer(
+            id=customer_id,
+            company_id=comp_id,
+            name=f"Partner Customer {suffix}",
+        )
+    )
 
     # Create canonical product & variant
     item = Item(id=f"itm_map_{suffix}", company_id=comp_id, item_code=f"MAP-STYLE-{suffix}", item_name="Mapped Style")
@@ -406,7 +425,7 @@ async def test_07_mapped_partner_sku_projection_resolves_product(db_session: Asy
     cam = CustomerArticleMapping(
         id=f"cam_map_{suffix}",
         company_id=comp_id,
-        customer_id="CUST-001",
+        customer_id=customer_id,
         item_id=item.id,
         variant_id=var.id,
         customer_article=partner_sku,

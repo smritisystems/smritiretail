@@ -18,7 +18,7 @@ from httpx import AsyncClient, ASGITransport
 from sqlalchemy import select, text
 
 from app.main import app
-from app.db.session import get_company_sessionmaker, resolve_company_database_name
+from app.db.session import async_session, get_company_sessionmaker, resolve_company_database_name
 from app.core.security import create_access_token
 from app.models.tenant import Branch, Company
 from app.models.numbering import DocumentSeries
@@ -481,6 +481,36 @@ async def test_g_two_tenants_remain_isolated():
                 )
             )
         await session.commit()
+
+    async with async_session() as control_session:
+        company = await control_session.get(Company, "COMP-002")
+        if company is None:
+            control_session.add(Company(id="COMP-002", name="Numbering Isolation Test Company"))
+            await control_session.flush()
+
+        control_branch = (
+            await control_session.execute(
+                select(Branch).where(
+                    Branch.company_id == "COMP-002",
+                    Branch.is_default.is_(True),
+                    Branch.is_active.is_(True),
+                    Branch.is_deleted.is_(False),
+                )
+            )
+        ).scalars().first()
+        if control_branch is None:
+            control_session.add(
+                Branch(
+                    id="BR-COMP-002-CONTROL",
+                    company_id="COMP-002",
+                    name="Numbering Isolation Control Branch",
+                    code="NUMBERING-COMP-002-CONTROL",
+                    is_active=True,
+                    is_deleted=False,
+                    is_default=True,
+                )
+            )
+        await control_session.commit()
 
     try:
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:

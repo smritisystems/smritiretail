@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, Asyn
 
 from app.models.item_master import Item, ItemVariant, ItemBarcode
 from app.models.customer_article_mapping import CustomerArticleMapping
+from app.models.crm import Customer
 from app.models.ecom import EcomSkuMapping
 from app.models.psv import PSVParty, PSVStockEvent, PSVStockBalance
 from app.models.inventory import Product
@@ -129,12 +130,23 @@ async def test_customer_article_mapping_partial_and_barcode_fallback(db_session:
 
     var = ItemVariant(id=f"var_cam_{suffix}", company_id=comp_id, item_id=item.id, variant_sku=f"SKU-CAM-{suffix}", variant_name="CAM M")
     db_session.add(var)
+    await db_session.flush()
+
+    customer_id = f"cust_cam_{suffix}"
+    db_session.add(
+        Customer(
+            id=customer_id,
+            company_id=comp_id,
+            name=f"Buyer {suffix}",
+        )
+    )
+    await db_session.flush()
 
     # Active mapping
     cam_active = CustomerArticleMapping(
         id=f"cam_act_{suffix}",
         company_id=comp_id,
-        customer_id="CUST-001",
+        customer_id=customer_id,
         customer_article=f"SS-ART-{suffix}",
         vendor_article=f"STYLE-CAM-{suffix}",
         color="NAVY",
@@ -158,7 +170,7 @@ async def test_customer_article_mapping_partial_and_barcode_fallback(db_session:
     cam_inactive = CustomerArticleMapping(
         id=f"cam_inact_{suffix}",
         company_id=comp_id,
-        customer_id="CUST-001",
+        customer_id=customer_id,
         customer_article=f"SS-INACT-{suffix}",
         vendor_article=f"STYLE-INACT-{suffix}",
         color="WHITE",
@@ -217,6 +229,7 @@ async def test_ecom_sku_mapping_resolution(db_session: AsyncSession):
 
     var = ItemVariant(id=f"var_ecom_{suffix}", company_id=comp_id, item_id=item.id, variant_sku=f"SKU-ECOM-{suffix}", variant_name="Ecom Dress Blue")
     db_session.add(var)
+    await db_session.flush()
 
     ecom_map = EcomSkuMapping(
         id=f"ecom_{suffix}",
