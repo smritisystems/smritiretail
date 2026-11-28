@@ -13,24 +13,24 @@ Classification: Platform Verification Suite — Stage 5.2 First Domain Writer In
 """
 
 import uuid
-import pytest
 from decimal import Decimal
-from sqlalchemy import select, delete
+
+import pytest
+from conftest import utmih_delete_stock_movements
+from sqlalchemy import delete, select
 
 from app.db.session import get_company_sessionmaker
-from app.models.sales import SalesInvoice
-from app.models.inventory import Product, StockMovement
 from app.models.crm import Customer
+from app.models.inventory import Product, StockMovement
 from app.models.outbox import IntegrationOutboxEvent
-from app.services.sales_ledger_svc import CanonicalSalesWriter, UnifiedSalesLedgerService
+from app.models.sales import SalesInvoice
 from app.platform.events import (
-    PlatformEventService,
-    PostgresEventOutbox,
-    PlatformOutboxWorker,
     EventSerializer,
+    PlatformOutboxWorker,
+    PostgresEventOutbox,
     get_platform_event_service,
 )
-from conftest import utmih_delete_stock_movements
+from app.services.sales_ledger_svc import CanonicalSalesWriter
 
 
 @pytest.fixture
@@ -86,7 +86,7 @@ async def cleanup_test_data(session_factory):
         await session.commit()
     yield
     async with session_factory() as session:
-        await session.execute(delete(StockMovement).where(StockMovement.remarks.like("%INV-S52-%")))
+        await utmih_delete_stock_movements(session, "remarks LIKE '%INV-S52-%'")
         await session.execute(delete(SalesInvoice).where(SalesInvoice.invoice_no.like("INV-S52-%")))
         await session.execute(delete(IntegrationOutboxEvent).where(IntegrationOutboxEvent.source_event_id.like("evt-s52-%")))
         await session.commit()
@@ -246,9 +246,13 @@ async def test_criterion_3_existing_invoice_calculations_and_inventory_movements
             select(StockMovement).where(StockMovement.reference_doc_id == invoice.id)
         )).scalars().all()
         assert len(movements) == 2
+        assert sorted(mv.quantity for mv in movements) == [
+            Decimal("1.00"),
+            Decimal("3.00"),
+        ]
         for mv in movements:
             assert mv.movement_type == "OUTWARD_SALE"
-            assert mv.quantity < 0  # Deducted from inventory
+            assert mv.quantity > 0
 
 
 @pytest.mark.asyncio

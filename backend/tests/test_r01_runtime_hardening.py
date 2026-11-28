@@ -30,7 +30,7 @@ from __future__ import annotations
 
 import uuid
 from decimal import Decimal
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import HTTPException
@@ -43,9 +43,6 @@ from app.models.auth import User, UserRole
 from app.models.inventory import Product, StockMovement, Warehouse
 from app.models.item_master import Item, ItemBatch, ItemVariant
 from app.models.purchase import (
-    PurchaseOrder,
-    PurchaseOrderItem,
-    PurchaseReceipt,
     PurchaseReceiptItem,
     Supplier,
 )
@@ -61,7 +58,6 @@ from app.schemas.purchase import (
     PurchaseReceiptItemCreate,
 )
 from app.services.identity.engine import IdentityEngine
-from app.services.item.item_catalog_svc import ItemCatalogService
 from app.services.item.item_tracking_svc import ItemTrackingService
 from app.services.item.variant_matrix_svc import VariantMatrixService
 from app.services.item_master_svc import UniversalItemMasterService
@@ -104,14 +100,25 @@ async def test_a_missing_barcode_creates_unbarcoded_variant_and_prohibits_synthe
     req = ItemCreateRequest(
         item_code=sku,
         item_name=f"Test A Unbarcoded {suffix}",
-        category="APPAREL",
+        category="Footwear",
         brand="SMRITI",
+        department="FOOTWEAR",
+        color="RED",
+        size="M",
+        gender="WOMEN",
+        product_type="SHOE",
+        design_attribute="COMFORT",
+        heel_type="WEDGE",
+        upper_material="FABRIC",
+        primary_uom="Pair",
+        hsn_code="6403",
+        attributes_json={"size_group": "FOOTWEAR_EU", "tax_category": "STANDARD"},
         selling_price=499.0,
         variants=[
             ItemVariantItem(
                 variant_sku=f"{sku}-RED",
                 variant_name=f"Test A Unbarcoded Red {suffix}",
-                color="Red",
+                color="RED",
                 size="M",
                 selling_price=499.0,
                 barcodes=[],  # Explicitly empty

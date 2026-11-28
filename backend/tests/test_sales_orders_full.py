@@ -13,14 +13,14 @@ Classification: Internal
 """
 
 import pytest
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 
-from app.main import app
-from app.db.session import get_company_sessionmaker
-from app.models.sales import SalesOrder
 from app.core.security import create_access_token
+from app.db.session import get_company_sessionmaker
+from app.main import app
+from app.models.sales import SalesOrder
 
 
 def _get_auth_headers():
@@ -45,7 +45,7 @@ def _get_auth_headers():
 async def test_sales_order_full_suite():
     """Verify Sales Order PDF, HTML Preview, 1-Click Invoice Conversion, and Fulfillment Variance."""
     
-    # 1. Select the intended tenant's live TATTLY order, not an arbitrary tenant row.
+    # 1. Select a live order from this tenant without relying on a particular seed customer.
     sm = get_company_sessionmaker("smriti001")
     async with sm() as db:
         res = await db.execute(
@@ -53,15 +53,16 @@ async def test_sales_order_full_suite():
             .options(selectinload(SalesOrder.items))
             .where(
                 SalesOrder.company_id == "COMP-001",
-                SalesOrder.customer_name == "TATTLY THREADS",
                 SalesOrder.is_deleted == False,
             )
+            .order_by(SalesOrder.date.desc(), SalesOrder.order_no)
         )
         orders = res.scalars().all()
-        assert orders, "Expected a live TATTLY THREADS sales order for COMP-001"
+        assert orders, "Expected a live sales order for COMP-001"
         target_order = orders[0]
-        assert target_order.items, "Expected the TATTLY THREADS sales order to have items"
+        assert target_order.items, "Expected the selected sales order to have items"
         order_id = target_order.id
+        customer_name = target_order.customer_name
 
     headers = _get_auth_headers()
     transport = ASGITransport(app=app)
@@ -78,7 +79,7 @@ async def test_sales_order_full_suite():
         r_html = await client.get(f"/api/v1/sales/orders/{order_id}/preview-html", headers=headers)
         assert r_html.status_code == 200
         assert "SALES ORDER CONFIRMATION" in r_html.text
-        assert "TATTLY THREADS" in r_html.text
+        assert customer_name in r_html.text
 
         # Test 3: Get Sales Order Fulfillment Variance Analytics
         r_var = await client.get("/api/v1/reports/sales-orders/fulfillment-variance", headers=headers)

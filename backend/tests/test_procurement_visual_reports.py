@@ -12,16 +12,17 @@ License      : Proprietary Commercial Software
 Classification: Procurement Visual Reports Backend Test Suite
 """
 
-import sys
 import os
+import sys
 import uuid
+from decimal import Decimal
+
 import pytest
 import pytest_asyncio
-from decimal import Decimal
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from app.db.session import async_session
+from app.db.session import get_company_sessionmaker
 from app.models.inventory import Product, Warehouse
 from app.models.purchase import (
     PurchaseBill,
@@ -39,7 +40,8 @@ from app.services.procurement_visual_reports_service import ProcurementVisualRep
 async def test_procurement_dashboard_summary_real_database(procurement_data):
     """Verify dashboard KPIs and stream rows are derived from persisted procurement records."""
     company_id, supplier_name, _ = procurement_data
-    async with async_session() as db:
+    session_factory = get_company_sessionmaker("smriti001")
+    async with session_factory() as db:
         res = await ProcurementVisualReportsService.get_dashboard_summary(db, company_id=company_id)
         
         assert len(res.kpi_cards) == 6
@@ -80,7 +82,8 @@ async def procurement_data():
     receipt_id = f"receipt_{suffix}"
     bill_id = f"bill_{suffix}"
 
-    async with async_session() as db:
+    session_factory = get_company_sessionmaker("smriti001")
+    async with session_factory() as db:
         db.add(Company(id=company_id, name=f"Procurement Report Test {suffix}"))
         await db.flush()
 
@@ -198,7 +201,8 @@ async def procurement_data():
 @pytest.mark.asyncio
 async def test_procurement_dashboard_summary_empty_company():
     """Verify that querying a company with zero records returns a truthful empty state, never mock data."""
-    async with async_session() as db:
+    session_factory = get_company_sessionmaker("smriti001")
+    async with session_factory() as db:
         res = await ProcurementVisualReportsService.get_dashboard_summary(db, company_id="COMP-NONEXISTENT")
         
         assert res.total_pos_for_status == 0
@@ -220,7 +224,8 @@ async def test_procurement_dashboard_summary_empty_company():
 async def test_procurement_dashboard_summary_attribute_filters(procurement_data):
     """Verify attribute filtering (articles, colors, sizes) and dynamic filter options."""
     company_id, _, style_code = procurement_data
-    async with async_session() as db:
+    session_factory = get_company_sessionmaker("smriti001")
+    async with session_factory() as db:
         res = await ProcurementVisualReportsService.get_dashboard_summary(
             db,
             company_id=company_id,
@@ -263,7 +268,8 @@ async def test_procurement_dashboard_summary_attribute_filters(procurement_data)
 async def test_procurement_dashboard_heatmap_and_scatter(procurement_data):
     """Verify 2D Article-Color Heatmap matrix and Supplier Lead Time vs Order Value scatter plot."""
     company_id, _, _ = procurement_data
-    async with async_session() as db:
+    session_factory = get_company_sessionmaker("smriti001")
+    async with session_factory() as db:
         res = await ProcurementVisualReportsService.get_dashboard_summary(
             db,
             company_id=company_id,

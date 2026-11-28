@@ -16,33 +16,28 @@ Verifies GSTN Schema v1.03, deterministic IRN generation, signed QR construction
 NIC E-Way Bill generation, statutory thresholds, and transactional outbox retries.
 """
 
-import pytest
-import pytest_asyncio
 import hashlib
-from datetime import datetime, timezone
-from httpx import AsyncClient, ASGITransport
+import uuid
 
-from app.main import app
+import pytest
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy import delete, select
+
+from app.api.deps import TenantContext, get_current_user, get_tenant_context
 from app.compliance.connectors.einvoice.connector import EInvoiceConnector
 from app.compliance.connectors.ewaybill.connector import EWayBillConnector
-from app.compliance.services.einvoice_service import EInvoiceService
+from app.compliance.models.compliance import ComplianceAuditLog
 from app.compliance.services.ewaybill_service import EWayBillService
-from app.compliance.services.retry_worker import ComplianceRetryWorker
 from app.compliance.services.registry_service import RegistryService
-from app.compliance.schemas.compliance import (
-    EInvoiceGenerationRequest,
-    EInvoiceItem,
-    EWayBillGenerationRequest,
-    CancelComplianceDocRequest,
-)
-from app.compliance.models.compliance import ComplianceOutbox
-
-
-from app.api.deps import get_current_user, get_tenant_context, TenantContext
-from app.db.session import get_company_sessionmaker
+from app.compliance.services.retry_worker import ComplianceRetryWorker
+from app.db.session import async_session
+from app.main import app
 from app.models.auth import User, UserRole
+from app.models.distribution import EWayBill
+from app.models.identity_registry import SmritiIdentityAlias
 from app.models.tenant import Branch, Company
-from sqlalchemy import select
+
+TEST_BRANCH_ID = f"BR-SGIP-{uuid.uuid4().hex[:12].upper()}"
 
 
 async def mock_admin_user():
@@ -57,7 +52,7 @@ async def mock_admin_user():
 async def mock_tenant():
     return TenantContext(
         company_id="COMP-001",
-        branch_id="BR-MAIN-001",
+        branch_id=TEST_BRANCH_ID,
     )
 
 
@@ -243,8 +238,7 @@ def test_08_retry_worker_exponential_backoff():
 # ---------------------------------------------------------------------------
 @pytest.mark.asyncio
 async def test_09_fastapi_compliance_endpoints():
-    sessionmaker = get_company_sessionmaker("smriti001")
-    async with sessionmaker() as db:
+    async with async_session() as db:
         company = (
             await db.execute(select(Company).where(Company.id == "COMP-001"))
         ).scalars().first()
@@ -253,15 +247,15 @@ async def test_09_fastapi_compliance_endpoints():
             await db.flush()
 
         branch = (
-            await db.execute(select(Branch).where(Branch.id == "BR-MAIN-001"))
+            await db.execute(select(Branch).where(Branch.id == TEST_BRANCH_ID))
         ).scalars().first()
         if branch is None:
             db.add(
                 Branch(
-                    id="BR-MAIN-001",
+                    id=TEST_BRANCH_ID,
                     company_id="COMP-001",
                     name="SGIP Test Branch",
-                    code="SGIP-TEST-BRANCH",
+                    code=TEST_BRANCH_ID,
                     is_active=True,
                     is_deleted=False,
                     is_default=False,
@@ -271,6 +265,7 @@ async def test_09_fastapi_compliance_endpoints():
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        suffix = uuid.uuid4().hex[:8].upper()
         # 1. Health check
         res_health = await client.get("/api/v1/compliance/health")
         assert res_health.status_code == 200
@@ -288,8 +283,8 @@ async def test_09_fastapi_compliance_endpoints():
 
         # 3. Generate E-Invoice endpoint
         req_einvoice = {
-            "invoice_id": "INV-TEST-001",
-            "invoice_no": "SMRITI/2026/001",
+            "invoice_id": f"INV-TEST-{suffix}",
+            "invoice_no": f"SMRITI/2026/{suffix}",
             "invoice_date": "28/08/2026",
             "supplier_gstin": "27AABCU9603R1ZM",
             "supplier_legal_name": "SMRITI ENTERPRISES",
@@ -336,8 +331,8 @@ async def test_09_fastapi_compliance_endpoints():
 
         # 4. Generate E-Way Bill endpoint
         req_ewb = {
-            "invoice_id": "INV-TEST-001",
-            "doc_no": "SMRITI/2026/001",
+            "invoice_id": f"INV-TEST-{suffix}",
+            "doc_no": f"SMRITI/2026/{suffix}",
             "doc_type": "INV",
             "from_gstin": "27AABCU9603R1ZM",
             "to_gstin": "27BBBCU9603R1ZM",
@@ -369,3 +364,21 @@ async def test_09_fastapi_compliance_endpoints():
         )
         assert res_cnl_ewb.status_code == 200
         assert res_cnl_ewb.json()["status"] == "CANCELLED"
+
+    async with async_session() as db:
+        await db.execute(
+            delete(SmritiIdentityAlias).where(
+                SmritiIdentityAlias.entity_type == "EWAY_BILL",
+                SmritiIdentityAlias.branch_id == TEST_BRANCH_ID,
+            )
+        )
+        await db.execute(
+            delete(EWayBill).where(EWayBill.branch_id == TEST_BRANCH_ID)
+        )
+        await db.execute(
+            delete(ComplianceAuditLog).where(
+                ComplianceAuditLog.branch_id == TEST_BRANCH_ID
+            )
+        )
+        await db.execute(delete(Branch).where(Branch.id == TEST_BRANCH_ID))
+        await db.commit()
