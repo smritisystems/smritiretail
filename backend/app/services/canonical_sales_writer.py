@@ -531,7 +531,7 @@ class CanonicalSalesPostingWriter:
                 select(CustomerPurchaseOrder).where(
                     CustomerPurchaseOrder.id == req.customer_po_id,
                     CustomerPurchaseOrder.company_id == company_id,
-                    CustomerPurchaseOrder.is_deleted == False,
+                    CustomerPurchaseOrder.is_deleted.is_(False),
                 ).with_for_update()
             )
             po_obj = po_res.scalars().first()
