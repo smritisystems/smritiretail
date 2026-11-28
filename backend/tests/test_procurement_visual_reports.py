@@ -103,6 +103,7 @@ async def procurement_data():
             sku=f"SKU-{suffix}",
             name=f"Report Product {suffix}",
             category="Footwear",
+            barcode=f"REPORT-{suffix}",
             brand="Report Brand",
             style_code=f"STYLE-{suffix}",
             color="BLACK",

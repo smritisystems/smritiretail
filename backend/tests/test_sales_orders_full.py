@@ -15,6 +15,7 @@ Classification: Internal
 import pytest
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy.future import select
+from sqlalchemy.orm import selectinload
 
 from app.main import app
 from app.db.session import get_company_sessionmaker
@@ -44,13 +45,22 @@ def _get_auth_headers():
 async def test_sales_order_full_suite():
     """Verify Sales Order PDF, HTML Preview, 1-Click Invoice Conversion, and Fulfillment Variance."""
     
-    # 1. Check live Sales Orders exist in smriti001
+    # 1. Select the intended tenant's live TATTLY order, not an arbitrary tenant row.
     sm = get_company_sessionmaker("smriti001")
     async with sm() as db:
-        res = await db.execute(select(SalesOrder))
+        res = await db.execute(
+            select(SalesOrder)
+            .options(selectinload(SalesOrder.items))
+            .where(
+                SalesOrder.company_id == "COMP-001",
+                SalesOrder.customer_name == "TATTLY THREADS",
+                SalesOrder.is_deleted == False,
+            )
+        )
         orders = res.scalars().all()
-        assert len(orders) > 0, "Expected live sales orders in database"
+        assert orders, "Expected a live TATTLY THREADS sales order for COMP-001"
         target_order = orders[0]
+        assert target_order.items, "Expected the TATTLY THREADS sales order to have items"
         order_id = target_order.id
 
     headers = _get_auth_headers()

@@ -39,7 +39,10 @@ from app.compliance.models.compliance import ComplianceOutbox
 
 
 from app.api.deps import get_current_user, get_tenant_context, TenantContext
+from app.db.session import get_company_sessionmaker
 from app.models.auth import User, UserRole
+from app.models.tenant import Branch, Company
+from sqlalchemy import select
 
 
 async def mock_admin_user():
@@ -240,6 +243,32 @@ def test_08_retry_worker_exponential_backoff():
 # ---------------------------------------------------------------------------
 @pytest.mark.asyncio
 async def test_09_fastapi_compliance_endpoints():
+    sessionmaker = get_company_sessionmaker("smriti001")
+    async with sessionmaker() as db:
+        company = (
+            await db.execute(select(Company).where(Company.id == "COMP-001"))
+        ).scalars().first()
+        if company is None:
+            db.add(Company(id="COMP-001", name="SGIP Test Company"))
+            await db.flush()
+
+        branch = (
+            await db.execute(select(Branch).where(Branch.id == "BR-MAIN-001"))
+        ).scalars().first()
+        if branch is None:
+            db.add(
+                Branch(
+                    id="BR-MAIN-001",
+                    company_id="COMP-001",
+                    name="SGIP Test Branch",
+                    code="SGIP-TEST-BRANCH",
+                    is_active=True,
+                    is_deleted=False,
+                    is_default=False,
+                )
+            )
+        await db.commit()
+
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://testserver") as client:
         # 1. Health check

@@ -31,6 +31,7 @@ import pytest
 from sqlalchemy import select
 
 from app.db.session import get_company_sessionmaker
+from app.models.inventory import Warehouse
 from app.models.item_master import Item, ItemBatch, ItemSerial, ItemWarehouseLocation
 from app.services.identity.engine import IdentityEngine
 from app.services.item.item_tracking_svc import ItemTrackingService
@@ -259,7 +260,17 @@ async def test_concurrent_warehouse_location_resolution_3_workers():
             is_active=True,
             is_deleted=False,
         )
-        setup_session.add(item)
+        warehouse = Warehouse(
+            id=wh_id,
+            uuid=str(uuid.uuid4()),
+            company_id=comp_a,
+            branch_id="BR-MAIN-001",
+            code=f"WH-CONCUR-{suffix}",
+            name=f"Concurrency Warehouse {suffix}",
+            is_active=True,
+            is_deleted=False,
+        )
+        setup_session.add_all([item, warehouse])
         await setup_session.commit()
         item_id = item.id
 

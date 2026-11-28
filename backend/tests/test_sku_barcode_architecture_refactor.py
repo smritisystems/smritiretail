@@ -43,6 +43,23 @@ from db_test_config import COMPANY_001_ASYNC_URL
 TEST_DB_URL = COMPANY_001_ASYNC_URL
 
 
+def _required_catalog_fields():
+    return {
+        "department": "FOOTWEAR",
+        "brand": "SMRITI",
+        "color": "BLACK",
+        "size": "40",
+        "gender": "WOMEN",
+        "product_type": "SHOE",
+        "design_attribute": "COMFORT",
+        "heel_type": "WEDGE",
+        "upper_material": "FABRIC",
+        "primary_uom": "Pair",
+        "hsn_code": "6403",
+        "attributes_json": {"size_group": "FOOTWEAR_EU", "tax_category": "STANDARD"},
+    }
+
+
 @pytest_asyncio.fixture
 async def db_session():
     engine = create_async_engine(TEST_DB_URL, echo=False)
@@ -107,6 +124,7 @@ async def test_02_new_variant_initial_sku_from_primary_barcode(db_session: Async
         item_code=f"STYLE-BC-{suffix}",
         item_name=f"Style With Barcode {suffix}",
         category="Footwear",
+        **_required_catalog_fields(),
         variants=[
             ItemVariantItem(
                 color="BLACK",
@@ -152,6 +170,7 @@ async def test_03_new_variant_without_barcode_generates_internal_sku_no_fake_bar
         item_code=f"STYLE-NOBC-{suffix}",
         item_name=f"Style Without Barcode {suffix}",
         category="Footwear",
+        **_required_catalog_fields(),
         variants=[
             ItemVariantItem(
                 color="NAVY",
@@ -195,6 +214,7 @@ async def test_04_multiple_barcodes_one_variant_and_single_primary_enforcement(d
         item_code=f"STYLE-MULTI-{suffix}",
         item_name=f"Multi Barcode Style {suffix}",
         category="Footwear",
+        **_required_catalog_fields(),
         variants=[
             ItemVariantItem(
                 color="BROWN",
@@ -257,6 +277,7 @@ async def test_05_barcode_replacement_preserves_sku_stability(db_session: AsyncS
         item_code=f"STYLE-REPL-{suffix}",
         item_name=f"Replace BC Style {suffix}",
         category="Footwear",
+        **_required_catalog_fields(),
         variants=[
             ItemVariantItem(
                 color="BLACK",
@@ -323,6 +344,7 @@ async def test_06_resolution_hierarchy_barcode_and_sku(db_session: AsyncSession)
         item_code=f"RESOLVE-STYLE-{suffix}",
         item_name=f"Resolve Style {suffix}",
         category="Footwear",
+        **_required_catalog_fields(),
         variants=[
             ItemVariantItem(
                 color="BLACK",
@@ -444,28 +466,74 @@ async def test_08_historical_ch24g_footwear_regression(db_session: AsyncSession)
 @pytest.mark.asyncio
 async def test_09_synthetic_d_barcode_deactivation_and_lookup_exclusion(db_session: AsyncSession):
     """
-    Gate 1: Synthetic D Barcode Cleanup.
-    1. Real barcode 8904551002945 resolves cleanly to CH-24-G variant.
-    2. Synthetic barcode 8904551002945D does NOT resolve as an active barcode.
-    3. Historical record for 8904551002945D is preserved in item_barcodes (is_active=False).
+    Active barcodes resolve, while a deactivated historical barcode remains auditable.
     """
-    # 1. Real barcode lookup succeeds
-    res_real = await BarcodeResolverService.lookup_by_barcode(db_session, "8904551002945")
-    assert res_real is not None
-    assert res_real["item_code"] == "CH-24-G"
-    assert res_real["primary_barcode"] == "8904551002945"
+    suffix = f"{uuid.uuid4().int % 10_000_000:07d}"
+    barcode = f"890455{suffix}"
+    synthetic_barcode = f"{barcode}D"
+    item = Item(
+        id=f"itm_bc_{suffix}",
+        company_id="COMP-001",
+        item_code=f"CH-24-G-{suffix}",
+        item_name=f"Barcode Test Item {suffix}",
+        category="Footwear",
+        is_active=True,
+    )
+    variant = ItemVariant(
+        id=f"var_bc_{suffix}",
+        company_id="COMP-001",
+        item_id=item.id,
+        variant_sku=f"CH-24-G-{suffix}-BLACK-40",
+        variant_name=f"Barcode Test Variant {suffix}",
+        color="BLACK",
+        size="40",
+        is_active=True,
+    )
+    db_session.add_all(
+        [
+            item,
+            variant,
+            ItemBarcode(
+                id=f"bc_active_{suffix}",
+                company_id="COMP-001",
+                item_id=item.id,
+                variant_id=variant.id,
+                barcode=barcode,
+                barcode_type="EAN13",
+                is_primary=True,
+                is_active=True,
+                is_deleted=False,
+            ),
+            ItemBarcode(
+                id=f"bc_inactive_{suffix}",
+                company_id="COMP-001",
+                item_id=item.id,
+                variant_id=variant.id,
+                barcode=synthetic_barcode,
+                barcode_type="CUSTOM",
+                is_primary=False,
+                is_active=False,
+                is_deleted=False,
+            ),
+        ]
+    )
+    await db_session.flush()
 
-    # 2. Synthetic D barcode lookup returns None (inactive excluded)
-    res_d = await BarcodeResolverService.lookup_by_barcode(db_session, "8904551002945D")
+    res_real = await BarcodeResolverService.lookup_by_barcode(db_session, barcode)
+    assert res_real is not None
+    assert res_real["item_code"] == item.item_code
+    assert res_real["primary_barcode"] == barcode
+
+    res_d = await BarcodeResolverService.lookup_by_barcode(db_session, synthetic_barcode)
     assert res_d is None
 
-    # Also via resolve_item_by_barcode_or_sku
-    res_tier1 = await BarcodeResolverService.resolve_item_by_barcode_or_sku(db_session, "8904551002945D")
+    res_tier1 = await BarcodeResolverService.resolve_item_by_barcode_or_sku(
+        db_session, synthetic_barcode
+    )
     assert res_tier1 is None
 
-    # 3. Verify historical audit record is preserved with is_active = False
     audit_row = (await db_session.execute(
-        select(ItemBarcode).where(ItemBarcode.barcode == "8904551002945D")
+        select(ItemBarcode).where(ItemBarcode.barcode == synthetic_barcode)
     )).scalar_one_or_none()
     assert audit_row is not None
     assert audit_row.is_active is False

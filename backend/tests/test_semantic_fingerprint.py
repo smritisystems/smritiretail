@@ -19,7 +19,51 @@ import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "scripts"))
 from lib.semantic_fingerprinter import SemanticFingerprint
 from lib.certificate_manager import PreflightCertificateManager
+import architecture_preflight
 from architecture_preflight import query_registry
+
+
+def _mock_architecture_registry(monkeypatch):
+    class Cursor:
+        def execute(self, query, params=None):
+            params = params or ()
+            self.one = None
+            self.many = []
+            if "FROM architecture_entities" in query:
+                self.one = (params[0], "Canonical", "Canonical UI")
+            elif "FROM architecture_capabilities" in query:
+                self.one = None
+            elif "WHERE decision_id = %s" in query:
+                if params[0] == "ADR-EXEMPT-006":
+                    self.one = (params[0], "Approved test decision", "APPROVED")
+            elif "canonical_owner ILIKE" in query:
+                if params[0] == "products":
+                    self.many = [
+                        (
+                            "ADR-FROZEN-001",
+                            "Inventory Product Store vs Item Catalog Dual-Model",
+                            "items / item_variants",
+                            "products",
+                            "FROZEN_INVESTIGATION",
+                            "ARCHITECTURE_DECISION_REQUIRED",
+                            "Items are canonical; products remain a compatibility store.",
+                        )
+                    ]
+
+        def fetchone(self):
+            return self.one
+
+        def fetchall(self):
+            return self.many
+
+    class Connection:
+        def cursor(self):
+            return Cursor()
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(architecture_preflight.psycopg2, "connect", lambda _: Connection())
 
 
 class TestSemanticFingerprintAndGovernance:
@@ -64,20 +108,22 @@ class TestSemanticFingerprintAndGovernance:
             assert "customer" in fp.detected_entities
             assert any(r in ["lookup", "find", "search"] for r in fp.detected_capabilities)
 
-    def test_novel_capability_without_adr_blocks_create_approved(self):
+    def test_novel_capability_without_adr_blocks_create_approved(self, monkeypatch):
         """
         Proves NO_MATCH != CREATE_APPROVED.
         Unregistered capability 'ai_face_scanner' must return ARCHITECTURE_DECISION_REQUIRED.
         """
+        _mock_architecture_registry(monkeypatch)
         res = query_registry(entity="customer", capability="ai_face_scanner", proposed_name="FaceScanner.tsx")
         assert res["status"] == "ARCHITECTURE_DECISION_REQUIRED"
         assert res["exit_code"] == 2
         assert "NO_MATCH ≠ CREATE_APPROVED" in res["message"]
 
-    def test_novel_capability_with_approved_adr_allows_create_approved(self):
+    def test_novel_capability_with_approved_adr_allows_create_approved(self, monkeypatch):
         """
         Proves that an approved ADR allows creation and issues a verifiable certificate.
         """
+        _mock_architecture_registry(monkeypatch)
         res = query_registry(
             entity="sales_order",
             capability="order_entry",
@@ -134,10 +180,11 @@ class TestSemanticFingerprintAndGovernance:
         check_invalid = PreflightCertificateManager.verify_file_certificate("src/components/customer/UncertifiedHackedView.tsx")
         assert check_invalid["valid"] is False
 
-    def test_frozen_architecture_decision_enforcement(self):
+    def test_frozen_architecture_decision_enforcement(self, monkeypatch):
         """
         Proves that disputed targets (products vs items) strictly halt with ARCHITECTURE_DECISION_REQUIRED.
         """
+        _mock_architecture_registry(monkeypatch)
         res = query_registry(entity="inventory", capability="modify_catalog", proposed_name="products")
         assert res["status"] == "ARCHITECTURE_DECISION_REQUIRED"
         assert res["decision_id"] == "ADR-FROZEN-001"

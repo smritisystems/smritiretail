@@ -90,10 +90,10 @@ async def test_a_missing_barcode_creates_unbarcoded_variant_and_prohibits_synthe
     and missing barcodes must leave variants unbarcoded (0 barcodes).
     """
     # 1. Direct generator invocation prohibited
-    with pytest.raises(RuntimeError, match="Synthetic barcode generation is prohibited"):
+    with pytest.raises(RuntimeError, match="Placeholder generation is prohibited"):
         UniversalItemMasterService.generate_placeholder_barcode()
 
-    with pytest.raises(RuntimeError, match="Synthetic barcode generation is prohibited"):
+    with pytest.raises(RuntimeError, match="Placeholder generation is prohibited"):
         VariantMatrixService.generate_placeholder_barcode()
 
     # 2. Creating item without barcodes creates unbarcoded variants
@@ -144,15 +144,26 @@ async def test_b_official_barcode_preserved_and_resolves():
     req = ItemCreateRequest(
         item_code=sku,
         item_name=f"Test B Official Barcode {suffix}",
-        category="APPAREL",
+        category="Footwear",
         brand="SMRITI",
+        department="FOOTWEAR",
+        color="BLACK",
+        size="40",
+        gender="WOMEN",
+        product_type="SHOE",
+        design_attribute="COMFORT",
+        heel_type="WEDGE",
+        upper_material="FABRIC",
+        primary_uom="Pair",
+        hsn_code="6403",
+        attributes_json={"size_group": "FOOTWEAR_EU", "tax_category": "STANDARD"},
         selling_price=799.0,
         variants=[
             ItemVariantItem(
                 variant_sku=f"{sku}-BLU",
-                variant_name=f"Test B Blue {suffix}",
-                color="Blue",
-                size="L",
+                variant_name=f"Test B Black 40 {suffix}",
+                color="BLACK",
+                size="40",
                 selling_price=799.0,
                 barcodes=[
                     ItemBarcodeItem(barcode=official_bc, barcode_type="EAN13", is_primary=True)
@@ -527,6 +538,20 @@ async def test_f_batch_resolution_failure_raises_422():
         session.add(item)
         await session.flush()
 
+        variant = ItemVariant(
+            id=f"var_{uuid.uuid4().hex[:12]}",
+            uuid=str(uuid.uuid4()),
+            company_id=user.company_id,
+            branch_id=user.branch_id,
+            item_id=item.id,
+            variant_sku=f"{sku}-VAR",
+            variant_name=f"Test F Variant {suffix}",
+            is_active=True,
+            is_deleted=False,
+        )
+        session.add(variant)
+        await session.flush()
+
         product = Product(
             id=f"prd_{uuid.uuid4().hex[:12]}",
             uuid=str(uuid.uuid4()),
@@ -538,6 +563,7 @@ async def test_f_batch_resolution_failure_raises_422():
             barcode=sku,
             category="APPAREL",
             item_id=item.id,
+            item_variant_id=variant.id,
             price=Decimal("200.00"),
             cost_price=Decimal("100.00"),
             stock=0,
@@ -637,6 +663,20 @@ async def test_g_warehouse_location_resolution_failure_raises_422():
         session.add(item)
         await session.flush()
 
+        variant = ItemVariant(
+            id=f"var_{uuid.uuid4().hex[:12]}",
+            uuid=str(uuid.uuid4()),
+            company_id=user.company_id,
+            branch_id=user.branch_id,
+            item_id=item.id,
+            variant_sku=f"{sku}-VAR",
+            variant_name=f"Test G Variant {suffix}",
+            is_active=True,
+            is_deleted=False,
+        )
+        session.add(variant)
+        await session.flush()
+
         product = Product(
             id=f"prd_{uuid.uuid4().hex[:12]}",
             uuid=str(uuid.uuid4()),
@@ -648,6 +688,7 @@ async def test_g_warehouse_location_resolution_failure_raises_422():
             barcode=sku,
             category="APPAREL",
             item_id=item.id,
+            item_variant_id=variant.id,
             price=Decimal("200.00"),
             cost_price=Decimal("100.00"),
             stock=0,
