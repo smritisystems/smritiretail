@@ -11,39 +11,42 @@ License      : Proprietary Commercial Software
 Classification: Internal Test Suite
 """
 
-import sys
 import os
+import sys
 import uuid
+from decimal import Decimal
 from io import BytesIO
 from pathlib import Path
-from decimal import Decimal
 
 backend_dir = Path(__file__).resolve().parent.parent
 if str(backend_dir) not in sys.path:
     sys.path.insert(0, str(backend_dir))
 
 from dotenv import dotenv_values
+
 env_file = backend_dir.parent / ".env"
 if env_file.exists():
     for k, v in dotenv_values(env_file).items():
         if v is not None and k not in os.environ:
             os.environ[k] = v
 
-import pytest
 import openpyxl
+import pytest
 from fastapi import HTTPException
-from sqlalchemy import select, delete, or_
-from app.db.session import get_company_sessionmaker
-from app.models.item_master import Item, ItemVariant, ItemBarcode, ItemWarehouseLocation
-from app.models.inventory import Product
-from app.models.pricing import PriceBook, PriceBookEntry
+from sqlalchemy import delete, or_, select
+
 from app.api.v1.universal_import import (
-    preview_universal_import,
+    ImportCommitRequest,
+    ImportPreviewRequest,
     commit_universal_import,
     download_item_master_template,
-    ImportPreviewRequest,
-    ImportCommitRequest,
+    preview_universal_import,
 )
+from app.db.session import async_session, get_company_sessionmaker
+from app.models.inventory import Product
+from app.models.item_master import Item, ItemBarcode, ItemVariant, ItemWarehouseLocation
+from app.models.master_lookup import MasterType, MasterValue
+from app.models.pricing import PriceBook, PriceBookEntry
 
 TEST_STYLES = [
     "CH-TEST-STYLE-01",
@@ -56,8 +59,76 @@ TEST_STYLES = [
 TEST_BARCODES = [f"8909999000{i:03d}" for i in range(1, 25)]
 
 
+def _with_governed_defaults(rows):
+    defaults = {
+        "BRAND_NAME": "Tattly Threads",
+        "MERCHANDISE_DEPARTMENT": "FOOTWEAR",
+        "MERCHANDISE_CATEGORY": "CHAPPAL",
+        "PRODUCT_TYPE": "CHAPPAL",
+        "GENDER": "LADIES",
+        "HEEL_TYPE": "FLAT",
+        "UPPER_MATERIAL": "SYNTHETIC",
+        "UOM": "Pair",
+        "HSN_CODE": "6402",
+        "GST_RATE_PERCENT": "5",
+    }
+    return [{**defaults, **row} for row in rows]
+
+
 @pytest.fixture(autouse=True)
-async def cleanup_test_data():
+async def cleanup_test_data(monkeypatch):
+    original_preview = preview_universal_import
+    original_commit = commit_universal_import
+    created_department_type_id = None
+    created_department_value_id = None
+
+    async def preview_with_governed_defaults(request, **kwargs):
+        request.rows = _with_governed_defaults(request.rows)
+        return await original_preview(request=request, **kwargs)
+
+    async def commit_with_governed_defaults(request, **kwargs):
+        request.rows = _with_governed_defaults(request.rows)
+        return await original_commit(request=request, **kwargs)
+
+    monkeypatch.setattr(sys.modules[__name__], "preview_universal_import", preview_with_governed_defaults)
+    monkeypatch.setattr(sys.modules[__name__], "commit_universal_import", commit_with_governed_defaults)
+
+    async with async_session() as session:
+        department_type = (
+            await session.execute(select(MasterType).where(MasterType.code == "department"))
+        ).scalars().first()
+        if not department_type:
+            department_type = MasterType(
+                code="department",
+                label="Department",
+                field_schema={"type": "object"},
+            )
+            session.add(department_type)
+            await session.flush()
+            created_department_type_id = department_type.id
+        department_value = (
+            await session.execute(
+                select(MasterValue).where(
+                    MasterValue.master_type_id == department_type.id,
+                    MasterValue.code == "FOOTWEAR",
+                    MasterValue.is_deleted.is_(False),
+                )
+            )
+        ).scalars().first()
+        if not department_value:
+            department_value = MasterValue(
+                master_type_id=department_type.id,
+                code="FOOTWEAR",
+                name="FOOTWEAR",
+                data={},
+                active=True,
+                is_deleted=False,
+            )
+            session.add(department_value)
+            await session.flush()
+            created_department_value_id = department_value.id
+        await session.commit()
+
     session_factory = get_company_sessionmaker("smriti001")
     async with session_factory() as session:
         await session.execute(delete(Product).where(or_(Product.barcode.in_(TEST_BARCODES), Product.style_code.in_(TEST_STYLES))))
@@ -80,6 +151,17 @@ async def cleanup_test_data():
         await session.execute(delete(ItemVariant).where(ItemVariant.item_id.in_(sub)))
         await session.execute(delete(Item).where(Item.item_code.in_(TEST_STYLES)))
         await session.commit()
+    if created_department_value_id or created_department_type_id:
+        async with async_session() as session:
+            if created_department_value_id:
+                await session.execute(
+                    delete(MasterValue).where(MasterValue.id == created_department_value_id)
+                )
+            if created_department_type_id:
+                await session.execute(
+                    delete(MasterType).where(MasterType.id == created_department_type_id)
+                )
+            await session.commit()
 
 
 @pytest.mark.asyncio
@@ -190,7 +272,7 @@ async def test_item_master_commit_3tier_cascade():
                     "ARTICLE_STYLE_CODE": TEST_STYLES[1],
                     "BRAND_NAME": "TATTLY THREADS",
                     "MERCHANDISE_DEPARTMENT": "FOOTWEAR",
-                    "MERCHANDISE_CATEGORY": "Footwear",
+                    "MERCHANDISE_CATEGORY": "CHAPPAL",
                     "PRODUCT_TYPE": "CHAPPAL",
                     "COLOR": "BLACK",
                     "SIZE": "36",
@@ -211,7 +293,7 @@ async def test_item_master_commit_3tier_cascade():
                     "ARTICLE_STYLE_CODE": TEST_STYLES[1],
                     "BRAND_NAME": "TATTLY THREADS",
                     "MERCHANDISE_DEPARTMENT": "FOOTWEAR",
-                    "MERCHANDISE_CATEGORY": "Footwear",
+                    "MERCHANDISE_CATEGORY": "CHAPPAL",
                     "PRODUCT_TYPE": "CHAPPAL",
                     "COLOR": "BLACK",
                     "SIZE": "37",
@@ -675,6 +757,7 @@ async def test_article_style_code_missing_rejection_never_derive_from_sku():
                 request=ImportCommitRequest(
                     target="ITEM_MASTER",
                     idempotency_key=f"idem-{uuid.uuid4().hex[:12]}",
+                    import_strategy="STRICT",
                     rows=invalid_row,
                 ),
                 db=session,
@@ -746,6 +829,7 @@ async def test_im001_commit_enforcement_rejects_unapproved_values():
                 request=ImportCommitRequest(
                     target="ITEM_MASTER",
                     idempotency_key=f"idem-{uuid.uuid4().hex[:12]}",
+                    import_strategy="STRICT",
                     rows=bad_color_row,
                 ),
                 db=session,

@@ -39,6 +39,9 @@ _PG_BASE = "postgresql://postgres:postgres@localhost:5432"
 
 def _pg_connect(database: str):
     import psycopg2  # local import — optional dependency
+    if os.getenv("TESTING") == "1":
+        from app.test_environment import validate_test_tenant_name
+        database = validate_test_tenant_name(database)
     return psycopg2.connect(f"{_PG_BASE}/{database}")
 
 

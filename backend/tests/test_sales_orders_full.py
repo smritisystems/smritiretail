@@ -14,21 +14,23 @@ Classification: Internal
 
 import pytest
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import or_
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 
 from app.core.security import create_access_token
-from app.db.session import get_company_sessionmaker
+from app.db.session import async_session, get_company_sessionmaker
 from app.main import app
+from app.models.auth import Branch
 from app.models.sales import SalesOrder
 
 
-def _get_auth_headers():
+def _get_auth_headers(branch_id="BR-001"):
     token = create_access_token(data={
         "sub": "usr-super",
         "role": "SYSADMIN",
         "company_id": "COMP-001",
-        "branch_id": "BR-001",
+        "branch_id": branch_id,
         "tenant_id": "smriti001",
         "db_name": "smriti001",
         "is_active": True,
@@ -37,7 +39,7 @@ def _get_auth_headers():
         "Authorization": f"Bearer {token}",
         "X-Company-ID": "COMP-001",
         "X-Company-Code": "001",
-        "X-Branch-ID": "BR-001"
+        "X-Branch-ID": branch_id
     }
 
 
@@ -45,7 +47,18 @@ def _get_auth_headers():
 async def test_sales_order_full_suite():
     """Verify Sales Order PDF, HTML Preview, 1-Click Invoice Conversion, and Fulfillment Variance."""
     
-    # 1. Select a live order from this tenant without relying on a particular seed customer.
+    async with async_session() as control_db:
+        branch_result = await control_db.execute(
+            select(Branch.id).where(
+                Branch.company_id == "COMP-001",
+                Branch.is_default.is_(True),
+                Branch.is_deleted.is_(False),
+                Branch.is_active.is_(True),
+            )
+        )
+        default_branch_id = branch_result.scalar_one()
+
+    # 1. Select a live order visible to the default branch.
     sm = get_company_sessionmaker("smriti001")
     async with sm() as db:
         res = await db.execute(
@@ -53,6 +66,10 @@ async def test_sales_order_full_suite():
             .options(selectinload(SalesOrder.items))
             .where(
                 SalesOrder.company_id == "COMP-001",
+                or_(
+                    SalesOrder.branch_id == default_branch_id,
+                    SalesOrder.branch_id.is_(None),
+                ),
                 SalesOrder.is_deleted == False,
             )
             .order_by(SalesOrder.date.desc(), SalesOrder.order_no)
@@ -64,7 +81,7 @@ async def test_sales_order_full_suite():
         order_id = target_order.id
         customer_name = target_order.customer_name
 
-    headers = _get_auth_headers()
+    headers = _get_auth_headers(default_branch_id)
     transport = ASGITransport(app=app)
 
     async with AsyncClient(transport=transport, base_url="http://test") as client:

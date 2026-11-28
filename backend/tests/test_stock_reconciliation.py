@@ -12,9 +12,15 @@ License      : Proprietary Commercial Software
 Classification: Internal
 """
 
-import os
+import asyncio
 import json
+import os
+
 import pytest
+from sqlalchemy import func, select
+
+from app.db.session import get_company_sessionmaker
+from app.models.sales import SalesInvoice, SalesInvoiceItem
 from scripts.reconcile_historical_stock import run_historical_stock_reconciliation
 
 
@@ -27,8 +33,29 @@ def test_dry_run_historical_stock_reconciliation(tmp_path):
     """
     output_file = str(tmp_path / "test_reconciliation.json")
 
+    session_factory = get_company_sessionmaker("smriti001")
+
+    async def get_expected_counts():
+        async with session_factory() as session:
+            scope = (
+                SalesInvoice.is_deleted.is_(False),
+                SalesInvoice.company_id == "COMP-001",
+                SalesInvoice.branch_id == "MAIN",
+            )
+            invoices = await session.scalar(
+                select(func.count()).select_from(SalesInvoice).where(*scope)
+            )
+            lines = await session.scalar(
+                select(func.count())
+                .select_from(SalesInvoiceItem)
+                .join(SalesInvoice, SalesInvoice.id == SalesInvoiceItem.invoice_id)
+                .where(*scope)
+            )
+            return invoices, lines
+
+    expected_invoices, expected_lines = asyncio.run(get_expected_counts())
     result = run_historical_stock_reconciliation(
-        database="smriti001",
+        database="smriti_test_001",
         mode="dry-run",
         output_file=output_file,
         company_id="COMP-001",
@@ -40,6 +67,7 @@ def test_dry_run_historical_stock_reconciliation(tmp_path):
     assert os.path.exists(output_file)
 
     summary = result["summary"]
+    assert "_error" not in summary, summary.get("_error")
     assert "invoices_analyzed" in summary
     assert "invoice_lines_analyzed" in summary
     assert "already_matched_movements" in summary
@@ -49,10 +77,10 @@ def test_dry_run_historical_stock_reconciliation(tmp_path):
     assert "missing_product_mappings" in summary
     assert "distinct_products_impacted" in summary
 
-    assert summary["invoices_analyzed"] == 120
-    assert summary["invoice_lines_analyzed"] == 6661
+    assert summary["invoices_analyzed"] == expected_invoices
+    assert summary["invoice_lines_analyzed"] == expected_lines
     assert summary["duplicate_risk_records"] == 0
 
     with open(output_file, "r", encoding="utf-8") as f:
         loaded = json.load(f)
-    assert loaded["summary"]["invoices_analyzed"] == 120
+    assert loaded["summary"]["invoices_analyzed"] == expected_invoices

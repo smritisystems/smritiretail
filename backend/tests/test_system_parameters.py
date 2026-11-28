@@ -14,10 +14,11 @@ Classification: Internal
 Automated Pytest Suite for SMRITI System Parameters Subsystem & 5-Tier Governance Engine
 """
 
-import sys
 import json
-import pytest
+import sys
 from pathlib import Path
+
+import pytest
 from fastapi import HTTPException
 
 # Ensure backend and workspace are on path
@@ -28,8 +29,8 @@ for p in [str(workspace_root), str(backend_dir)]:
         sys.path.insert(0, p)
 
 from app.db.session import async_session
-from app.services.system_parameter import SystemParameterService
 from app.models.system_parameter import SystemParameter
+from app.services.system_parameter import SystemParameterService
 
 
 @pytest.mark.asyncio
@@ -211,7 +212,7 @@ async def test_07_canonical_code_populated():
                 "SELECT param_code, canonical_code FROM system_parameters "
                 "WHERE param_code IN ('AllowCreditBilling', 'SHOPEREnv', 'GIRWithoutPORef', "
                 "'CompanyCode', 'InBillingCustSelectionCompulsary', 'StockOutActionInBill') "
-                "AND company_id IS NULL"
+                "AND company_id = 'COMP-001'"
             )
         )
         rows = result.fetchall()

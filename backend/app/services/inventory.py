@@ -11,23 +11,26 @@ Copyright    : © SMRITIBooks.com. All Rights Reserved.
 License      : Proprietary Commercial Software
 """
 
+import re
+import uuid
 from decimal import Decimal
 from typing import Optional
+
+from fastapi import HTTPException
+from sqlalchemy import and_, func, or_
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import func, and_, or_
-from sqlalchemy.exc import IntegrityError
-from fastapi import HTTPException
-import uuid
-import re
-from ..models.inventory import Product, StockMovement, Warehouse, ProductBatchStock
-from ..models.item_master import Item, ItemVariant, ItemBarcode, LegacyIdMapping
+
+from ..api.deps import TenantContext
+from ..models.inventory import Product, ProductBatchStock, StockMovement, Warehouse
+from ..models.item_master import Item, ItemBarcode, ItemVariant, LegacyIdMapping
 from ..models.pricing import PriceBook, PriceBookEntry
 from ..schemas.inventory import ProductCreate
-from ..api.deps import TenantContext
 from .attributes import AttributesService
 from .identity.engine import IdentityEngine
-from .stock_ledger import StockLedger, MovementRequest, InternalCost
+from .stock_ledger import InternalCost, MovementRequest, StockLedger
+
 
 class InventoryService:
     def __init__(self, db: AsyncSession, tenant_ctx: TenantContext):
@@ -209,9 +212,9 @@ class InventoryService:
             "hsn_code": product_in.hsn_code,
             "gst_rate_percent": float(product_in.gst_percentage) if product_in.gst_percentage is not None else None,
             "department": attrs.get("department") or attrs.get("merchandise_department"),
+            "uom": attrs.get("uom") or attrs.get("primary_uom") or attrs.get("unit_of_measure"),
             "size_group": attrs.get("size_group") or attrs.get("sizeGroup"),
             "tax_category": attrs.get("tax_category") or attrs.get("taxCategory"),
-            "uom": attrs.get("uom") or attrs.get("primary_uom") or attrs.get("unit_of_measure"),
             "gender": getattr(product_in, "gender", None) or attrs.get("gender"),
             "product_type": getattr(product_in, "product_type", None) or attrs.get("product_type") or attrs.get("productType"),
             "heel_type": getattr(product_in, "heel_type", None) or attrs.get("heel_type") or attrs.get("heelType") or attrs.get("heels"),
@@ -305,7 +308,7 @@ class InventoryService:
         article_code = style if style else (None if auto_gen else prod_code)
 
         # Build canonical ItemCreateRequest delegating to UniversalItemMasterService (Requirement 3)
-        from ..schemas.item_master import ItemCreateRequest, ItemVariantItem, ItemBarcodeItem
+        from ..schemas.item_master import ItemBarcodeItem, ItemCreateRequest, ItemVariantItem
         from .item_master_svc import UniversalItemMasterService
 
         barcodes = []
@@ -447,7 +450,7 @@ class InventoryService:
         Records StockMovements and emits Transactional Outbox event.
         Dual-key converged: writes product_id, item_id, variant_id.
         """
-        from .stock_synchronizer import StockSynchronizer, INFLOW_MOVEMENT_TYPES, OUTFLOW_MOVEMENT_TYPES
+        from .stock_synchronizer import INFLOW_MOVEMENT_TYPES, OUTFLOW_MOVEMENT_TYPES, StockSynchronizer
 
         stmt = select(Product).filter(
             Product.id == product_id,
@@ -630,7 +633,7 @@ class InventoryService:
                 }
             )
 
-        from .stock_synchronizer import StockSynchronizer, INFLOW_MOVEMENT_TYPES, OUTFLOW_MOVEMENT_TYPES
+        from .stock_synchronizer import INFLOW_MOVEMENT_TYPES, OUTFLOW_MOVEMENT_TYPES, StockSynchronizer
 
         stmt = select(Product).filter(
             Product.id == product_id,

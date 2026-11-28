@@ -18,14 +18,15 @@ Test suite for Unified IM-001 Catalog Governance across:
 """
 
 import uuid
-import pytest
+
 import openpyxl
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import delete
 
-from app.main import app
 from app.core.security import create_access_token
 from app.db.session import get_company_sessionmaker
+from app.main import app
 from app.models.inventory import Product
 from app.models.item_master import Item
 from app.services.catalog_validation import IM001ControlledFieldValidator
@@ -185,6 +186,13 @@ def test_03_positive_test_onboarded_dimensions_pass(client, auth_headers):
             "product_type": "HALF SHOE",
             "style": "CH-01-A",
             "article_no": "CH-01-A",
+            "style_code": "CH-01-A",
+            "category": "Footwear",
+            "size": "38",
+            "size_group": "FOOTWEAR_EU",
+            "department": "FOOTWEAR",
+            "uom": "Pair",
+            "tax_category": "STANDARD",
         },
     }
 

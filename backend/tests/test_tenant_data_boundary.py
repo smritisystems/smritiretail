@@ -35,12 +35,13 @@ require a live database connection for the boundary logic tests,
 only for the CP guard detection tests (which are marked db-dependent).
 """
 
-import sys
 import os
 import re
-import pytest
+import sys
 from pathlib import Path
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 # ---------------------------------------------------------------------------
 # Path Setup
@@ -295,15 +296,16 @@ class TestReconciliationProtection:
         """
         RULE: reconcile_customers.py must reject smritisys as target.
         """
-        from app.core.reconcile_customers import reconcile_orphan_invoice_customers
         import asyncio
+
+        from app.core.reconcile_customers import reconcile_orphan_invoice_customers
 
         async def _test():
             with patch("app.core.reconcile_customers.get_company_sessionmaker") as mock_sm:
                 with pytest.raises(RuntimeError, match="(?i)smritisys|control.*plane|company"):
                     await reconcile_orphan_invoice_customers(database_name="smritisys")
 
-        asyncio.get_event_loop().run_until_complete(_test())
+        asyncio.run(_test())
 
     def test_reconcile_customers_rejects_missing_tenant(self):
         """
@@ -637,7 +639,7 @@ class TestOwnershipRegistry:
 
     def test_case_insensitivity_in_helpers(self):
         """RULE: Ownership helpers must handle whitespace and mixed casing safely."""
-        from app.db.ownership import is_tenant_table, is_permitted_in_smritisys
+        from app.db.ownership import is_permitted_in_smritisys, is_tenant_table
         assert is_tenant_table("  CUSTOMERS  ") is True
         assert is_permitted_in_smritisys("  COMPANIES  ") is True
 
@@ -663,7 +665,7 @@ class TestSeedContract:
 
     def test_seed_contract_control_blocks_tenant_db(self):
         """RULE: A control seed must reject any database other than smritisys."""
-        from app.db.seed_contract import seed_contract, SeedBoundaryViolation
+        from app.db.seed_contract import SeedBoundaryViolation, seed_contract
 
         @seed_contract(target="control")
         def dummy_control_seed(database_name: str):
@@ -676,7 +678,7 @@ class TestSeedContract:
 
     def test_seed_contract_tenant_blocks_smritisys(self):
         """RULE: A tenant seed must reject smritisys."""
-        from app.db.seed_contract import seed_contract, SeedBoundaryViolation
+        from app.db.seed_contract import SeedBoundaryViolation, seed_contract
 
         @seed_contract(target="tenant")
         def dummy_tenant_seed(database_name: str):
@@ -700,7 +702,7 @@ class TestSeedContract:
 
     def test_seed_contract_fails_closed_on_empty_db(self):
         """RULE: Calling a seed function with empty database_name must raise SeedBoundaryViolation."""
-        from app.db.seed_contract import seed_contract, SeedBoundaryViolation
+        from app.db.seed_contract import SeedBoundaryViolation, seed_contract
 
         @seed_contract(target="tenant")
         def dummy_seed(database_name: str):
@@ -743,7 +745,7 @@ class TestMigrationContract:
 
     def test_validate_migration_execution_tenant_blocks_smritisys(self):
         """RULE: Tenant migrations cannot be executed against smritisys."""
-        from alembic.migration_contract import validate_migration_execution, MigrationBoundaryViolation
+        from alembic.migration_contract import MigrationBoundaryViolation, validate_migration_execution
         with pytest.raises(MigrationBoundaryViolation, match="Tenant operational migrations"):
             validate_migration_execution("tenant", "smritisys")
         # Should not raise for valid tenant DB
@@ -751,7 +753,7 @@ class TestMigrationContract:
 
     def test_validate_migration_execution_control_blocks_tenant(self):
         """RULE: Control plane migrations cannot be executed against tenant databases."""
-        from alembic.migration_contract import validate_migration_execution, MigrationBoundaryViolation
+        from alembic.migration_contract import MigrationBoundaryViolation, validate_migration_execution
         with pytest.raises(MigrationBoundaryViolation, match="Control plane migrations"):
             validate_migration_execution("control", "smriti001")
         # Should not raise for smritisys
@@ -775,14 +777,14 @@ class TestTenantContextContract:
 
     def test_tenant_context_rejects_smritisys(self):
         """RULE: TenantDBContext cannot wrap smritisys."""
-        from app.db.tenant_context import TenantDBContext, TenantContextRequired
+        from app.db.tenant_context import TenantContextRequired, TenantDBContext
         mock_session = MagicMock()
         with pytest.raises(TenantContextRequired, match="cannot wrap smritisys"):
             TenantDBContext(mock_session, "smritisys", "smritisys")
 
     def test_tenant_context_rejects_invalid_database_shape(self):
         """RULE: TenantDBContext cannot wrap an invalid database name shape."""
-        from app.db.tenant_context import TenantDBContext, TenantContextRequired
+        from app.db.tenant_context import TenantContextRequired, TenantDBContext
         mock_session = MagicMock()
         with pytest.raises(TenantContextRequired, match="not a valid tenant database shape"):
             TenantDBContext(mock_session, "tenant1", "non_conforming_db_name")
@@ -802,7 +804,7 @@ class TestTenantContextContract:
 
     def test_require_tenant_context_decorator_fails_when_missing(self):
         """RULE: @require_tenant_context raises TenantContextRequired if context missing."""
-        from app.db.tenant_context import require_tenant_context, TenantContextRequired
+        from app.db.tenant_context import TenantContextRequired, require_tenant_context
 
         @require_tenant_context
         def execute_sale(tenant_ctx=None):
@@ -846,8 +848,10 @@ class TestCI10Checks:
 
 @pytest.mark.asyncio
 async def test_non_sysadmin_without_company_identity_fails_closed():
-    from fastapi import HTTPException, Request
     from types import SimpleNamespace
+
+    from fastapi import HTTPException, Request
+
     from app.api.deps import get_tenant_context
     from app.models.auth import UserRole
 
@@ -876,6 +880,7 @@ async def test_non_sysadmin_without_company_identity_fails_closed():
 @pytest.mark.asyncio
 async def test_company_database_dependency_rejects_empty_tenant_context():
     from fastapi import HTTPException
+
     from app.api.deps import TenantContext, get_company_db
 
     dependency = get_company_db(TenantContext(company_id="", branch_id=""))
@@ -887,8 +892,10 @@ async def test_company_database_dependency_rejects_empty_tenant_context():
 
 @pytest.mark.asyncio
 async def test_valid_legacy_company_identity_remains_supported():
-    from fastapi import Request
     from types import SimpleNamespace
+
+    from fastapi import Request
+
     from app.api.deps import get_tenant_context
     from app.models.auth import UserRole
 

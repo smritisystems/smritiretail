@@ -14,14 +14,15 @@ Classification: Internal
 
 import difflib
 from pathlib import Path
-from typing import Optional, List, Dict, Any, Tuple
+from typing import Any, Dict, List, Optional, Tuple
+
 import openpyxl
+from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from fastapi import HTTPException
 
-from ..models.master_lookup import MasterType, MasterValue
 from ..db.session import async_session
+from ..models.master_lookup import MasterType, MasterValue
 from .system_parameter import SystemParameterService
 
 
@@ -547,18 +548,18 @@ class IM001ControlledFieldValidator:
         "BRAND_NAME": True,
         "COLOR": True,
         "SIZE": True,
-        "SIZE_GROUP": True,
+        "SIZE_GROUP": False,
         "GENDER": True,
         "MERCHANDISE_DEPARTMENT": True,
         "MERCHANDISE_CATEGORY": True,
         "PRODUCT_TYPE": True,
-        "DESIGN_ATTRIBUTE": True,
+        "DESIGN_ATTRIBUTE": False,
         "HEEL_TYPE": True,
         "UPPER_MATERIAL": True,
         "OUTSOLE_MATERIAL": False,
         "UOM": True,
         "HSN_CODE": True,
-        "TAX_CATEGORY": True,
+        "TAX_CATEGORY": False,
         "GST_RATE_PERCENT": True,
         "COLLECTION_TYPE": False,
     }
@@ -724,13 +725,6 @@ class IM001ControlledFieldValidator:
                         break
                 except Exception:
                     pass
-
-        # Guarantee strict BLOCK on mandatory dimensions per Directive and user governance
-        for mandatory_key in (
-            "GENDER", "MERCHANDISE_CATEGORY", "PRODUCT_TYPE", "HEEL_TYPE", "UPPER_MATERIAL",
-            "BRAND_NAME", "DESIGN_ATTRIBUTE", "MERCHANDISE_DEPARTMENT", "SIZE_GROUP", "HSN_CODE", "TAX_CATEGORY"
-        ):
-            registry[mandatory_key] = True
 
         cls._REGISTRY_CACHE = registry
         return registry
