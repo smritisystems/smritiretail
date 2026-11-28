@@ -661,7 +661,7 @@ async def test_phase6_sales_invoice_creation_child_guard_and_retrieval(tenant_ct
         standalone_name = standalone.name
         standalone_gstin = standalone.gst_number
 
-    # 4. Child Checkout Guard Test: Attempt checkout on child when parent disabled
+    # 4. A hidden child is rejected before invoice checkout proceeds.
     async with sessionmaker() as session:
         bad_req = CanonicalPostingRequest(
             context=CanonicalPostingContext(
@@ -695,8 +695,8 @@ async def test_phase6_sales_invoice_creation_child_guard_and_retrieval(tenant_ct
                 idempotency_key=bad_req.context.idempotency_key,
                 commit=False,
             )
-        assert exc_info.value.status_code == 400
-        assert "SMRITI-CUST-042" in str(exc_info.value.detail)
+        assert exc_info.value.status_code == 404
+        assert "SMRITI-CRM-002" in str(exc_info.value.detail)
 
     # 5. Successful Sales Invoice Creation for Authorized Standalone Customer
     idemp_key = f"idem-std-{uuid.uuid4().hex}"

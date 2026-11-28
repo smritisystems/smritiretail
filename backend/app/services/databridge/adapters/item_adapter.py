@@ -111,6 +111,9 @@ class DataBridgeItemAdapter(BaseDataBridgeAdapter):
             "upper_material": normalized.get("upper_material"),
             "outsole_material": normalized.get("outsole_material"),
             "collection_type": normalized.get("collection_type"),
+            "design_attribute": normalized.get("design_attribute"),
+            "size_group": normalized.get("size_group"),
+            "tax_category": normalized.get("tax_category"),
         }
 
         try:
@@ -352,6 +355,18 @@ class DataBridgeItemAdapter(BaseDataBridgeAdapter):
                     hsn_code=norm.get("hsn_code"),
                     primary_barcode=norm.get("barcode"),
                     collection_type=norm.get("collection_type"),
+                    gender=norm.get("gender"),
+                    product_type=norm.get("product_type"),
+                    design_attribute=norm.get("design_attribute"),
+                    heel_type=norm.get("heel_type"),
+                    upper_material=norm.get("upper_material"),
+                    outsole_material=norm.get("outsole_material"),
+                    size_group=norm.get("size_group"),
+                    tax_category=norm.get("tax_category"),
+                    attributes_json={
+                        "size_group": norm.get("size_group"),
+                        "tax_category": norm.get("tax_category"),
+                    },
                     commit=False,
                 )
                 committed_count += 1

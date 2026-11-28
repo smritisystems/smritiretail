@@ -420,7 +420,16 @@ async def test_tc_cat_005_existing_variant_replay(db_session: AsyncSession):
         brand="SMRITI",
         category="Footwear",
         department="FOOTWEAR",
+        hsn_code="6403",
+        tax_rate=18.0,
         primary_uom="Pair",
+        gender="WOMEN",
+        product_type="SHOE",
+        design_attribute="COMFORT",
+        heel_type="WEDGE",
+        upper_material="FABRIC",
+        collection_type="BASIC",
+        attributes_json={"size_group": "FOOTWEAR_EU", "tax_category": "STANDARD"},
         is_active=True,
     )
     variant = ItemVariant(
@@ -871,7 +880,11 @@ async def test_databridge_idempotent_replay(db_session: AsyncSession):
     comp_id = f"COMP_TEST_{suffix}"
     db_session.info["company_id"] = comp_id
 
-    rows = [{"item_code": f"ART-IDEMP-{suffix}", "item_name": "Idemp Test", "brand": "SMRITI", "category": "Footwear", "primary_uom": "Pair"}]
+    rows = [{
+        **_VALID_ITEM_DIMENSIONS,
+        "item_code": f"ART-IDEMP-{suffix}",
+        "item_name": "Idemp Test",
+    }]
     prev_res = await DataBridgeService.execute_preview(
         company_db=db_session,
         tenant_id="smriti001",

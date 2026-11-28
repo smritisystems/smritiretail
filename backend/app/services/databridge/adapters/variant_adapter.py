@@ -104,14 +104,37 @@ class DataBridgeVariantAdapter(BaseDataBridgeAdapter):
                 )
             )
 
+        parent = await self.resolve_parent_item(normalized, session, company_id) if parent_code else None
+        parent_attributes = (
+            parent.attributes_json
+            if parent and isinstance(parent.attributes_json, dict)
+            else {}
+        )
+
         # Controlled fields validation for color/size
         governed_payload = {
+            "brand": normalized.get("brand") or (parent.brand if parent else None),
+            "category": normalized.get("category") or (parent.category if parent else None),
+            "department": normalized.get("department") or (parent.department if parent else None),
             "color": normalized.get("color"),
             "size": normalized.get("size"),
             "style_code": parent_code,
-            "uom": normalized.get("primary_uom") or "PCS",
-            "hsn_code": normalized.get("hsn_code"),
-            "gst_rate_percent": normalized.get("tax_rate"),
+            "uom": normalized.get("primary_uom") or (parent.primary_uom if parent else None) or "PCS",
+            "hsn_code": normalized.get("hsn_code") or (parent.hsn_code if parent else None),
+            "gst_rate_percent": (
+                normalized.get("tax_rate")
+                if normalized.get("tax_rate") is not None
+                else (parent.tax_rate if parent else None)
+            ),
+            "gender": normalized.get("gender") or (parent.gender if parent else None),
+            "product_type": normalized.get("product_type") or (parent.product_type if parent else None),
+            "heel_type": normalized.get("heel_type") or (parent.heel_type if parent else None),
+            "upper_material": normalized.get("upper_material") or (parent.upper_material if parent else None),
+            "outsole_material": normalized.get("outsole_material") or (parent.outsole_material if parent else None),
+            "collection_type": normalized.get("collection_type") or (parent.collection_type if parent else None),
+            "design_attribute": normalized.get("design_attribute") or (parent.design_attribute if parent else None),
+            "size_group": normalized.get("size_group") or parent_attributes.get("size_group"),
+            "tax_category": normalized.get("tax_category") or parent_attributes.get("tax_category"),
         }
 
         try:

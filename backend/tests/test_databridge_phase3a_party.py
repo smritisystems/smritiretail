@@ -29,6 +29,7 @@ from app.api.deps import get_company_db, get_current_user
 from app.api.v1.databridge import require_databridge_entitlement
 from app.models.crm import Customer
 from app.models.purchase import Supplier
+from app.models.tenant import Branch
 from app.services.databridge.service import DataBridgeService
 from app.services.databridge.models import (
     DataBridgeClassification,
@@ -50,6 +51,17 @@ async def db_session():
     async with session_factory() as session:
         session.info["resolved_database_name"] = "smriti001"
         session.info["company_id"] = CANONICAL_COMP_ID
+        branch = await session.get(Branch, "BR-MAIN-001")
+        if branch is None:
+            session.add(Branch(
+                id="BR-MAIN-001",
+                company_id=CANONICAL_COMP_ID,
+                code="BR-MAIN-001",
+                name="Main Test Branch",
+                is_active=True,
+                is_deleted=False,
+            ))
+            await session.commit()
         yield session
     await engine.dispose()
 

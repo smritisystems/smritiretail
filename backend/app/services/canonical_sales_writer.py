@@ -532,7 +532,7 @@ class CanonicalSalesPostingWriter:
                     CustomerPurchaseOrder.id == req.customer_po_id,
                     CustomerPurchaseOrder.company_id == company_id,
                     CustomerPurchaseOrder.is_deleted.is_(False),
-                ).with_for_update()
+                ).with_for_update(key_share=True)
             )
             po_obj = po_res.scalars().first()
 
@@ -950,7 +950,7 @@ class CanonicalSalesPostingWriter:
                 CustomerPurchaseOrderLine.customer_po_id == po_obj.id,
                 CustomerPurchaseOrderLine.company_id == company_id,
                 CustomerPurchaseOrderLine.is_deleted == False,
-            ).with_for_update()
+            ).with_for_update(key_share=True)
             res_lines = await session.execute(q_lines)
             po_lines_map = {l.id: l for l in res_lines.scalars().all()}
 

@@ -41,7 +41,7 @@ from app.models.crm import (
     Customer, CustomerGroup, CustomerGSTRegistration,
     CustomerDeliveryLocation, CustomerBillingLocation, CustomerExternalIdentity,
 )
-from app.models.inventory import Product, Warehouse
+from app.models.inventory import Product, StockMovement, Warehouse
 from app.models.sales import SalesInvoice, SalesInvoiceItem
 from app.schemas.crm import (
     CustomerCreate, CustomerUpdate,
@@ -56,6 +56,7 @@ from app.services.crm import CrmService
 from app.services.sales import SalesService
 from app.services.customer_identity import CustomerIdentityService
 from app.services.billing_profile_service import BillingProfileService
+from app.services.stock_ledger import StockLedger
 
 import os
 from urllib.parse import urlparse
@@ -85,7 +86,11 @@ def tenant_ctx() -> TenantContext:
 
 @pytest.fixture
 def other_tenant_ctx() -> TenantContext:
-    return TenantContext(company_id="COMP-OTHER", branch_id="OTHER-BR")
+    return TenantContext(
+        company_id="COMP-OTHER",
+        branch_id="OTHER-BR",
+        role=UserRole.SYSADMIN,
+    )
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -187,6 +192,26 @@ async def ensure_seed_companies_and_groups():
             session.add(p)
         await session.commit()
 
+        opening_movement = await session.execute(
+            select(StockMovement.id)
+            .where(
+                StockMovement.company_id == "COMP-001",
+                StockMovement.product_id == "P-TEST-001",
+                StockMovement.movement_type == "OPENING_STOCK",
+                StockMovement.is_deleted.is_(False),
+            )
+            .limit(1)
+        )
+        if opening_movement.scalar_one_or_none() is None:
+            await StockLedger.post_admin_opening_stock(
+                session=session,
+                company_id="COMP-001",
+                product_id="P-TEST-001",
+                quantity=Decimal("10000"),
+                reason="Seed inventory for customer identity billing regression tests",
+                warehouse_id="WH-MAIN",
+            )
+            await session.commit()
 
 # ===========================================================================
 # 01. Unique Customer -> ALLOW

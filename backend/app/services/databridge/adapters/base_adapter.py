@@ -67,6 +67,16 @@ class BaseDataBridgeAdapter(abc.ABC):
         "size": [
             "size",
         ],
+        "size_group": [
+            "size group", "size_group", "size group code", "size scale",
+        ],
+        "design_attribute": [
+            "design attribute", "design_attribute", "sub-category", "sub category",
+            "sub_category", "subcategory", "design",
+        ],
+        "tax_category": [
+            "tax category", "tax_category", "tax category code",
+        ],
         "gender": [
             "gender", "gndr",
         ],

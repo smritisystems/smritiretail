@@ -355,18 +355,18 @@ async def test_01_to_06_basic_po_to_tax_invoice(cpo_test_fixture):
         assert p1_item.quantity == Decimal("10")
         assert p1_item.price == Decimal("100.00")
         # 5. Correct canonical tax
-        # Line 1: 10 * 100 = 1000; 18% GST = 180.00
+        # PO prices are tax-inclusive, so tax is extracted from the gross line value.
         assert p1_item.gst_rate == Decimal("18.00")
-        assert p1_item.tax_amount == Decimal("180.00")
-        # Line 2: 5 * 200 = 1000; 12% GST = 120.00
+        assert p1_item.tax_amount == Decimal("152.54")
+        # Line 2: 5 * 200 = 1000; 12% GST = 107.14
         p2_item = next(it for it in invoice.items if it.customer_po_line_id == po.lines[1].id)
         assert p2_item.gst_rate == Decimal("12.00")
-        assert p2_item.tax_amount == Decimal("120.00")
+        assert p2_item.tax_amount == Decimal("107.14")
         # 6. Correct totals
-        # Taxable: 2000.00, Tax: 300.00, Grand: 2300.00
-        assert invoice.taxable_value == Decimal("2000.00")
-        assert invoice.tax_total == Decimal("300.00")
-        assert invoice.grand_total == Decimal("2300.00")
+        # Gross: 2000.00, Taxable: 1740.32, Tax: 259.68
+        assert invoice.taxable_value == Decimal("1740.32")
+        assert invoice.tax_total == Decimal("259.68")
+        assert invoice.grand_total == Decimal("2000.00")
 
 
 @pytest.mark.asyncio
@@ -845,7 +845,7 @@ async def test_23_and_24_accounting_receivable_and_credit_ledger(cpo_test_fixtur
         )).scalars().all()
 
         assert len(ledger_entries) == 1
-        assert ledger_entries[0].amount == Decimal("1180.00")
+        assert ledger_entries[0].amount == Decimal("1000.00")
 
         # 24. Replay billing request with same idempotency key
         inv_replay = await service.bill(po.id, credit_req, idempotency_key=credit_idem)

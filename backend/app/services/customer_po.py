@@ -180,7 +180,8 @@ class CustomerPOService:
             CustomerPurchaseOrder,
         )
         if lock:
-            query = query.with_for_update()
+            # Serialize PO billing without blocking invoice foreign-key key-share checks.
+            query = query.with_for_update(key_share=True)
         po = (await self.db.execute(query)).scalars().first()
         if not po:
             raise HTTPException(status_code=404, detail="Customer PO not found.")
@@ -189,7 +190,7 @@ class CustomerPOService:
             lines_query = self._scope(
                 select(CustomerPurchaseOrderLine)
                 .where(CustomerPurchaseOrderLine.customer_po_id == po.id)
-                .with_for_update(),
+                .with_for_update(key_share=True),
                 CustomerPurchaseOrderLine,
             )
             locked_lines = (await self.db.execute(lines_query)).scalars().all()
@@ -234,7 +235,7 @@ class CustomerPOService:
 
     async def update(self, po_id: str, payload):
         result = await self.db.execute(self._scope(
-            select(CustomerPurchaseOrder).where(CustomerPurchaseOrder.id == po_id).with_for_update(), CustomerPurchaseOrder
+            select(CustomerPurchaseOrder).where(CustomerPurchaseOrder.id == po_id).with_for_update(key_share=True), CustomerPurchaseOrder
         ))
         po = result.scalars().first()
         if not po:
@@ -314,7 +315,7 @@ class CustomerPOService:
 
     async def close(self, po_id: str):
         result = await self.db.execute(self._scope(
-            select(CustomerPurchaseOrder).where(CustomerPurchaseOrder.id == po_id).with_for_update(), CustomerPurchaseOrder
+            select(CustomerPurchaseOrder).where(CustomerPurchaseOrder.id == po_id).with_for_update(key_share=True), CustomerPurchaseOrder
         ))
         po = result.scalars().first()
         if not po:
